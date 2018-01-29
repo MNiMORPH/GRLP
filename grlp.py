@@ -166,8 +166,8 @@ class LongProfile(object):
     def set_Qs_input_upstream(self, Q_s_0):
         self.Q_s_0 = Q_s_0
         # Q[0] is centerpoint of S?
-        self.S0 = ((1/self.k_Qs) * (Q_s_0/self.Q[0]))**(6/7.)
-        self.z_ext[0] = self.z[0] + self.S0 * self.dx
+        self.S0 = -((1/self.k_Qs) * (Q_s_0/self.Q[0]))**(6/7.)
+        self.z_ext[0] = self.z[0] - self.S0 * self.dx
 
     def compute_coefficient_time_varying(self):
         self.dzdt_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
@@ -181,7 +181,7 @@ class LongProfile(object):
         """
         Set the LHS boundary condition
         """
-        self.bcl = self.z[0] - 2*self.dx*self.S0*self.left[0]
+        self.bcl = self.z[0] + 2*self.dx*self.S0*self.left[0]
         
     def set_bcl_Neumann_LHS(self):
         """
@@ -216,15 +216,24 @@ class LongProfile(object):
             self.t += self.dt
             self.z = self.z_ext[1:-1]
     
-    def analytical_threshold_width(self, x0, x1, z0, z1):
+    def analytical_threshold_width(self, P_xB=None, P_xQ=None, x0=None, x1=None, 
+                                   z0=None, z1=None):
         """
         Analytical: no uplift
         """
-        e = 1 + 6*(P_xB - P_xQ)/7.
-        self.zanalytical = (z[-1]-z[0]) \
-                           * (x**e - x[0]**e)/(x[-1]**e - x[0]**e) + z[0]
-
-
+        if x0 is None:
+            x0 = self.x[0]
+        if x1 is None:
+            x1 = self.x[-1]
+        if z0 is None:
+            z0 = self.z[0]
+        if z1 is None:
+            z1 = self.z[-1]
+        if P_xQ is None:
+            P_xQ = self.P_xQ
+        e = 1 + 6*(P_xB - self.P_xQ)/7.
+        self.zanalytical = (z1 - z0) * (self.x**e - x0**e)/(x1**e - x0**e) + z0
+    
     def compute_Q_s(self):
         self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / (2*self.dx) )
         self.Q_s = self.k_Qs * self.Q * self.S**(7/6.)

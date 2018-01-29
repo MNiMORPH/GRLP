@@ -97,7 +97,7 @@ def calc(nt, U, Qs_mult=1, x=None, z=None, bcr=0, dt=1E9, S0=-1E-2, P_xA=7/4., P
   C1 = C0 * np.sign(np.diff(z)[0]) * (np.abs(np.diff(z)[0]/dx))**(1/6.) * Q / B# * sign_S
   left = -C1 * ( (7/6.) - dQ/Q/4. + dB/B/4.)
 
-  bcl = z[0] - 2*dx*S0*left[0]
+  bcl = z[0] + 2*dx*S0*left[0]
   bcr = 0
   z_ext = np.hstack(( bcl, z, bcr ))
 

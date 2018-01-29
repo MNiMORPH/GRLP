@@ -12,6 +12,7 @@ class LongProfile(object):
         self.A = None
         self.Q = None
         self.B = None
+        self.t = 0
         #self.basic_constants()
 
     def basic_constants(self):
@@ -165,8 +166,8 @@ class LongProfile(object):
     def set_Qs_input_upstream(self, Q_s_0):
         self.Q_s_0 = Q_s_0
         # Q[0] is centerpoint of S?
-        self.S0 = - ((1/self.k_Qs) * (Q_s_0/self.Q[0]))**(6/7.)
-        self.z_ext[0] = self.z[0] - self.S0 * self.dx
+        self.S0 = ((1/self.k_Qs) * (Q_s_0/self.Q[0]))**(6/7.)
+        self.z_ext[0] = self.z[0] + self.S0 * self.dx
 
     def compute_coefficient_time_varying(self):
         self.dzdt_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
@@ -180,7 +181,7 @@ class LongProfile(object):
         """
         Set the LHS boundary condition
         """
-        self.bcl = self.z[0] + 2*self.dx*self.S0*self.left[0]
+        self.bcl = self.z[0] - 2*self.dx*self.S0*self.left[0]
         
     def set_bcl_Neumann_LHS(self):
         """
@@ -201,8 +202,9 @@ class LongProfile(object):
                 self.center = self.C1 * 2 * ( (7/6.) ) + 1
                 self.right = -self.C1 * ( (7/6.) + self.dQ/self.Q/4. \
                              - self.dB/self.B/4. )
-                self.set_bcl_Neumann_LHS()
+                #self.set_bcl_Neumann_LHS()
                 self.set_bcl_Neumann_RHS()
+                self.set_bcr_Dirichlet(self.bcr + self.U * dt)
                 left = np.roll(self.left, -1)
                 right = np.roll(self.right, 1)
                 diagonals = np.vstack((left, self.center, right))
@@ -211,6 +213,7 @@ class LongProfile(object):
                                     len(self.z), format='csr')
                 RHS = np.hstack((self.bcl, self.z[1:-1], self.bcr))
                 self.z_ext[1:-1] = spsolve(LHSmatrix, RHS)
+            self.t += self.dt
             self.z = self.z_ext[1:-1]
     
     def analytical_threshold_width(self, x0, x1, z0, z1):

@@ -6,7 +6,7 @@ from scipy.sparse.linalg import spsolve, isolve
 dx = 1000.
 nx = 75
 x = dx * np.arange(nx) + 5*dx
-R = 700 / 1000. / 3.15E7 # 700 mm/yr
+q_R = 0.001E-5/3600. #700 / 1000. / 3.15E7 # 700 mm/yr
 P_xA = 7/4. # 1/Hack exponent
 P_AQ = 1.#0.8
 P_xB = 0.8
@@ -29,7 +29,7 @@ def calc(nt, U, Qs_mult=1, x=None, z=None, bcr=0, dt=1E9, S0=-1E-2, P_xA=7/4., P
   #Q = (x + 100*dx)**1.5 * R #/ 1E5
   #Ql = (x[0] + 100*dx - dx)**1.5 * R
   #Qr = (x[-1] + 100*dx + dx)**1.5 * R
-  coeff = 0.041 * 0.01/3600. * 10E6**(1-P_AQ) # n/3600 cm/hr, storm size = 10 km2 * 103
+  coeff = q_R * 10E6**(1-P_AQ) # n/3600 cm/hr, storm size = 10 km2 * 103
   Q = (x)**(P_xA * P_AQ) * coeff
   Ql = (x[0] - dx)**(P_xA * P_AQ) * coeff #R*x[0]**P_AQ
   Qr = (x[-1] + dx)**(P_xA * P_AQ) * coeff #R*x[-1]**P_AQ
@@ -144,6 +144,7 @@ def calc(nt, U, Qs_mult=1, x=None, z=None, bcr=0, dt=1E9, S0=-1E-2, P_xA=7/4., P
       #zi[1:-1] = spsolve(A, z + bcarray)
       #zi[1:-1] = spsolve(A, np.hstack((bcl, z[1:-1] + bcarray[1:-1], bcr)))
     z = zi[1:-1]
+    z_ext = zi.copy()
   return x, z
   
 def analytical0upliftDirichlet(xext, x0, x1, z0, z1):

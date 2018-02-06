@@ -253,8 +253,8 @@ class LongProfile(object):
         if P_xB is None:
             P_xB = self.P_xB
         e = 1 + 6*(P_xB - P_xQ)/7.
-        print P_xB
-        print P_xQ
+        #print P_xB
+        #print P_xQ
         self.zanalytical = (z1 - z0) * (self.x**e - x0**e)/(x1**e - x0**e) + z0
     
     def compute_Q_s(self):
@@ -263,9 +263,11 @@ class LongProfile(object):
 
     def slope_area(self):
         self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / (2*self.dx) )
-        logS = np.log10(S)
-        logA = np.log10(A)
-        out = linregress(logA, logS)
-        print "Concavity = ", -out.slope
+        logS = np.log10(self.S)
+        logA = np.log10(self.A)
+        out = linregress(logA[1:-1], logS[1:-1])
+        self.theta = -out.slope
+        self.thetaR2 = out.rvalue**2.
+        print "Concavity = ", self.theta
         print "R2 = ", out.rvalue**2.
         

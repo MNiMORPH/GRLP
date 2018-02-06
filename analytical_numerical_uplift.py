@@ -66,4 +66,4 @@ ax1.plot(lp.x/1000., lp.zanalytical, '0.3', linewidth=2)
 plt.tight_layout()
 plt.show()
 
-print self.z[0] - self.z[-1]
+#print self.z[0] - self.z[-1]

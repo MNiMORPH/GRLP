@@ -143,14 +143,16 @@ class LongProfile(object):
         """
         Set B directly or calculate it: B = k_xB * x**P_xB
         """
-        if B:
+        if B is not None:
             self.B = B
             B_ext = np.hstack((2*B[0]-B[1], B, 2*B[-1]-B[-2]))
-        elif B_ext:
+        elif B_ext is not None:
             self.B = B_ext[1:-1]
         elif k_xB and self.x.any() and self.x_ext.any():
             self.B = k_xB * self.x**P_xB
             B_ext = k_xB * self.x_ext**P_xB
+            self.K_xB = P_xB
+            self.P_xB = P_xB
         self.dB = B_ext[2:] - B_ext[:-2] # dB over 2*dx!
         
     def set_uplift_rate(self, U):
@@ -174,21 +176,33 @@ class LongProfile(object):
                          / (2*self.dx) )**(1/6.)
         self.C1 = self.C0 * self.dzdt_0_16 * self.Q / self.B
 
-    def set_bcr_Dirichlet(self, bcr=0):
-        self.bcr = bcr
+    def set_z_bl(self, z_bl):
+        self.z_bl = z_bl
+
+    def set_bcr_Dirichlet(self):
+        #self.bcr_value = bcr
+        self.bcr = self.z_bl * ( self.C1[-1] * ( (7/6.) \
+                                 + self.dQ[-1]/self.Q[-1]/4. \
+                                 - self.dB[-1]/self.B[-1]/4. ) ) #+ self.z[-1]
+                                 
         
     def set_bcl_Neumann_RHS(self):
         """
         Set the LHS boundary condition
         """
-        self.bcl = self.z[0] + 2*self.dx*self.S0*self.left[0]
+        #self.bcl = self.z[0] + 2*self.dx*self.S0*self.left[0]
+        #self.bcl = 2*self.dx*self.S0*self.left[0]
+        self.bcl = -2 * self.dx * self.S0 * \
+                   self.C1[0] * ( 7/6. - self.dQ[0]/self.Q[0]/4. \
+                                       + self.dB[0]/self.B[0]/4.)
         
     def set_bcl_Neumann_LHS(self):
         """
         from ghost node approach
         """
-        self.right[0] = -2 * self.C1[0] * 7/6. * self.Q[0]
-        #right[0] = left[0] + right[0] # should be the same as the above
+        #self.right[0] = -2 * self.C1[0] * 7/6. * self.Q[0]
+        self.right[0] = -2 * self.C1[0] * 7/6.
+        #self.right[0] = self.left[0] + self.right[0] # should be the same as the above
     
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
         self.dt = dt
@@ -197,21 +211,26 @@ class LongProfile(object):
         for ti in range(int(self.nt)):
             for i in range(self.niter):
                 self.compute_coefficient_time_varying()
-                self.left = -self.C1 * ( (7/6.) \
-                            - self.dQ/self.Q/4. + self.dB/self.B/4.)
-                self.center = self.C1 * 2 * ( (7/6.) ) + 1
+                self.left = -self.C1 * ( (7/6.) - self.dQ/self.Q/4. \
+                            + self.dB/self.B/4.)
+                self.center = self.C1 * 2 * ( (7/6.) ) + 1.
                 self.right = -self.C1 * ( (7/6.) + self.dQ/self.Q/4. \
                              - self.dB/self.B/4. )
-                #self.set_bcl_Neumann_LHS()
+                self.set_bcl_Neumann_LHS()
                 self.set_bcl_Neumann_RHS()
-                self.set_bcr_Dirichlet(self.bcr + self.U * dt)
-                left = np.roll(self.left, -1)
-                right = np.roll(self.right, 1)
-                diagonals = np.vstack((left, self.center, right))
+                self.set_z_bl(self.z_bl + self.U * self.dt)
+                self.set_bcr_Dirichlet()
+                self.left = np.roll(self.left, -1)
+                self.right = np.roll(self.right, 1)
+                # More boundary conditions: RHS Dirichlet
+                #self.bcr = self.center[-1] * self.bcr_value \
+                #           + self.left[-1] * self.bcr_value
+                # TO DO: Fix Dirichlet b.c. here
+                diagonals = np.vstack((self.left, self.center, self.right))
                 offsets = np.array([-1, 0, 1])
                 LHSmatrix = spdiags(diagonals, offsets, len(self.z), 
                                     len(self.z), format='csr')
-                RHS = np.hstack((self.bcl, self.z[1:-1], self.bcr))
+                RHS = np.hstack((self.bcl+self.z[0], self.z[1:-1], self.bcr+self.z[-1]))
                 self.z_ext[1:-1] = spsolve(LHSmatrix, RHS)
             self.t += self.dt
             self.z = self.z_ext[1:-1]
@@ -231,7 +250,11 @@ class LongProfile(object):
             z1 = self.z[-1]
         if P_xQ is None:
             P_xQ = self.P_xQ
-        e = 1 + 6*(P_xB - self.P_xQ)/7.
+        if P_xB is None:
+            P_xB = self.P_xB
+        e = 1 + 6*(P_xB - P_xQ)/7.
+        print P_xB
+        print P_xQ
         self.zanalytical = (z1 - z0) * (self.x**e - x0**e)/(x1**e - x0**e) + z0
     
     def compute_Q_s(self):

@@ -7,7 +7,7 @@ reload(grlp)
 
 #S0 = 1E-2
 S0 = 0.01#0.096316051787322637
-P_xB = 0.2
+P_xB = 0.1
 z1 = 0
 
 Qamp = 0.5
@@ -38,18 +38,20 @@ Qs0 = lp.k_Qs * lp.Q[0] * S0**(7/6.)
 lp.set_Qs_input_upstream(Qs0)
 
 plt.figure()
-Uall = np.linspace(-0.001,0.001,51)
+Uall = np.linspace(-0.0001,0.0001,51)
 thetaall = []
 R2all = []
 for U in Uall:
     print U
-    plt.cla()
+    #plt.cla()
     lp.set_uplift_rate(U/3.15E7)
-    lp.evolve_threshold_width_river(200, 1E12)
+    lp.evolve_threshold_width_river(10, 1E14)
+    lp.set_uplift_rate(0)
+    lp.evolve_threshold_width_river(10, 1E14)
     self.slope_area()
     thetaall.append(self.theta)
     R2all.append(self.thetaR2)
-    plt.plot(lp.x, lp.z, 'k-')
+    plt.plot(lp.x, lp.z - lp.z[-1], 'k-')
     plt.pause(0.01)
 
 plt.figure()

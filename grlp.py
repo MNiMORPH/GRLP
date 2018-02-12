@@ -12,6 +12,7 @@ class LongProfile(object):
         self.A = None
         self.Q = None
         self.B = None
+        self.sinuosity = 1.
         self.t = 0
         #self.basic_constants()
 
@@ -120,6 +121,8 @@ class LongProfile(object):
         Set Q directly or calculate it
         q_R = storm rainfall rate [m/hr]
         """
+        if k_xQ is not None:
+            self.k_xQ = k_xQ
         if Q:
             self.Q = Q
             Q_ext = np.hstack((2*Q[0]-Q[1], Q, 2*Q[-1]-Q[-2]))
@@ -151,7 +154,7 @@ class LongProfile(object):
         elif k_xB and self.x.any() and self.x_ext.any():
             self.B = k_xB * self.x**P_xB
             B_ext = k_xB * self.x_ext**P_xB
-            self.K_xB = P_xB
+            self.k_xB = k_xB
             self.P_xB = P_xB
         self.dB = B_ext[2:] - B_ext[:-2] # dB over 2*dx!
         
@@ -252,10 +255,57 @@ class LongProfile(object):
             P_xQ = self.P_xQ
         if P_xB is None:
             P_xB = self.P_xB
-        e = 1 + 6*(P_xB - P_xQ)/7.
         #print P_xB
         #print P_xQ
-        self.zanalytical = (z1 - z0) * (self.x**e - x0**e)/(x1**e - x0**e) + z0
+        #e = 1 + 6*(P_xB - P_xQ)/7.
+        #self.zanalytical2 = (z1 - z0) * (self.x**e - x0**e)/(x1**e - x0**e) + z0
+        self.P_a = 1 + 6*(P_xB - P_xQ)/7. # beta
+        self.k_a = 1/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # alpha
+        self.c_a = z0 - x0**self.P_a/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # gamma
+        self.zanalytical = self.k_a * self.x**self.P_a + self.c_a
+        return self.zanalytical
+        
+    def analytical_threshold_width_perturbation(self, P_xB=None, P_xQ=None, x0=None, x1=None, 
+                                   z0=None, z1=None, U=None):
+        if x0 is None:
+            x0 = self.x[0]
+        if x1 is None:
+            x1 = self.x[-1]
+        if z0 is None:
+            z0 = self.z[0]
+        if z1 is None:
+            z1 = self.z[-1]
+        if P_xQ is None:
+            P_xQ = self.P_xQ
+        if P_xB is None:
+            P_xB = self.P_xB
+        if U is None:
+            U = self.U
+        # Base state coefficients (no perturbation)
+        #self.P_a = 1 + 6*(P_xB - P_xQ)/7. # beta
+        #self.k_a = (z1 - z0)/(x1**self.P_a - x0**self.P_a) # alpha
+        #self.c_a = z0 - x0**self.P_a/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # gamma
+        # Coefficients
+        K = self.k_Qs * self.sinuosity / (1 - self.lambda_p) \
+            * abs(self.k_a * self.P_a)**(1/6.) \
+            * self.k_xQ / self.k_xB
+        P = self.P_xQ - self.P_xB + (self.P_xB - 1.)/6.
+        print P
+        # Constants of integration
+        #c1 = self.U * (x0**(P+2) - x1**(P+2)) / (K*(P-2)*(self.P_a + P - 2) \
+        #     + (x1**self.P_a - x0**self.P_a) / self.P_a
+        #     - z1
+        c1 = ( self.U * (x0**(P+2) - x1**(P+2)) / (K*(P-2)*(self.P_a + P - 2)) \
+               + z0 - z1 ) \
+             / ( (x0**self.P_a - x1**self.P_a) / self.P_a )
+        c2 = - (c1 * x1**self.P_a)/self.P_a \
+             + (U * x1**(2-P))/(K * (P-2) * (self.P_a + P - 2)) + z1
+        self.zanalytical = c1 * self.x**self.P_a / self.P_a \
+            - self.U * self.x**(2-P) / (K * (P-2) * (self.P_a + P - 2)) \
+            + c2
+    
+    #def analytical_threshold_width_perturbation_2(self):
+    #    self.analytical_threshold_width()
     
     def compute_Q_s(self):
         self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / (2*self.dx) )

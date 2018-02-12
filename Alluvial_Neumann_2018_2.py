@@ -107,7 +107,7 @@ def calc(nt, U, Qs_mult=1, x=None, z=None, bcr=0, dt=1E9, S0=-1E-2, P_xA=7/4., P
   #z[0] += 100
   for ti in range(int(nt)):
     zi = z_ext.copy()
-    #bcr += U * dt / 3.15E7
+    bcr += U * dt / 3.15E7
     for i in range(niter):
       # 0 discharge if river reverses
       Q_ext = Q_ext_0.copy()
@@ -181,6 +181,7 @@ plt.tight_layout()
 plt.pause(0.5)
 x = x0
 z = z0
+U = -1E-2/3.15E7
 """
 U = 0#-1E-2/3.15E7 #-3.1746031746031744e-08
 for i in range(20):

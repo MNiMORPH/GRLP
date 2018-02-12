@@ -265,7 +265,7 @@ class LongProfile(object):
         self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / (2*self.dx) )
         logS = np.log10(self.S)
         logA = np.log10(self.A)
-        out = linregress(logA[1:-1], logS[1:-1])
+        out = linregress(logA[1:-1], logS[1:-1]) # remove edge effects
         self.theta = -out.slope
         self.thetaR2 = out.rvalue**2.
         print "Concavity = ", self.theta

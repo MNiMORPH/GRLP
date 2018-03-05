@@ -13,6 +13,7 @@ class LongProfile(object):
         self.Q = None
         self.B = None
         self.sinuosity = 1.
+        self.intermittency = 0.01
         self.t = 0
         #self.basic_constants()
 
@@ -286,7 +287,8 @@ class LongProfile(object):
         #self.k_a = (z1 - z0)/(x1**self.P_a - x0**self.P_a) # alpha
         #self.c_a = z0 - x0**self.P_a/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # gamma
         # Coefficients
-        K = self.k_Qs * self.sinuosity / (1 - self.lambda_p) \
+        K = self.k_Qs * self.sinuosity * self.intermittency
+            / (1 - self.lambda_p) \
             * abs(self.k_a * self.P_a)**(1/6.) \
             * self.k_xQ / self.k_xB
         P = self.P_xQ - self.P_xB + (self.P_xB - 1.)/6.

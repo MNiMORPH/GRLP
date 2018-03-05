@@ -35,17 +35,19 @@ lp.set_z_bl(z1)
 Qs0 = lp.k_Qs * lp.Q[0] * S0**(7/6.)
 lp.set_Qs_input_upstream(Qs0)
 
-fig = plt.figure(figsize=(10,3))
-ax1 = fig.add_subplot(1,2,1)
+fig = plt.figure(figsize=(5,6))
+ax1 = fig.add_subplot(2,1,1)
 plt.xlabel('Downstream distance [km]', fontsize=14, fontweight='bold')
 plt.ylabel('Elevation [m]', fontsize=14, fontweight='bold')
-ax2 = fig.add_subplot(1,2,2)
+plt.ylim(0, 500)
+ax2 = fig.add_subplot(2,1,2)
 plt.xlabel('Drainage area [km$^2$]', fontsize=14, fontweight='bold')
 plt.ylabel('Slope [-]', fontsize=14, fontweight='bold')
+plt.ylim(2E-4, 2E-2)
 plt.tight_layout()
 
-Uall = [-1E-3, 0, 1E-3]
-colors = ['blue', 'black', 'red']
+Uall = [-1E-3, 0, 1E-3, 1E-2]
+colors = ['blue', 'black', 'red', 'orange']
 zall = []
 thetaall = []
 R2all = []
@@ -64,6 +66,9 @@ for U in Uall:
     ax2.loglog(lp.A[2:-1]/1E6, lp.S[2:-1], '-', color=colors[i], linewidth=4)
     plt.pause(0.01)
     i += 1
+
+ax2.set_xlim(np.min(lp.A)/1E6, np.max(lp.A)/1E6)
+
 plt.tight_layout()
 
-plt.savefig('Uplift_Subsidence.svg')
+plt.savefig('Uplift_Subsidence_2.svg')

@@ -12,6 +12,7 @@ class LongProfile(object):
         self.A = None
         self.Q = None
         self.B = None
+        self.Q_s_0 = None
         self.sinuosity = 1.
         self.intermittency = 0.01
         self.t = 0
@@ -117,17 +118,17 @@ class LongProfile(object):
                                                    # Not sure if used.
 
     def set_Q(self, Q=None, Q_ext=None, q_R=None, A_R=None, P_AQ=None,
-              k_xQ=None, P_xQ=None):
+              k_xQ=None, P_xQ=None, update_Qs_input=True):
         """
         Set Q directly or calculate it
         q_R = storm rainfall rate [m/hr]
         """
         if k_xQ is not None:
             self.k_xQ = k_xQ
-        if Q:
+        if Q is not None:
             self.Q = Q
             Q_ext = np.hstack((2*Q[0]-Q[1], Q, 2*Q[-1]-Q[-2]))
-        elif Q_ext:
+        elif Q_ext is not None:
             self.Q = Q_ext[1:-1]
         elif q_R and A_R:
             if P_AQ:
@@ -142,6 +143,11 @@ class LongProfile(object):
         else:
             sys.exit("Error defining variable")
         self.dQ = Q_ext[2:] - Q_ext[:-2] # dQ over 2*dx!
+        # Keep sediment supply tied to water supply, except
+        # by changing S_0, to only turn one knob for one change (Q/Qs)
+        if update_Qs_input:
+            if self.Q_s_0:
+                self.set_Qs_input_upstream(self.Q_s_0)
 
     def set_B(self, B=None, B_ext=None, k_xB=None, P_xB=None):
         """
@@ -174,21 +180,25 @@ class LongProfile(object):
         # Q[0] is centerpoint of S?
         self.S0 = -((1/self.k_Qs) * (Q_s_0/self.Q[0]))**(6/7.)
         self.z_ext[0] = self.z[0] - self.S0 * self.dx
+        
+    def update_z_ext_0(self):
+        self.z_ext[0] = self.z[0] - self.S0 * self.dx
 
     def compute_coefficient_time_varying(self):
+        self.update_z_ext_0()
         self.dzdt_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                          / (2*self.dx) )**(1/6.)
         self.C1 = self.C0 * self.dzdt_0_16 * self.Q / self.B
 
     def set_z_bl(self, z_bl):
         self.z_bl = z_bl
+        self.z_ext[-1] = self.z_bl
 
     def set_bcr_Dirichlet(self):
         #self.bcr_value = bcr
         self.bcr = self.z_bl * ( self.C1[-1] * ( (7/6.) \
                                  + self.dQ[-1]/self.Q[-1]/4. \
                                  - self.dB[-1]/self.B[-1]/4. ) ) #+ self.z[-1]
-                                 
         
     def set_bcl_Neumann_RHS(self):
         """
@@ -238,6 +248,7 @@ class LongProfile(object):
                 self.z_ext[1:-1] = spsolve(LHSmatrix, RHS)
             self.t += self.dt
             self.z = self.z_ext[1:-1]
+        self.update_z_ext_0()
     
     def analytical_threshold_width(self, P_xB=None, P_xQ=None, x0=None, x1=None, 
                                    z0=None, z1=None):
@@ -287,7 +298,7 @@ class LongProfile(object):
         #self.k_a = (z1 - z0)/(x1**self.P_a - x0**self.P_a) # alpha
         #self.c_a = z0 - x0**self.P_a/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # gamma
         # Coefficients
-        K = self.k_Qs * self.sinuosity * self.intermittency
+        K = self.k_Qs * self.sinuosity * self.intermittency \
             / (1 - self.lambda_p) \
             * abs(self.k_a * self.P_a)**(1/6.) \
             * self.k_xQ / self.k_xB

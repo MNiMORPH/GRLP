@@ -221,7 +221,7 @@ class LongProfile(object):
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
         self.dt = dt
         self.nt = nt
-        self.C0 = self.k_Qs/(1-self.lambda_p) * self.dt / self.dx**2
+        self.C0 = self.k_Qs/(1-self.lambda_p) * self.intermittency * self.dt / self.dx**2
         for ti in range(int(self.nt)):
             for i in range(self.niter):
                 self.compute_coefficient_time_varying()
@@ -321,17 +321,20 @@ class LongProfile(object):
     #    self.analytical_threshold_width()
     
     def compute_Q_s(self):
-        self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / (2*self.dx) )
+        self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / (2*self.dx) ) \
+                 / self.sinuosity
         self.Q_s = self.k_Qs * self.Q * self.S**(7/6.)
 
-    def slope_area(self, verbose=True):
+    def slope_area(self, verbose=False):
         self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / (2*self.dx) )
         logS = np.log10(self.S)
         logA = np.log10(self.A)
         out = linregress(logA[1:-1], logS[1:-1]) # remove edge effects
         self.theta = -out.slope
+        self.ks = 10.**out.intercept
         self.thetaR2 = out.rvalue**2.
         if verbose:
             print "Concavity = ", self.theta
+            print "k_s = ", self.ks
             print "R2 = ", out.rvalue**2.
         

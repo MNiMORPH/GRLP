@@ -223,6 +223,7 @@ class LongProfile(object):
         self.nt = nt
         self.C0 = self.k_Qs/(1-self.lambda_p) * self.intermittency * self.dt / self.dx**2
         for ti in range(int(self.nt)):
+            self.zold = self.z.copy()
             for i in range(self.niter):
                 self.compute_coefficient_time_varying()
                 self.left = -self.C1 * ( (7/6.) - self.dQ/self.Q/4. \
@@ -245,10 +246,16 @@ class LongProfile(object):
                 LHSmatrix = spdiags(diagonals, offsets, len(self.z), 
                                     len(self.z), format='csr')
                 RHS = np.hstack((self.bcl+self.z[0], self.z[1:-1], self.bcr+self.z[-1]))
+                #print np.mean(self.z)
                 self.z_ext[1:-1] = spsolve(LHSmatrix, RHS)
             self.t += self.dt
-            self.z = self.z_ext[1:-1]
-        self.update_z_ext_0()
+            print np.mean(self.z)
+            self.z = self.z_ext[1:-1].copy()
+            self.dz_dt = (self.z - self.zold)/self.dt
+            #S = np.diff(self.z_ext)[1:] + np.diff(self.z_ext)[:-1]
+            #self.b = 2.61 * self.Q * S**(7/6.)/
+            self.Qs_internal = 1/(1-self.lambda_p) * np.cumsum(self.dz_dt)*self.B + self.Q_s_0
+            self.update_z_ext_0()
     
     def analytical_threshold_width(self, P_xB=None, P_xQ=None, x0=None, x1=None, 
                                    z0=None, z1=None):

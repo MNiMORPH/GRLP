@@ -224,6 +224,7 @@ class LongProfile(object):
         self.C0 = self.k_Qs/(1-self.lambda_p) * self.intermittency * self.dt / self.dx**2
         for ti in range(int(self.nt)):
             self.zold = self.z.copy()
+            self.set_z_bl(self.z_bl + self.U * self.dt)
             for i in range(self.niter):
                 self.compute_coefficient_time_varying()
                 self.left = -self.C1 * ( (7/6.) - self.dQ/self.Q/4. \
@@ -233,7 +234,6 @@ class LongProfile(object):
                              - self.dB/self.B/4. )
                 self.set_bcl_Neumann_LHS()
                 self.set_bcl_Neumann_RHS()
-                self.set_z_bl(self.z_bl + self.U * self.dt)
                 self.set_bcr_Dirichlet()
                 self.left = np.roll(self.left, -1)
                 self.right = np.roll(self.right, 1)
@@ -249,7 +249,7 @@ class LongProfile(object):
                 #print np.mean(self.z)
                 self.z_ext[1:-1] = spsolve(LHSmatrix, RHS)
             self.t += self.dt
-            print np.mean(self.z)
+            #print np.mean(self.z)
             self.z = self.z_ext[1:-1].copy()
             self.dz_dt = (self.z - self.zold)/self.dt
             #S = np.diff(self.z_ext)[1:] + np.diff(self.z_ext)[:-1]

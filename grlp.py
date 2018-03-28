@@ -126,8 +126,13 @@ class LongProfile(object):
         if k_xQ is not None:
             self.k_xQ = k_xQ
         if Q is not None:
-            self.Q = Q
-            Q_ext = np.hstack((2*Q[0]-Q[1], Q, 2*Q[-1]-Q[-2]))
+            # Check if it is a scalar or an array
+            if hasattr(Q, "__iter__"):
+                self.Q = Q
+            else:
+                # Assuming "x" is known already
+                self.Q = Q * np.ones(self.x.shape)
+            Q_ext = np.hstack((2*self.Q[0]-self.Q[1], self.Q, 2*self.Q[-1]-self.Q[-2]))
         elif Q_ext is not None:
             self.Q = Q_ext[1:-1]
         elif q_R and A_R:
@@ -154,8 +159,13 @@ class LongProfile(object):
         Set B directly or calculate it: B = k_xB * x**P_xB
         """
         if B is not None:
-            self.B = B
-            B_ext = np.hstack((2*B[0]-B[1], B, 2*B[-1]-B[-2]))
+            # Check if it is a scalar or an array
+            if hasattr(B, "__iter__"):
+                self.B = B
+            else:
+                # Assuming "x" is known already
+                self.B = B * np.ones(self.x.shape)
+            B_ext = np.hstack((2*self.B[0]-self.B[1], self.B, 2*self.B[-1]-self.B[-2]))
         elif B_ext is not None:
             self.B = B_ext[1:-1]
         elif k_xB and self.x.any() and self.x_ext.any():

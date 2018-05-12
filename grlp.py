@@ -43,6 +43,9 @@ class LongProfile(object):
             self.P_xQ = P_xQ
         else:
             self.P_xQ = P_xA * P_AQ
+
+    def set_intermittency(self, I):
+        self.I = I
                 
     def set_x(self, x=None, x_ext=None, dx=None, nx=None, x0=None):
         """

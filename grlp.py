@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 from scipy.sparse import spdiags, identity
 from scipy.sparse.linalg import spsolve, isolve
 from scipy.stats import linregress
+import warnings
 
 class LongProfile(object):
 
@@ -39,7 +40,7 @@ class LongProfile(object):
         self.P_xA = P_xA # inverse Hack exponent
         self.P_AQ = P_AQ # drainage area -- discharge exponent
         if P_xQ:
-            print "Warning: P_xQ may be inconsistent with P_xA and P_AQ"
+            warnings.warn("P_xQ may be inconsistent with P_xA and P_AQ")
             self.P_xQ = P_xQ
         else:
             self.P_xQ = P_xA * P_AQ
@@ -49,35 +50,40 @@ class LongProfile(object):
                 
     def set_x(self, x=None, x_ext=None, dx=None, nx=None, x0=None):
         """
-        Set x directly or calculate it
-        S0 = initial slope (negative for flow from left to right)
-        z1 = elevation value at RHS
+        Set x directly or calculate it.
+        Pass one of three options:
+        x alone
+        x_ext alone
+        dx, nx, and x0
         """
         if x:
             self.x = x
             diff = np.diff(self.x)
-            dx = np.mean(diff)
-            if (diff == dx).all():
-                self.dx = dx
+            dx_mean = np.mean(diff)
+            if (diff == np.mean(diff)).all():
+                self.dx = dx_mean
             else:
                 sys.exit("Uniform x spacing required")
+                self.dx = diff
         elif x_ext:
             self.x_ext = x_ext
             self.x = x_ext[1:-1]
             diff = np.diff(self.x_ext)
-            dx = np.mean(diff)
+            dx_mean = np.mean(diff)
             if (diff == dx).all():
-                self.dx = dx
+                self.dx = dx_mean
             else:
                 sys.exit("Uniform x spacing required")
-        else:
+                self.dx = diff
+        elif (dx is not None) and (nx is not None) and (x0 is not None):
             self.x = np.arange(x0, x0+dx*nx+dx/2., dx)
             self.dx = dx
             self.x_ext = np.hstack((self.x[0]-dx, self.x, self.x[-1]+dx))
-        if nx:
-            self.nx = nx
         else:
-            self.nx = len(x)
+            sys.exit("Need x OR x_ext, OR (dx, nx, x0)")
+        self.nx = len(x)
+        if nx != self.nx:
+            warnings.warn("Choosing x length instead of supplied nx")
             
     def set_z(self, z=None, z_ext=None, S0=None, z1=0):
         """

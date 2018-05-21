@@ -212,6 +212,7 @@ class LongProfile(object):
         self.S0 = -((1/self.k_Qs) * (Q_s_0/self.Q[0]))**(6/7.)
         if self.dx_isscalar:
             self.z_ext[0] = self.z[0] - self.S0 * self.dx
+            self.z_ext[0]
         else:
             # Give upstream cell the same width as the first cell in domain
             self.z_ext[0] = self.z[0] - self.S0 * self.dx_ext[0]
@@ -263,9 +264,9 @@ class LongProfile(object):
             # Give upstream cell the same width as the first cell in domain
             self.bcl = -self.dx_ext_2cell[0] * self.S0 * \
                                   self.C1[0] * ( 7/3./self.dx_ext[0]
-                                - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] \
-                                + self.dB[0]/self.B[0]/self.dx_ext_2cell[0] ) \
-                                * 107.60426753093884
+                                - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0]
+                                + self.dB[0]/self.B[0]/self.dx_ext_2cell[0] )# \
+                                #* 107.60426753093884
                                             
     def set_bcl_Neumann_LHS(self):
         """
@@ -276,6 +277,8 @@ class LongProfile(object):
             self.right[0] = -2 * self.C1[0] * 7/6.
             #self.right[0] = self.left[0] + self.right[0] # should be the same as the above
         else:
+            # PROBLEM POSSIBLY HERE -- CHECK THIS GHOST NODE APPROACH RIGOROUSLY
+            #
             self.right[0] = -self.C1[0] * ( (7/3.) \
                                         * (-1/self.dx_ext[0] \
                                            -1/self.dx_ext[1]) )
@@ -288,6 +291,7 @@ class LongProfile(object):
             self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
                       * self.intermittency * self.dt / self.dx**2
         else:
+            # 250 = patch for dx = 500
             self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
                       * self.intermittency * self.dt / self.dx_ext_2cell
         for ti in range(int(self.nt)):
@@ -328,6 +332,7 @@ class LongProfile(object):
                 RHS = np.hstack((self.bcl+self.z[0], self.z[1:-1], self.bcr+self.z[-1]))
                 #print np.mean(self.z)
                 self.z_ext[1:-1] = spsolve(LHSmatrix, RHS)
+                print self.bcl
             self.t += self.dt
             #print np.mean(self.z)
             self.z = self.z_ext[1:-1].copy()
@@ -339,6 +344,10 @@ class LongProfile(object):
         print self.bcl, self.bcr, self.right[0], self.C1[0], self.z[0]
         print np.mean(self.left/1E10), np.mean(self.center/1E10), np.mean(self.right/1E10)
         print np.mean(self.left/1E10)/np.mean(self.center/1E10)
+        print self.bcl/self.C1[0], self.dzdt_0_16[0]
+        print self.bcl
+        print self.z[0]
+        #print self.dzdt_0_16
     
     def analytical_threshold_width(self, P_xB=None, P_xQ=None, x0=None, x1=None, 
                                    z0=None, z1=None):

@@ -86,7 +86,7 @@ class LongProfile(object):
                 self.dx = np.diff(self.x)
                 self.dx_isscalar = False
         elif (dx is not None) and (nx is not None) and (x0 is not None):
-            self.x = np.arange(x0, x0+dx*nx+dx/2., dx)
+            self.x = np.arange(x0, x0+dx*nx, dx)
             self.dx = dx
             self.dx_isscalar = True
             self.x_ext = np.hstack((self.x[0]-dx, self.x, self.x[-1]+dx))
@@ -292,7 +292,7 @@ class LongProfile(object):
                                     + self.dB/self.B/4./self.dx_ext_2cell)
                     self.center = self.C1 * ( (7/3.) \
                                           * (-1/self.dx_ext[:-1] \
-                                             -1/self.dx_ext[1:] ) \
+                                             -1/self.dx_ext[1:]) ) \
                                              + 1.
                     self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:]
                                     + self.dQ/self.Q/4./self.dx_ext_2cell \

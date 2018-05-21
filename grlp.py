@@ -256,8 +256,9 @@ class LongProfile(object):
         else:
             # Give upstream cell the same width as the first cell in domain
             self.bcl = -self.dx_ext_2cell[0] * self.S0 * \
-                       self.C1[0] * ( 7/6. - self.dQ[0]/self.Q[0]/4. \
-                                           + self.dB[0]/self.B[0]/4.)
+                                  self.C1[0] * ( 7/3./self.dx_ext[0]
+                                - self.dQ[0]/self.Q[0]/4./self.dx_ext_2cell[0] \
+                                + self.dB[0]/self.B[0]/4./self.dx_ext_2cell[0] )
         
     def set_bcl_Neumann_LHS(self):
         """

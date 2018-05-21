@@ -246,8 +246,8 @@ class LongProfile(object):
                                      #+ self.z[-1]
         else:
             self.bcr = self.z_bl * ( self.C1[-1] * ( (7/3.) \
-                           + self.dQ[-1]/self.Q[-1]/4./self.dx_ext_2cell[0] \
-                           - self.dB[-1]/self.B[-1]/4./self.dx_ext_2cell[0] ) )
+                           + self.dQ[-1]/self.Q[-1]/self.dx_ext_2cell[0] \
+                           - self.dB[-1]/self.B[-1]/self.dx_ext_2cell[0] ) )
         
     def set_bcl_Neumann_RHS(self):
         """
@@ -263,9 +263,9 @@ class LongProfile(object):
             # Give upstream cell the same width as the first cell in domain
             self.bcl = -self.dx_ext_2cell[0] * self.S0 * \
                                   self.C1[0] * ( 7/3./self.dx_ext[0]
-                                - self.dQ[0]/self.Q[0]/4./self.dx_ext_2cell[0] \
-                                + self.dB[0]/self.B[0]/4./self.dx_ext_2cell[0] )
-        
+                                - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] \
+                                + self.dB[0]/self.B[0]/self.dx_ext_2cell[0] )
+                                            
     def set_bcl_Neumann_LHS(self):
         """
         from ghost node approach
@@ -302,15 +302,15 @@ class LongProfile(object):
                                  - self.dB/self.B/4. )
                 else:
                     self.left = -self.C1 * ( (7/3.)/self.dx_ext[:-1]
-                                    - self.dQ/self.Q/4./self.dx_ext_2cell \
-                                    + self.dB/self.B/4./self.dx_ext_2cell)
-                    self.center = self.C1 * ( (7/3.) \
+                                    - self.dQ/self.Q/self.dx_ext_2cell \
+                                    + self.dB/self.B/self.dx_ext_2cell)
+                    self.center = -self.C1 * ( (7/3.) \
                                           * (-1/self.dx_ext[:-1] \
                                              -1/self.dx_ext[1:]) ) \
                                              + 1.
                     self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:]
-                                    + self.dQ/self.Q/4./self.dx_ext_2cell \
-                                    - self.dB/self.B/4./self.dx_ext_2cell )
+                                    + self.dQ/self.Q/self.dx_ext_2cell \
+                                    - self.dB/self.B/self.dx_ext_2cell )
                 self.set_bcl_Neumann_LHS()
                 self.set_bcl_Neumann_RHS()
                 self.set_bcr_Dirichlet()
@@ -335,6 +335,9 @@ class LongProfile(object):
             #self.b = 2.61 * self.Q * S**(7/6.)/
             self.Qs_internal = 1/(1-self.lambda_p) * np.cumsum(self.dz_dt)*self.B + self.Q_s_0
             self.update_z_ext_0()
+        print self.bcl, self.bcr, self.right[0], self.C1[0], self.z[0]
+        print np.mean(self.left/1E10), np.mean(self.center/1E10), np.mean(self.right/1E10)
+        print np.mean(self.left/1E10)/np.mean(self.center/1E10)
     
     def analytical_threshold_width(self, P_xB=None, P_xQ=None, x0=None, x1=None, 
                                    z0=None, z1=None):

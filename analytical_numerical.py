@@ -19,6 +19,8 @@ Bmax = 250.
 lp = grlp.LongProfile()
 self = lp
 
+lp.set_intermittency(1)
+
 self.bcr = z1
 
 lp.basic_constants()
@@ -36,7 +38,7 @@ Qs0 = lp.k_Qs * lp.Q[0] * S0**(7/6.)
 lp.set_Qs_input_upstream(Qs0)
 
 lp.set_uplift_rate(0)
-lp.evolve_threshold_width_river(10, 1E14)
+lp.evolve_threshold_width_river(100, 1E14)
 lp.analytical_threshold_width()
 
 fig = plt.figure(figsize=(5,3))

@@ -13,6 +13,7 @@ class LongProfile(object):
         self.A = None
         self.Q = None
         self.B = None
+        self.dx_ext = None
         self.Q_s_0 = None
         self.sinuosity = 1.
         self.intermittency = 0.01
@@ -62,22 +63,27 @@ class LongProfile(object):
             dx_mean = np.mean(diff)
             if (diff == np.mean(diff)).all():
                 self.dx = dx_mean
+                self.dx_isscalar = False
             else:
                 sys.exit("Uniform x spacing required")
                 self.dx = diff
+                self.dx_isscalar = True
         elif x_ext:
             self.x_ext = x_ext
             self.x = x_ext[1:-1]
             diff = np.diff(self.x_ext)
             dx_mean = np.mean(diff)
             if (diff == dx).all():
-                self.dx = dx_mean
+                self.dx_ext = dx_mean
+                self.dx_isscalar = False
             else:
                 sys.exit("Uniform x spacing required")
                 self.dx = diff
+                self.dx_isscalar = True
         elif (dx is not None) and (nx is not None) and (x0 is not None):
             self.x = np.arange(x0, x0+dx*nx+dx/2., dx)
             self.dx = dx
+            self.dx_isscalar = True
             self.x_ext = np.hstack((self.x[0]-dx, self.x, self.x[-1]+dx))
         else:
             sys.exit("Need x OR x_ext, OR (dx, nx, x0)")
@@ -198,7 +204,7 @@ class LongProfile(object):
         self.Q_s_0 = Q_s_0
         # Q[0] is centerpoint of S?
         self.S0 = -((1/self.k_Qs) * (Q_s_0/self.Q[0]))**(6/7.)
-        self.z_ext[0] = self.z[0] - self.S0 * self.dx
+        self.z_ext[0] = self.z[0] - self.S0 * self.dx_ext[0]
         
     def update_z_ext_0(self):
         self.z_ext[0] = self.z[0] - self.S0 * self.dx

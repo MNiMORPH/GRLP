@@ -4,6 +4,7 @@ from scipy.sparse import spdiags, identity
 from scipy.sparse.linalg import spsolve, isolve
 from scipy.stats import linregress
 import warnings
+import sys
 
 class LongProfile(object):
 
@@ -58,28 +59,28 @@ class LongProfile(object):
         x_ext alone (this will also define x)
         dx, nx, and x0
         """
-        if x:
+        if x is not None:
             self.x = np.array(x)
             diff = np.diff(self.x)
             dx_mean = np.mean(diff)
-            if (diff == np.mean(diff)).all():
+            if (diff == dx_mean).all():
                 self.dx = dx_mean
                 self.dx_isscalar = False
             else:
-                sys.exit("Uniform x spacing required")
+                #sys.exit("Uniform x spacing required")
                 self.dx = diff
                 self.dx_2cell = self.x[2:] - self.x[:-2]
                 self.dx_isscalar = True
-        elif x_ext:
+        elif x_ext is not None:
             self.x_ext = np.array(x_ext)
             self.x = x_ext[1:-1]
             diff = np.diff(self.x_ext)
             dx_mean = np.mean(diff)
-            if (diff == dx).all():
+            if (diff == dx_mean).all():
                 self.dx_ext = dx_mean
                 self.dx_isscalar = True
             else:
-                sys.exit("Uniform x spacing required")
+                #sys.exit("Uniform x spacing required")
                 self.dx_ext = diff
                 self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
                 self.dx_2cell = self.x[2:] - self.x[:-2]
@@ -93,7 +94,7 @@ class LongProfile(object):
         else:
             sys.exit("Need x OR x_ext OR (dx, nx, x0)")
         self.nx = len(self.x)
-        if nx != self.nx:
+        if (nx is not None) and (nx != self.nx):
             warnings.warn("Choosing x length instead of supplied nx")
             
     def set_z(self, z=None, z_ext=None, S0=None, z1=0):
@@ -262,9 +263,15 @@ class LongProfile(object):
         """
         from ghost node approach
         """
-        #self.right[0] = -2 * self.C1[0] * 7/6. * self.Q[0]
-        self.right[0] = -2 * self.C1[0] * 7/6.
-        #self.right[0] = self.left[0] + self.right[0] # should be the same as the above
+        if self.dx_isscalar:
+            #self.right[0] = -2 * self.C1[0] * 7/6. * self.Q[0]
+            self.right[0] = -2 * self.C1[0] * 7/6.
+            #self.right[0] = self.left[0] + self.right[0] # should be the same as the above
+        else:
+            self.right[0] = -self.C1[0] * ( (7/3.) \
+                                        * (-1/self.dx_ext[0] \
+                                           -1/self.dx_ext[1]) )
+            
     
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
         self.dt = dt

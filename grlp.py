@@ -264,7 +264,8 @@ class LongProfile(object):
             self.bcl = -self.dx_ext_2cell[0] * self.S0 * \
                                   self.C1[0] * ( 7/3./self.dx_ext[0]
                                 - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] \
-                                + self.dB[0]/self.B[0]/self.dx_ext_2cell[0] )
+                                + self.dB[0]/self.B[0]/self.dx_ext_2cell[0] ) \
+                                * 107.60426753093884
                                             
     def set_bcl_Neumann_LHS(self):
         """

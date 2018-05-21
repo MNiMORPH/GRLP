@@ -270,11 +270,11 @@ class LongProfile(object):
         self.dt = dt
         self.nt = nt
         if self.dx_isscalar:
-            self.C0 = self.k_Qs/(1-self.lambda_p) * self.intermittency \
-                      * self.dt / self.dx**2
+            self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
+                      * self.intermittency * self.dt / self.dx**2
         else:
-            self.C0 = self.k_Qs/(1-self.lambda_p) * self.intermittency \
-                      * self.dt / self.dx**2
+            self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
+                      * self.intermittency * self.dt / self.dx**2
         for ti in range(int(self.nt)):
             self.zold = self.z.copy()
             self.set_z_bl(self.z_bl + self.U * self.dt)

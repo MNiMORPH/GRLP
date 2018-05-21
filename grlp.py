@@ -274,17 +274,29 @@ class LongProfile(object):
                       * self.intermittency * self.dt / self.dx**2
         else:
             self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
-                      * self.intermittency * self.dt / self.dx**2
+                      * self.intermittency * self.dt / self.dx_ext_2cell
         for ti in range(int(self.nt)):
             self.zold = self.z.copy()
             self.set_z_bl(self.z_bl + self.U * self.dt)
             for i in range(self.niter):
                 self.compute_coefficient_time_varying()
-                self.left = -self.C1 * ( (7/6.) - self.dQ/self.Q/4. \
-                            + self.dB/self.B/4.)
-                self.center = self.C1 * 2 * ( (7/6.) ) + 1.
-                self.right = -self.C1 * ( (7/6.) + self.dQ/self.Q/4. \
-                             - self.dB/self.B/4. )
+                if self.dx_isscalar:
+                    self.left = -self.C1 * ( (7/6.) - self.dQ/self.Q/4. \
+                                + self.dB/self.B/4.)
+                    self.center = self.C1 * 2 * ( (7/6.) ) + 1.
+                    self.right = -self.C1 * ( (7/6.) + self.dQ/self.Q/4. \
+                                 - self.dB/self.B/4. )
+                else:
+                    self.left = -self.C1 * ( (7/3.)/self.dx_ext[:-1]
+                                    - self.dQ/self.Q/4./self.dx_ext_2cell \
+                                    + self.dB/self.B/4./self.dx_ext_2cell)
+                    self.center = self.C1 * ( (7/3.) \
+                                          * (-1/self.dx_ext[:-1] \
+                                             -1/self.dx_ext[1:] ) \
+                                             + 1.
+                    self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:]
+                                    + self.dQ/self.Q/4./self.dx_ext_2cell \
+                                    - self.dB/self.B/4./self.dx_ext_2cell )
                 self.set_bcl_Neumann_LHS()
                 self.set_bcl_Neumann_RHS()
                 self.set_bcr_Dirichlet()

@@ -248,12 +248,12 @@ class LongProfile(object):
         else:
             self.bcr = self.z_bl * ( self.C1[-1] * 7/3. \
                            * (-1/self.dx_ext[-2] - 1/self.dx_ext[-1]) \
-                           + self.dQ[-1]/self.Q[-1]/self.dx_ext_2cell[0] \
-                           - self.dB[-1]/self.B[-1]/self.dx_ext_2cell[0] )
+                           + self.dQ[-1]/self.Q[-1] \
+                           - self.dB[-1]/self.B[-1] )
         
     def set_bcl_Neumann_RHS(self):
         """
-        Set the LHS boundary condition
+        Set the left (stencil) boundary condition on the RHS of the equation
         """
         #self.bcl = self.z[0] + 2*self.dx*self.S0*self.left[0]
         #self.bcl = 2*self.dx*self.S0*self.left[0]
@@ -264,11 +264,17 @@ class LongProfile(object):
         else:
             # Give upstream cell the same width as the first cell in domain
             self.bcl = -self.dx_ext_2cell[0] * self.S0 * \
-                                  self.C1[0] * ( 7/3./self.dx_ext[0]
+                                  self.C1[0] * ( 7/3./self.dx_ext[0] # THIS LINE!!!!
                                 - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0]
                                 + self.dB[0]/self.B[0]/self.dx_ext_2cell[0] )# \
                                 #* 107.60426753093884
-                                            
+            """
+            self.bcl = self.S0 / (2. * self.dx_ext[0]) * \
+                        - self.C1[0] * ( (7/3.)/self.dx_ext[0]
+                        + self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] \
+                        - self.dB[0]/self.B[0]/self.dx_ext_2cell[0] )
+            """
+
     def set_bcl_Neumann_LHS(self):
         """
         from ghost node approach
@@ -280,9 +286,9 @@ class LongProfile(object):
         else:
             # PROBLEM POSSIBLY HERE -- CHECK THIS GHOST NODE APPROACH RIGOROUSLY
             #
-            self.right[0] = -self.C1[0] * ( (7/3.) \
+            self.right[0] = -self.C1[0] * 7/3. \
                                         * (-1/self.dx_ext[0] \
-                                           -1/self.dx_ext[1]) )
+                                           -1/self.dx_ext[1])
             
     
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
@@ -314,9 +320,9 @@ class LongProfile(object):
                                           * (-1/self.dx_ext[:-1] \
                                              -1/self.dx_ext[1:]) ) \
                                              + 1.
-                    self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:]
+                    self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:] # REALLY?
                                     + self.dQ/self.Q/self.dx_ext_2cell \
-                                    - self.dB/self.B/self.dx_ext_2cell )
+                                    - self.dB/self.B/self.dx_ext_2cell)
                 self.set_bcl_Neumann_LHS()
                 self.set_bcl_Neumann_RHS()
                 self.set_bcr_Dirichlet()
@@ -326,6 +332,19 @@ class LongProfile(object):
                 #self.bcr = self.center[-1] * self.bcr_value \
                 #           + self.left[-1] * self.bcr_value
                 # TO DO: Fix Dirichlet b.c. here
+                if self.dx_isscalar is False:
+                    #NOT THE SAME YET BUT ON THE RIGHT TRACK
+                    self.right[0] = (-self.C1[0] * ( (7/3.)/self.dx_ext[0] \
+                                    - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] \
+                                    + self.dB[0]/self.B[0]/self.dx_ext_2cell[0]) \
+                                    - self.C1[0] * ( (7/3.)/self.dx_ext[1] \
+                                    + self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] \
+                                    - self.dB[0]/self.B[0]/self.dx_ext_2cell[0]) \
+                                    / (2.* self.dx_ext[0])) # correct?
+                    self.right[0] = -self.C1[0] * 7/3. * ((1/self.dx_ext[1]) + \
+                                                      (1/self.dx_ext[0])) \
+                                                      / (2.* self.dx_ext[0])
+
                 diagonals = np.vstack((self.left, self.center, self.right))
                 offsets = np.array([-1, 0, 1])
                 LHSmatrix = spdiags(diagonals, offsets, len(self.z), 
@@ -421,8 +440,12 @@ class LongProfile(object):
     #    self.analytical_threshold_width()
     
     def compute_Q_s(self):
-        self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / (2*self.dx) ) \
-                 / self.sinuosity
+        if self.dx_isscalar:
+            self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / 
+                             (2*self.dx) ) / self.sinuosity
+        else:
+            self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / 
+                             (self.dx_ext_2cell) ) / self.sinuosity
         self.Q_s = self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
 
     def slope_area(self, verbose=False):

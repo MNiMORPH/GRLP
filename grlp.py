@@ -51,6 +51,13 @@ class LongProfile(object):
     def set_intermittency(self, I):
         self.I = I
                 
+    def set_base_level(self, z_bl):
+        """
+        Set the right-hand Dirichlet boundary conditions, i.e. the base level,
+        given in the variable "z_bl" (elevation, base level)
+        """
+        self.z_bl = z_bl
+                
     def set_x(self, x=None, x_ext=None, dx=None, nx=None, x0=None):
         """
         Set x directly or calculate it.

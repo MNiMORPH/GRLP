@@ -212,7 +212,7 @@ class LongProfile(object):
         self.S0 = -((1/self.k_Qs) * (Q_s_0/self.Q[0]))**(6/7.)
         if self.dx_isscalar:
             self.z_ext[0] = self.z[0] - self.S0 * self.dx
-            self.z_ext[0]
+            #self.z_ext[0]
         else:
             # Give upstream cell the same width as the first cell in domain
             self.z_ext[0] = self.z[0] - self.S0 * self.dx_ext[0]
@@ -241,14 +241,15 @@ class LongProfile(object):
     def set_bcr_Dirichlet(self):
         #self.bcr_value = bcr
         if self.dx_isscalar:
-            self.bcr = self.z_bl * ( self.C1[-1] * ( (7/6.) \
+            self.bcr = self.z_bl * ( self.C1[-1] * 7/6. \
                                      + self.dQ[-1]/self.Q[-1]/4. \
-                                     - self.dB[-1]/self.B[-1]/4. ) )
+                                     - self.dB[-1]/self.B[-1]/4. )
                                      #+ self.z[-1]
         else:
-            self.bcr = self.z_bl * ( self.C1[-1] * ( (7/3.) \
+            self.bcr = self.z_bl * ( self.C1[-1] * 7/3. \
+                           * (-1/self.dx_ext[-2] - 1/self.dx_ext[-1]) \
                            + self.dQ[-1]/self.Q[-1]/self.dx_ext_2cell[0] \
-                           - self.dB[-1]/self.B[-1]/self.dx_ext_2cell[0] ) )
+                           - self.dB[-1]/self.B[-1]/self.dx_ext_2cell[0] )
         
     def set_bcl_Neumann_RHS(self):
         """

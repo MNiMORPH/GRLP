@@ -253,10 +253,17 @@ class LongProfile(object):
         
     def set_bcl_Neumann_RHS(self):
         """
-        Set the left (stencil) boundary condition on the RHS of the equation
+        Boundary condition on the left (conventionally upstream) side of the 
+        domain.
+        
+        This is for the RHS of the equation as a result of the ghost-node 
+        approach for the Neumann upstream boundary condition with a prescribed 
+        transport slope.
+        
+        This equals 2*dx * S_0 * left_coefficients
+        (2*dx is replaced with the x_ext{i+1} - x_ext{i-1} for the irregular
+        grid case)
         """
-        #self.bcl = self.z[0] + 2*self.dx*self.S0*self.left[0]
-        #self.bcl = 2*self.dx*self.S0*self.left[0]
         if self.dx_isscalar:
             self.bcl = -2 * self.dx * self.S0 * \
                        self.C1[0] * ( 7/6. - self.dQ[0]/self.Q[0]/4. \
@@ -265,47 +272,40 @@ class LongProfile(object):
             # Give upstream cell the same width as the first cell in domain
             # 2*dx * S_0 * left_coefficients
             self.bcl = self.dx_ext_2cell[0] * self.S0 * \
-                                - self.C1[0] * ( 7/3./self.dx_ext[0] # THIS LINE!!!!
+                                - self.C1[0] * ( 7/3./self.dx_ext[0]
                                 - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0]
-                                + self.dB[0]/self.B[0]/self.dx_ext_2cell[0] )# \
-                                #* 107.60426753093884
-            """
-            # S0 sign convention -- but bcl cell should be higher!
-            # neg direction -- so keep positive.
-            # 
-            self.bcl = -self.S0 / self.dx_ext_2cell[0] * \
-                        - self.C1[0] * ( (7/3.)/self.dx_ext[0]
-                        + self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] \
-                        - self.dB[0]/self.B[0]/self.dx_ext_2cell[0] )
-            """
+                                + self.dB[0]/self.B[0]/self.dx_ext_2cell[0] )
 
     def set_bcl_Neumann_LHS(self):
         """
-        from ghost node approach
+        Boundary condition on the left (conventionally upstream) side of the 
+        domain.
+        
+        This changes the right diagonal on the LHS of the equation using a 
+        ghost-node approach by defining a boundary slope that is calculated 
+        as a function of input water-to-sediment supply ratio.
+
         LHS = coeff_right at 0 + coeff_left at 0, with appropriate dx
               for boundary (already supplied)
         """
         if self.dx_isscalar:
-            #self.right[0] = -2 * self.C1[0] * 7/6. * self.Q[0]
             self.right[0] = -2 * self.C1[0] * 7/6.
-            #self.right[0] = self.left[0] + self.right[0] # should be the same as the above
         else:
             pass
-            # PROBLEM POSSIBLY HERE -- CHECK THIS GHOST NODE APPROACH RIGOROUSLY
-            # left_coeficients + right_coefficients
             self.right[0] = -self.C1[0] * 7/3. \
                              * (1/self.dx_ext[0] + 1/self.dx_ext[1])
-            # self.right[0] += self.left[0] # equivalent
-            
     
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
+        """
+        Build and solve the triadiagonla matrix through time, with a given
+        number of time steps (nt) and time-step length (dt)
+        """
         self.dt = dt
         self.nt = nt
         if self.dx_isscalar:
             self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
                       * self.intermittency * self.dt / self.dx**2
         else:
-            # 250 = patch for dx = 500
             self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
                       * self.intermittency * self.dt / self.dx_ext_2cell
         for ti in range(int(self.nt)):
@@ -333,53 +333,20 @@ class LongProfile(object):
                 self.set_bcl_Neumann_LHS()
                 self.set_bcl_Neumann_RHS()
                 self.set_bcr_Dirichlet()
-                """
-                if self.dx_isscalar is False:
-                    self.right[0] += self.left[0]
-                """
                 self.left = np.roll(self.left, -1)
                 self.right = np.roll(self.right, 1)
-                # More boundary conditions: RHS Dirichlet
-                #self.bcr = self.center[-1] * self.bcr_value \
-                #           + self.left[-1] * self.bcr_value
-                # TO DO: Fix Dirichlet b.c. here
-                if self.dx_isscalar is False:
-                    """
-                    #NOT THE SAME YET BUT ON THE RIGHT TRACK
-                    self.right[0] = (-self.C1[0] * ( (7/3.)/self.dx_ext[0] \
-                                    - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] \
-                                    + self.dB[0]/self.B[0]/self.dx_ext_2cell[0]) \
-                                    - self.C1[0] * ( (7/3.)/self.dx_ext[1] \
-                                    + self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] \
-                                    - self.dB[0]/self.B[0]/self.dx_ext_2cell[0]) \
-                                    / (2.* self.dx_ext[0])) # correct?
-                    self.right[0] = -self.C1[0] * 7/3. * ((1/self.dx_ext[1]) + \
-                                                      (1/self.dx_ext[0])) \
-                                                      / (2.* self.dx_ext[0])
-                    """
                 diagonals = np.vstack((self.left, self.center, self.right))
                 offsets = np.array([-1, 0, 1])
                 LHSmatrix = spdiags(diagonals, offsets, len(self.z), 
                                     len(self.z), format='csr')
                 RHS = np.hstack((self.bcl+self.z[0], self.z[1:-1], self.bcr+self.z[-1]))
-                #print np.mean(self.z)
                 self.z_ext[1:-1] = spsolve(LHSmatrix, RHS)
                 print self.bcl
             self.t += self.dt
-            #print np.mean(self.z)
             self.z = self.z_ext[1:-1].copy()
             self.dz_dt = (self.z - self.zold)/self.dt
-            #S = np.diff(self.z_ext)[1:] + np.diff(self.z_ext)[:-1]
-            #self.b = 2.61 * self.Q * S**(7/6.)/
             self.Qs_internal = 1/(1-self.lambda_p) * np.cumsum(self.dz_dt)*self.B + self.Q_s_0
             self.update_z_ext_0()
-        print self.bcl, self.bcr, self.right[0], self.C1[0], self.z[0]
-        print np.mean(self.left/1E10), np.mean(self.center/1E10), np.mean(self.right/1E10)
-        print np.mean(self.left/1E10)/np.mean(self.center/1E10)
-        print self.bcl/self.C1[0], self.dzdt_0_16[0]
-        print self.bcl
-        print self.z[0]
-        #print self.dzdt_0_16
     
     def analytical_threshold_width(self, P_xB=None, P_xQ=None, x0=None, x1=None, 
                                    z0=None, z1=None):

@@ -25,20 +25,29 @@ class LongProfile(object):
         self.t = 0
         self.upstream_segment_IDs = None
         self.downstream_segment_IDs = None
+        self.ID = None
         #self.downstream_dx = None # not necessary if x_ext given
         #self.basic_constants()
+
+    def set_ID(self, ID):
+        """
+        Set the ID of this segment
+        """
+        self.ID = ID
 
     def set_upstream_segment_IDs(self, upstream_segment_IDs):
         """
         Set a list of ID numbers assigned to upstream river segments
+        Requires list or None input
         """
-        self.upstream_segment_IDs = list(upstream_segment_IDs)
+        self.upstream_segment_IDs = upstream_segment_IDs
     
     def set_downstream_segment_IDs(self, downstream_segment_IDs):
         """
         Set a list of ID numbers assigned to downstream river segments
+        Requires list or None input
         """
-        self.downstream_segment_IDs = list(downstream_segment_IDs)
+        self.downstream_segment_IDs = downstream_segment_IDs
 
     #def set_downstream_dx(self, downstream_dx)
     #    """

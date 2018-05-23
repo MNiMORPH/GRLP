@@ -20,7 +20,21 @@ class LongProfile(object):
         self.sinuosity = 1.
         self.intermittency = 0.01
         self.t = 0
+        self.upstream_segment_IDs = None
+        self.downstream_segment_IDs = None
         #self.basic_constants()
+
+    def set_upstream_segment_IDs(self, upstream_segment_IDs):
+        """
+        Set a list of ID numbers assigned to upstream river segments
+        """
+        self.upstream_segment_IDs = list(upstream_segment_IDs)
+    
+    def set_downstream_segment_IDs(self, downstream_segment_IDs):
+        """
+        Set a list of ID numbers assigned to downstream river segments
+        """
+        self.downstream_segment_IDs = list(downstream_segment_IDs)
 
     def basic_constants(self):
         self.lambda_p = 0.35
@@ -304,56 +318,81 @@ class LongProfile(object):
     
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
         """
-        Build and solve the triadiagonla matrix through time, with a given
+        Solve the triadiagonla matrix through time, with a given
         number of time steps (nt) and time-step length (dt)
         """
+        if (self.upstream_segment_IDs is not None) or \
+           (self.downstream_segment_IDs is not None):
+            warnings.warn("Unset boundary conditions for river segment"+
+                          "in network.\n"+
+                          "Local solution on segment will not be sensible.")
         self.dt = dt
         self.nt = nt
-        if self.dx_isscalar:
-            self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
-                      * self.intermittency * self.dt / self.dx**2
-        else:
-            self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
-                      * self.intermittency * self.dt / self.dx_ext_2cell
+        self.build_LHS_coeff_C0()
         for ti in range(int(self.nt)):
             self.zold = self.z.copy()
             self.set_z_bl(self.z_bl + self.U * self.dt)
             for i in range(self.niter):
-                self.compute_coefficient_time_varying()
-                if self.dx_isscalar:
-                    self.left = -self.C1 * ( (7/6.) - self.dQ/self.Q/4. \
-                                + self.dB/self.B/4.)
-                    self.center = self.C1 * 2 * ( (7/6.) ) + 1.
-                    self.right = -self.C1 * ( (7/6.) + self.dQ/self.Q/4. \
-                                 - self.dB/self.B/4. )
-                else:
-                    self.left = -self.C1 * ( (7/3.)/self.dx_ext[:-1]
-                                    - self.dQ/self.Q/self.dx_ext_2cell \
-                                    + self.dB/self.B/self.dx_ext_2cell)
-                    self.center = -self.C1 * ( (7/3.) \
-                                          * (-1/self.dx_ext[:-1] \
-                                             -1/self.dx_ext[1:]) ) \
-                                             + 1.
-                    self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:] # REALLY?
-                                    + self.dQ/self.Q/self.dx_ext_2cell \
-                                    - self.dB/self.B/self.dx_ext_2cell)
-                self.set_bcl_Neumann_LHS()
-                self.set_bcl_Neumann_RHS()
-                self.set_bcr_Dirichlet()
-                self.left = np.roll(self.left, -1)
-                self.right = np.roll(self.right, 1)
-                diagonals = np.vstack((self.left, self.center, self.right))
-                offsets = np.array([-1, 0, 1])
-                LHSmatrix = spdiags(diagonals, offsets, len(self.z), 
-                                    len(self.z), format='csr')
-                RHS = np.hstack((self.bcl+self.z[0], self.z[1:-1], self.bcr+self.z[-1]))
-                self.z_ext[1:-1] = spsolve(LHSmatrix, RHS)
+                self.build_matrices()
+                self.z_ext[1:-1] = spsolve(self.LHSmatrix, self.RHS)
                 print self.bcl
             self.t += self.dt
             self.z = self.z_ext[1:-1].copy()
             self.dz_dt = (self.z - self.zold)/self.dt
             self.Qs_internal = 1/(1-self.lambda_p) * np.cumsum(self.dz_dt)*self.B + self.Q_s_0
             self.update_z_ext_0()
+    
+    def build_LHS_coeff_C0(self):
+        """
+        Build the LHS coefficient for the tridiagonal matrix.
+        This is the "C0" coefficient, which is likely to be constant and 
+        uniform unless there are dynamic changes in width (epsilon_0 in
+        k_Qs), sinuosity, or intermittency, in space and/or through time
+        """
+        if self.dx_isscalar:
+            self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
+                      * self.intermittency * self.dt / self.dx**2
+        else:
+            self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
+                      * self.intermittency * self.dt / self.dx_ext_2cell
+
+    def build_matrices(self):
+        """
+        Build the tridiagonal matrix (LHS) and the RHS matrix for the solution
+        """
+        self.compute_coefficient_time_varying()
+        if self.dx_isscalar:
+            self.left = -self.C1 * ( (7/6.) - self.dQ/self.Q/4. \
+                        + self.dB/self.B/4.)
+            self.center = self.C1 * 2 * ( (7/6.) ) + 1.
+            self.right = -self.C1 * ( (7/6.) + self.dQ/self.Q/4. \
+                         - self.dB/self.B/4. )
+        else:
+            self.left = -self.C1 * ( (7/3.)/self.dx_ext[:-1]
+                            - self.dQ/self.Q/self.dx_ext_2cell \
+                            + self.dB/self.B/self.dx_ext_2cell)
+            self.center = -self.C1 * ( (7/3.) \
+                                  * (-1/self.dx_ext[:-1] \
+                                     -1/self.dx_ext[1:]) ) \
+                                     + 1.
+            self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:] # REALLY?
+                            + self.dQ/self.Q/self.dx_ext_2cell \
+                            - self.dB/self.B/self.dx_ext_2cell)
+        # Apply boundary conditions if the segment is at the edges of the
+        # network (both if there is only one segment!)
+        if self.upstream_segment_IDs is None:
+            self.set_bcl_Neumann_LHS()
+            self.set_bcl_Neumann_RHS()
+        if self.downstream_segment_IDs is None:
+            self.set_bcr_Dirichlet()
+        self.left = np.roll(self.left, -1)
+        self.right = np.roll(self.right, 1)
+        self.diagonals = np.vstack((self.left, self.center, self.right))
+        self.offsets = np.array([-1, 0, 1])
+        self.LHSmatrix = spdiags(self.diagonals, self.offsets, len(self.z), 
+                            len(self.z), format='csr')
+        self.RHS = np.hstack((self.bcl+self.z[0], self.z[1:-1], 
+                              self.bcr+self.z[-1]))
     
     def analytical_threshold_width(self, P_xB=None, P_xQ=None, x0=None, x1=None, 
                                    z0=None, z1=None):

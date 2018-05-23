@@ -273,7 +273,7 @@ class LongProfile(object):
         else:
             self.dzdt_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                              / self.dx_ext_2cell )**(1/6.)
-        self.C1 = self.C0 * self.dzdt_0_16 * self.Q / self.B
+        self.C1 = self.C0 * self.dzdt_0_16 * self.Q / self.B * self.dt
 
     def set_z_bl(self, z_bl):
         """
@@ -375,10 +375,10 @@ class LongProfile(object):
         """
         if self.dx_isscalar:
             self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
-                      * self.intermittency * self.dt / self.dx**2
+                      * self.intermittency / self.dx**2
         else:
             self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
-                      * self.intermittency * self.dt / self.dx_ext_2cell
+                      * self.intermittency / self.dx_ext_2cell
 
     def build_matrices(self):
         """

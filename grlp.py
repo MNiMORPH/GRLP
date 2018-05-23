@@ -1,12 +1,15 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy.sparse import spdiags, identity
+from scipy.sparse import spdiags, identity, block_diag
 from scipy.sparse.linalg import spsolve, isolve
 from scipy.stats import linregress
 import warnings
 import sys
 
 class LongProfile(object):
+    """
+    Gravel-bed river long-profile solution builder and solver
+    """
 
     def __init__(self):
         self.z = None
@@ -22,6 +25,7 @@ class LongProfile(object):
         self.t = 0
         self.upstream_segment_IDs = None
         self.downstream_segment_IDs = None
+        #self.downstream_dx = None # not necessary if x_ext given
         #self.basic_constants()
 
     def set_upstream_segment_IDs(self, upstream_segment_IDs):
@@ -35,6 +39,13 @@ class LongProfile(object):
         Set a list of ID numbers assigned to downstream river segments
         """
         self.downstream_segment_IDs = list(downstream_segment_IDs)
+
+    #def set_downstream_dx(self, downstream_dx)
+    #    """
+    #    Downstream dx, if applicable, for linking together segments in a 
+    #    network. This could be part of x_ext
+    #    """
+    #    self.downstream_dx = downstream_dx
 
     def basic_constants(self):
         self.lambda_p = 0.35
@@ -486,3 +497,29 @@ class LongProfile(object):
             print "k_s = ", self.ks
             print "R2 = ", out.rvalue**2.
         
+class Network(object):
+    """
+    Gravel-bed river long-profile solution builder and solver
+    """
+
+    def __init__(self, list_of_LongProfile_objects):
+        """
+        Instantiate the Network object with a list of Long Profile objects.
+        Other funcitons will iterate over this network and its connectivity
+        to create a full tridiagonal matrix solver.
+        """
+        self.list_of_LongProfile_objects = list_of_LongProfile_objects
+        
+    def build_block_diagonal_matrix_core(self):
+        self.block_start_absolute = []
+        self.block_end_absolute = []
+        self.sparse_matrices = []
+        self.dx_downstream = []
+        
+        #block_diag <-- FUNCTION TO STACK
+        
+    def add_block_diagonal_matrix_upstream_boundary_conditions(self):
+        pass
+        
+    def add_block_diagonal_matrix_downstream_boundary_conditions(self):
+        pass

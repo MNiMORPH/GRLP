@@ -561,20 +561,18 @@ class Network(object):
         
     def add_block_diagonal_matrix_upstream_boundary_conditions(self):
         for lp in self.list_of_LongProfile_objects:
-            if lp.upstream_segment_IDs is not None: # or len(0) in future?
-                for ID in lp.upstream_segment_IDs:
-                    col = self.block_end_absolute[self.IDs == ID][0]
-                    row = self.block_start_absolute[self.IDs == lp.ID][0]
-                    self.LHSblock_matrix[row, col] = lp.left[-1]
+            for ID in lp.upstream_segment_IDs:
+                col = self.block_end_absolute[self.IDs == ID][0]
+                row = self.block_start_absolute[self.IDs == lp.ID][0]
+                self.LHSblock_matrix[row, col] = lp.left[-1]
         
     def add_block_diagonal_matrix_downstream_boundary_conditions(self):
         for lp in self.list_of_LongProfile_objects:
-            if lp.downstream_segment_IDs is not None: # or len(0) in future?
-                for ID in lp.downstream_segment_IDs:
-                    #print downseg_ID
-                    col = self.block_start_absolute[self.IDs == ID][0]
-                    row = self.block_end_absolute[self.IDs == lp.ID][0]
-                    self.LHSblock_matrix[row, col] = lp.right[0]
+            for ID in lp.downstream_segment_IDs:
+                #print downseg_ID
+                col = self.block_start_absolute[self.IDs == ID][0]
+                row = self.block_end_absolute[self.IDs == lp.ID][0]
+                self.LHSblock_matrix[row, col] = lp.right[0]
 
     """
     def get_z_all(self):
@@ -604,17 +602,30 @@ class Network(object):
     def update_zext(self):
         # Should just do this less ad-hoc
         for lp in self.list_of_LongProfile_objects:
-            if lp.downstream_segment_IDs is not None: # or len(0) in future?
+            for ID in lp.downstream_segment_IDs:
+                lp_downstream = np.array(self.list_of_LongProfile_objects) \
+                                [self.IDs == ID][0]
+                lp.z_ext[-1] = lp_downstream.z_ext[1]
+            # To make sure that we aren't involving these on accident
+            """
+            else:
                 for ID in lp.downstream_segment_IDs:
                     lp_downstream = np.array(self.list_of_LongProfile_objects) \
                                     [self.IDs == ID][0]
-                    lp.z_ext[-1] = lp_downstream.z_ext[1]
-                    
-            if lp.upstream_segment_IDs is not None: # or len(0) in future?
+                    lp.z_ext[-1] = np.nan
+            """
+            for ID in lp.upstream_segment_IDs:
+                lp_upstream = np.array(self.list_of_LongProfile_objects) \
+                                [self.IDs == ID][0]
+                lp.z_ext[0] = lp_upstream.z_ext[-1]
+            # To make sure that we aren't involving these on accident
+            """
+            else:
                 for ID in lp.upstream_segment_IDs:
                     lp_upstream = np.array(self.list_of_LongProfile_objects) \
-                                    [self.IDs == ID][0]
-                    lp.z_ext[0] = lp_upstream.z_ext[-1]
+                                    [self.IDs == ID]
+                    lp.z_ext[0] = np.nan
+            """
             print lp.z_ext
 
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):

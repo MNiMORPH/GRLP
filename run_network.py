@@ -11,18 +11,27 @@ S0 = 0.015
 P_xB = 0.2
 z1 = 0
 
-dt = 3.15E8
+dt = 3.15E18
 
-nseg = 5
+nseg = 1
 
 segments = []
 for i in range(nseg):
     segments.append(grlp.LongProfile())
 
 # This should be built from network in the future
-Qlist = [10., 15., 25., 20., 45.]
-upstream_segment_list = [[], [], [0,1], [], [2,3]]
-downstream_segment_list = [[2], [2], [4], [4], []]
+#Qlist = [10., 15., 25., 20., 45.]
+#upstream_segment_list = [[], [], [0,1], [], [2,3]]
+#downstream_segment_list = [[2], [2], [4], [4], []]
+
+Qlist = [10., 10.]
+upstream_segment_list = [[], [0]]
+downstream_segment_list = [[1], []]
+
+Qlist = [10.]
+upstream_segment_list = [[]]
+downstream_segment_list = [[]]
+
 
 i = 0
 for lp in segments:
@@ -37,9 +46,9 @@ for lp in segments:
     dx=500.
     nx=6
     x0=0
-    x = np.arange(x0, x0+dx*nx, dx)
-    x[-3] += 1E-6
-    x_ext = np.hstack((x[0]-dx, x, x[-1]+dx))
+    _x = np.arange(x0, x0+dx*nx, dx)
+    _x[-3] += 1E-6
+    x_ext = np.hstack((_x[0]-dx, _x, _x[-1]+dx))
     lp.set_x(x_ext=x_ext)
     lp.set_z(S0=-S0, z1=z1)
     lp.set_niter()
@@ -47,7 +56,7 @@ for lp in segments:
     lp.set_Q(Qlist[i])
     lp.set_B(100.)
     # START HERE
-    if upstream_segment_list[i] is None:
+    if len(upstream_segment_list[i]) == 0:
         Qs0 = lp.k_Qs * lp.Q[0] * S0**(7/6.)
         lp.set_Qs_input_upstream(Qs0)
     i += 1
@@ -62,33 +71,44 @@ for lp in segments:
 #segments[2].set_z_bl(segments[4].z[0])
 #segments[1].set_z_bl(segments[2].z[0])
 #segments[0].set_z_bl(segments[2].z[0])
-segments[3].z += segments[4].z_ext[0]
-segments[3].z_ext += segments[4].z_ext[0]
-segments[2].z += segments[4].z_ext[0]
-segments[2].z_ext += segments[4].z_ext[0]
-segments[1].z += segments[2].z_ext[0]
-segments[1].z_ext += segments[2].z_ext[0]
-segments[0].z += segments[2].z_ext[0]
-segments[0].z_ext += segments[2].z_ext[0]
+"""
+segments[3].z += segments[4].z[0]
+segments[3].z_ext += segments[4].z[0]
+segments[2].z += segments[4].z[0]
+segments[2].z_ext += segments[4].z[0]
+segments[1].z += segments[2].z[0]
+segments[1].z_ext += segments[2].z[0]
+segments[0].z += segments[2].z[0]
+segments[0].z_ext += segments[2].z[0]
 
 #segments[4].x += segments[4].x_ext[0] - segments[4].x[-1]
 #segments[4].x_ext += segments[4].x[0] - segments[4].x[-1]
 x0 = segments[3].x_ext[-1]
-segments[3].x += segments[4].x_ext[0] - x0
-segments[3].x_ext += segments[4].x[0] - x0
+segments[3].x += segments[4].x_ext[0] - x0 + dx
+segments[3].x_ext += segments[4].x[0] - x0 + dx
 x0 = segments[2].x_ext[-1]
-segments[2].x += segments[4].x_ext[0] - x0
-segments[2].x_ext += segments[4].x[0] - x0
+segments[2].x += segments[4].x_ext[0] - x0 + dx
+segments[2].x_ext += segments[4].x[0] - x0 + dx
 x0 = segments[1].x_ext[-1]
-segments[1].x += segments[2].x_ext[0] - x0 + dx
-segments[1].x_ext += segments[2].x[0] - x0 + dx
+segments[1].x += segments[2].x_ext[0] - x0 + 2*dx
+segments[1].x_ext += segments[2].x[0] - x0 + 2*dx
 x0 = segments[0].x_ext[-1]
-segments[0].x += segments[2].x_ext[0] - x0 + dx
-segments[0].x_ext += segments[2].x[0] - x0 + dx
+segments[0].x += segments[2].x_ext[0] - x0 + 2*dx
+segments[0].x_ext += segments[2].x[0] - x0 + 2*dx
+"""
+
+"""
+segments[0].z += segments[1].z_ext[0]
+segments[0].z_ext += segments[1].z_ext[0]
+
+x0 = segments[0].x[-1]
+segments[0].x += segments[1].x_ext[0] - x0
+segments[0].x_ext += segments[1].x_ext[0] - x0
+"""
 
 i = 0
 for lp in segments:
-    if downstream_segment_list[i] is None:
+    if len(downstream_segment_list[i]) == 0:
         lp.set_z_bl(lp.z_ext[-1])
     i += 1
 
@@ -111,7 +131,7 @@ net.evolve_threshold_width_river_network(dt=dt)
 
 plt.figure()
 for lp in segments:
-    plt.plot(lp.x_ext, lp.z_ext, linewidth=4, alpha=.5)
+    plt.plot(lp.x_ext, lp.z_ext, '--', linewidth=4, alpha=.5)
 
 
 

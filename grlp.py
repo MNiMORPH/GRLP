@@ -119,6 +119,7 @@ class LongProfile(object):
             self.x = x_ext[1:-1]
             diff = np.diff(self.x_ext)
             dx_mean = np.mean(diff)
+            print (diff == dx_mean).all()
             if (diff == dx_mean).all():
                 self.dx_ext = dx_mean
                 self.dx_isscalar = True
@@ -345,7 +346,7 @@ class LongProfile(object):
     
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
         """
-        Solve the triadiagonla matrix through time, with a given
+        Solve the triadiagonal matrix through time, with a given
         number of time steps (nt) and time-step length (dt)
         """
         if (self.upstream_segment_IDs is not None) or \
@@ -408,12 +409,13 @@ class LongProfile(object):
                             - self.dB/self.B/self.dx_ext_2cell)
         # Apply boundary conditions if the segment is at the edges of the
         # network (both if there is only one segment!)
-        if self.upstream_segment_IDs is None:
+        if len(self.upstream_segment_IDs) == 0:
+            print self.dx_ext_2cell
             self.set_bcl_Neumann_LHS()
             self.set_bcl_Neumann_RHS()
         else:
             self.bcl = 0. # no b.c.-related changes
-        if self.downstream_segment_IDs is None:
+        if len(self.downstream_segment_IDs) == 0:
             self.set_bcr_Dirichlet()
         else:
             self.bcr = 0. # no b.c.-related changes
@@ -607,25 +609,21 @@ class Network(object):
                                 [self.IDs == ID][0]
                 lp.z_ext[-1] = lp_downstream.z_ext[1]
             # To make sure that we aren't involving these on accident
-            """
             else:
                 for ID in lp.downstream_segment_IDs:
                     lp_downstream = np.array(self.list_of_LongProfile_objects) \
                                     [self.IDs == ID][0]
                     lp.z_ext[-1] = np.nan
-            """
             for ID in lp.upstream_segment_IDs:
                 lp_upstream = np.array(self.list_of_LongProfile_objects) \
                                 [self.IDs == ID][0]
                 lp.z_ext[0] = lp_upstream.z_ext[-1]
             # To make sure that we aren't involving these on accident
-            """
             else:
                 for ID in lp.upstream_segment_IDs:
                     lp_upstream = np.array(self.list_of_LongProfile_objects) \
                                     [self.IDs == ID]
                     lp.z_ext[0] = np.nan
-            """
             print lp.z_ext
 
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
@@ -647,7 +645,16 @@ class Network(object):
                 lp.build_matrices()
             self.build_block_diagonal_matrix_core()
             self.add_block_diagonal_matrix_upstream_boundary_conditions()
-            #self.add_block_diagonal_matrix_downstream_boundary_conditions()
+            self.add_block_diagonal_matrix_downstream_boundary_conditions()
+            # b.c. for no links
+            """
+            for lp in self.list_of_LongProfile_objects:
+                if len(lp.upstream_segment_IDs) == 0:
+                    lp.set_bcl_Neumann_LHS()
+                    lp.set_bcl_Neumann_RHS()
+                if len(lp.downstream_segment_IDs) == 0:
+                    lp.set_bcr_Dirichlet()
+            """
             self.stack_RHS_vector()
 
             for i in range(self.niter):

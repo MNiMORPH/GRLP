@@ -156,7 +156,7 @@ class LongProfile(object):
         elif self.x.any() and self.x_ext.any() and (S0 is not None):
             self.z = self.x * S0 + (z1 - self.x[-1] * S0)
             self.z_ext = self.x_ext * S0 + (z1 - self.x[-1] * S0)
-            print self.z_ext
+            #print self.z_ext
         else:
             sys.exit("Error defining variable")
         #self.dz = self.z_ext[2:] - self.z_ext[:-2] # dz over 2*dx!
@@ -198,6 +198,8 @@ class LongProfile(object):
             else:
                 # Assuming "x" is known already
                 self.Q = Q * np.ones(self.x.shape)
+            # Have to be able to pass Q_ext, created with adjacencies
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             Q_ext = np.hstack((2*self.Q[0]-self.Q[1], self.Q, 2*self.Q[-1]-self.Q[-2]))
         elif Q_ext is not None:
             self.Q = Q_ext[1:-1]
@@ -362,7 +364,7 @@ class LongProfile(object):
             for i in range(self.niter):
                 self.build_matrices()
                 self.z_ext[1:-1] = spsolve(self.LHSmatrix, self.RHS)
-                print self.bcl
+                #print self.bcl
             self.t += self.dt
             self.z = self.z_ext[1:-1].copy()
             self.dz_dt = (self.z - self.zold)/self.dt
@@ -410,7 +412,7 @@ class LongProfile(object):
         # Apply boundary conditions if the segment is at the edges of the
         # network (both if there is only one segment!)
         if len(self.upstream_segment_IDs) == 0:
-            print self.dx_ext_2cell
+            #print self.dx_ext_2cell
             self.set_bcl_Neumann_LHS()
             self.set_bcl_Neumann_RHS()
         else:
@@ -609,22 +611,26 @@ class Network(object):
                                 [self.IDs == ID][0]
                 lp.z_ext[-1] = lp_downstream.z_ext[1]
             # To make sure that we aren't involving these on accident
+            """
             else:
                 for ID in lp.downstream_segment_IDs:
                     lp_downstream = np.array(self.list_of_LongProfile_objects) \
                                     [self.IDs == ID][0]
                     lp.z_ext[-1] = np.nan
+            """
             for ID in lp.upstream_segment_IDs:
                 lp_upstream = np.array(self.list_of_LongProfile_objects) \
                                 [self.IDs == ID][0]
-                lp.z_ext[0] = lp_upstream.z_ext[-1]
+                lp.z_ext[0] = lp_upstream.z_ext[-2]
             # To make sure that we aren't involving these on accident
+            """
             else:
                 for ID in lp.upstream_segment_IDs:
                     lp_upstream = np.array(self.list_of_LongProfile_objects) \
                                     [self.IDs == ID]
                     lp.z_ext[0] = np.nan
-            print lp.z_ext
+            """
+            #print lp.z_ext
 
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
         """

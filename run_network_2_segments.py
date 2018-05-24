@@ -19,7 +19,7 @@ segments = []
 for i in range(nseg):
     segments.append(grlp.LongProfile())
 
-Qlist = [10., 100.]
+Qlist = [100., 100.]
 upstream_segment_list = [[], [0]]
 downstream_segment_list = [[1], []]
 
@@ -47,24 +47,28 @@ for lp in segments:
     lp.set_B(100.)
     # START HERE
     if len(upstream_segment_list[i]) == 0:
-        Qs0 = lp.k_Qs * lp.Q[0] * (1.5*S0)**(7/6.)
+        Qs0 = lp.k_Qs * lp.Q[0] * (5*S0)**(7/6.)
         lp.set_Qs_input_upstream(Qs0)
     i += 1
     lp.set_uplift_rate(0)
     
 
-segments[0].z += segments[1].z_ext[0]
-segments[0].z_ext += segments[1].z_ext[0]
+segments[0].z += segments[1].z_ext[0] - 7.5 # BAND-AID
+segments[0].z_ext += segments[1].z_ext[0] - 7.5 # BAND-AID
 
 x0 = segments[0].x[-1]
 segments[0].x += segments[1].x_ext[0] - x0
 segments[0].x_ext += segments[1].x_ext[0] - x0
+
+#segments[1].Q[0] = 10.
 
 i = 0
 for lp in segments:
     if len(downstream_segment_list[i]) == 0:
         lp.set_z_bl(lp.z_ext[-1])
     i += 1
+
+lp.dQ[0] = Qlist[1] - Qlist[0] # BAND-AID!
 
 i = 0
 for lp in segments:
@@ -81,4 +85,6 @@ plt.figure()
 for lp in segments:
     plt.plot(lp.x_ext, lp.z_ext, '--', linewidth=4, alpha=.5)
 
-
+for lp in segments:
+    lp.compute_Q_s()
+    print lp.Q_s

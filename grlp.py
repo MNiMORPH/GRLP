@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.sparse import spdiags, identity, block_diag
+from scipy import sparse
 from scipy.sparse.linalg import spsolve, isolve
 from scipy.stats import linregress
 import warnings
@@ -17,6 +18,7 @@ class LongProfile(object):
         self.A = None
         self.Q = None
         self.B = None
+        self.S0 = None # S0 for Q_s_0 where there is a defined boundary input
         self.dx_ext = None
         self.dx_2cell = None
         self.Q_s_0 = None
@@ -144,15 +146,16 @@ class LongProfile(object):
         S0 = initial slope (negative for flow from left to right)
         z1 = elevation value at RHS
         """
-        if z:
+        if z is not None:
             self.z = z
             self.z_ext = np.hstack((2*z[0]-z[1], z, 2*z[-1]-z[-2]))
-        elif z_ext:
+        elif z_ext is not None:
             self.z_ext = z_ext
             self.z = z_ext[1:-1]
-        elif self.x.any() and self.x_ext.any() and S0:
+        elif self.x.any() and self.x_ext.any() and (S0 is not None):
             self.z = self.x * S0 + (z1 - self.x[-1] * S0)
-            self.z_ext = self.x_ext * S0 + (z1 - self.x_ext[-1] * S0)
+            self.z_ext = self.x_ext * S0 + (z1 - self.x[-1] * S0)
+            print self.z_ext
         else:
             sys.exit("Error defining variable")
         #self.dz = self.z_ext[2:] - self.z_ext[:-2] # dz over 2*dx!
@@ -266,14 +269,15 @@ class LongProfile(object):
             self.z_ext[0] = self.z[0] - self.S0 * self.dx_ext[0]
 
     def compute_coefficient_time_varying(self):
-        self.update_z_ext_0()
+        if self.S0 is not None:
+            self.update_z_ext_0()
         if self.dx_isscalar:
             self.dzdt_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                              / (2*self.dx) )**(1/6.)
         else:
             self.dzdt_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                              / self.dx_ext_2cell )**(1/6.)
-        self.C1 = self.C0 * self.dzdt_0_16 * self.Q / self.B * self.dt
+        self.C1 = self.C0 * self.dzdt_0_16 * self.Q / self.B
 
     def set_z_bl(self, z_bl):
         """
@@ -336,7 +340,6 @@ class LongProfile(object):
         if self.dx_isscalar:
             self.right[0] = -2 * self.C1[0] * 7/6.
         else:
-            pass
             self.right[0] = -self.C1[0] * 7/3. \
                              * (1/self.dx_ext[0] + 1/self.dx_ext[1])
     
@@ -350,9 +353,8 @@ class LongProfile(object):
             warnings.warn("Unset boundary conditions for river segment"+
                           "in network.\n"+
                           "Local solution on segment will not be sensible.")
-        self.dt = dt
         self.nt = nt
-        self.build_LHS_coeff_C0()
+        self.build_LHS_coeff_C0(dt)
         for ti in range(int(self.nt)):
             self.zold = self.z.copy()
             self.set_z_bl(self.z_bl + self.U * self.dt)
@@ -364,21 +366,23 @@ class LongProfile(object):
             self.z = self.z_ext[1:-1].copy()
             self.dz_dt = (self.z - self.zold)/self.dt
             self.Qs_internal = 1/(1-self.lambda_p) * np.cumsum(self.dz_dt)*self.B + self.Q_s_0
-            self.update_z_ext_0()
+            if self.S0 is not None:
+                self.update_z_ext_0()
     
-    def build_LHS_coeff_C0(self):
+    def build_LHS_coeff_C0(self, dt=3.15E7):
         """
         Build the LHS coefficient for the tridiagonal matrix.
         This is the "C0" coefficient, which is likely to be constant and 
         uniform unless there are dynamic changes in width (epsilon_0 in
         k_Qs), sinuosity, or intermittency, in space and/or through time
         """
+        self.dt = dt # Needed to build C0, C1
         if self.dx_isscalar:
             self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
-                      * self.intermittency / self.dx**2
+                      * self.intermittency * self.dt / self.dx**2
         else:
             self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
-                      * self.intermittency / self.dx_ext_2cell
+                      * self.intermittency * self.dt / self.dx_ext_2cell
 
     def build_matrices(self):
         """
@@ -407,8 +411,12 @@ class LongProfile(object):
         if self.upstream_segment_IDs is None:
             self.set_bcl_Neumann_LHS()
             self.set_bcl_Neumann_RHS()
+        else:
+            self.bcl = 0. # no b.c.-related changes
         if self.downstream_segment_IDs is None:
             self.set_bcr_Dirichlet()
+        else:
+            self.bcr = 0. # no b.c.-related changes
         self.left = np.roll(self.left, -1)
         self.right = np.roll(self.right, 1)
         self.diagonals = np.vstack((self.left, self.center, self.right))
@@ -522,17 +530,135 @@ class Network(object):
         to create a full tridiagonal matrix solver.
         """
         self.list_of_LongProfile_objects = list_of_LongProfile_objects
+        self.t = 0
         
     def build_block_diagonal_matrix_core(self):
         self.block_start_absolute = []
         self.block_end_absolute = []
         self.sparse_matrices = []
-        self.dx_downstream = []
-        
-        #block_diag <-- FUNCTION TO STACK
+        self.IDs = []
+        #self.dx_downstream = [] # Should be in input, at least for now
+        for lp in self.list_of_LongProfile_objects:
+            # IDs
+            self.IDs.append(lp.ID)
+            # Absolute start and end list
+            if len(self.block_start_absolute) > 0:
+                self.block_start_absolute.append \
+                     (self.block_end_absolute[-1])
+            else:
+                self.block_start_absolute.append(0)
+            if len(self.block_end_absolute) > 0:
+                self.block_end_absolute.append \
+                     (self.block_end_absolute[-1] + lp.LHSmatrix.shape[0])
+            else:
+                self.block_end_absolute.append(lp.LHSmatrix.shape[0])
+            # n-diagonal matrices
+            self.sparse_matrices.append(lp.LHSmatrix)
+        self.LHSblock_matrix = sparse.lil_matrix(block_diag(self.sparse_matrices))
+        self.IDs = np.array(self.IDs)
+        self.block_start_absolute = np.array(self.block_start_absolute)
+        self.block_end_absolute = np.array(self.block_end_absolute) - 1
         
     def add_block_diagonal_matrix_upstream_boundary_conditions(self):
-        pass
+        for lp in self.list_of_LongProfile_objects:
+            if lp.upstream_segment_IDs is not None: # or len(0) in future?
+                for ID in lp.upstream_segment_IDs:
+                    col = self.block_end_absolute[self.IDs == ID][0]
+                    row = self.block_start_absolute[self.IDs == lp.ID][0]
+                    self.LHSblock_matrix[row, col] = lp.left[-1]
         
     def add_block_diagonal_matrix_downstream_boundary_conditions(self):
-        pass
+        for lp in self.list_of_LongProfile_objects:
+            if lp.downstream_segment_IDs is not None: # or len(0) in future?
+                for ID in lp.downstream_segment_IDs:
+                    #print downseg_ID
+                    col = self.block_start_absolute[self.IDs == ID][0]
+                    row = self.block_end_absolute[self.IDs == lp.ID][0]
+                    self.LHSblock_matrix[row, col] = lp.right[0]
+
+    """
+    def get_z_all(self):
+        self.zold = []
+        self.list_of_segment_lengths = []
+        for lp in self.list_of_LongProfile_objects:
+            self.zold.append(lp.z.copy())
+            self.list_of_segment_lengths.append(len(lp.z))
+        #self.zold = np.array(self.zold)
+    """
+
+    def get_z_lengths(self):
+        self.list_of_segment_lengths = []
+        for lp in self.list_of_LongProfile_objects:
+            self.list_of_segment_lengths.append(len(lp.z))
+
+    def stack_RHS_vector(self):
+        self.RHS = []
+        for lp in self.list_of_LongProfile_objects:
+            self.RHS += list(lp.RHS)
+        self.RHS = np.array(self.RHS)
+
+    def set_niter(self, niter=3):
+        # MAKE UNIFORM IN BASE CLASS
+        self.niter = niter
+
+    def update_zext(self):
+        # Should just do this less ad-hoc
+        for lp in self.list_of_LongProfile_objects:
+            if lp.downstream_segment_IDs is not None: # or len(0) in future?
+                for ID in lp.downstream_segment_IDs:
+                    lp_downstream = np.array(self.list_of_LongProfile_objects) \
+                                    [self.IDs == ID][0]
+                    lp.z_ext[-1] = lp_downstream.z_ext[1]
+                    
+            if lp.upstream_segment_IDs is not None: # or len(0) in future?
+                for ID in lp.upstream_segment_IDs:
+                    lp_upstream = np.array(self.list_of_LongProfile_objects) \
+                                    [self.IDs == ID][0]
+                    lp.z_ext[0] = lp_upstream.z_ext[-1]
+            print lp.z_ext
+
+    def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
+        """
+        Solve the triadiagonla matrix through time, with a given
+        number of time steps (nt) and time-step length (dt)
+        """
+        # self.dt is decided earlier
+        self.nt = nt
+        self.dt = dt
+        for ti in range(int(self.nt)):
+            #print lp.z
+            for lp in self.list_of_LongProfile_objects:
+                lp.zold = lp.z.copy()
+            #self.set_z_bl(self.z_bl + self.U * self.dt)
+            # Update all dt for all segments' C0 values
+            for lp in self.list_of_LongProfile_objects:
+                lp.build_LHS_coeff_C0(dt=self.dt)
+                lp.build_matrices()
+            self.build_block_diagonal_matrix_core()
+            self.add_block_diagonal_matrix_upstream_boundary_conditions()
+            #self.add_block_diagonal_matrix_downstream_boundary_conditions()
+            self.stack_RHS_vector()
+
+            for i in range(self.niter):
+                self.update_zext()
+                for lp in self.list_of_LongProfile_objects:
+                    lp.build_matrices()
+                out = spsolve(self.LHSblock_matrix, self.RHS)
+                i = 0
+                idx = 0
+                for lp in self.list_of_LongProfile_objects:
+                    lp.z_ext[1:-1] = out[idx:idx+self.list_of_segment_lengths[i]]
+                    idx += +self.list_of_segment_lengths[i]
+                    i += 1
+            self.update_zext()
+            self.t += self.dt # Update each lp z? Should make a global class
+                              # that these both inherit from
+            i = 0
+            idx = 0
+            for lp in self.list_of_LongProfile_objects:
+                lp.z = lp.z_ext[1:-1].copy()
+                lp.dz_dt = (lp.z - lp.zold)/self.dt
+                #lp.Qs_internal = 1/(1-lp.lambda_p) * np.cumsum(lp.dz_dt)*lp.B + lp.Q_s_0
+                if lp.S0 is not None:
+                    lp.update_z_ext_0()
+    

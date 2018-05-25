@@ -25,8 +25,8 @@ class LongProfile(object):
         self.sinuosity = 1.
         self.intermittency = 0.01
         self.t = 0
-        self.upstream_segment_IDs = None
-        self.downstream_segment_IDs = None
+        self.upstream_segment_IDs = []
+        self.downstream_segment_IDs = []
         self.ID = None
         #self.downstream_dx = None # not necessary if x_ext given
         #self.basic_constants()
@@ -351,8 +351,8 @@ class LongProfile(object):
         Solve the triadiagonal matrix through time, with a given
         number of time steps (nt) and time-step length (dt)
         """
-        if (self.upstream_segment_IDs is not None) or \
-           (self.downstream_segment_IDs is not None):
+        if (len(self.upstream_segment_IDs) > 0) or \
+           (len(self.downstream_segment_IDs) > 0):
             warnings.warn("Unset boundary conditions for river segment"+
                           "in network.\n"+
                           "Local solution on segment will not be sensible.")

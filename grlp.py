@@ -536,15 +536,19 @@ class Network(object):
         self.list_of_LongProfile_objects = list_of_LongProfile_objects
         self.t = 0
         
+    def build_ID_list(self):
+        self.IDs = []
+        for lp in self.list_of_LongProfile_objects:
+            # IDs
+            self.IDs.append(lp.ID)
+        self.IDs = np.array(self.IDs)
+        
     def build_block_diagonal_matrix_core(self):
         self.block_start_absolute = []
         self.block_end_absolute = []
         self.sparse_matrices = []
-        self.IDs = []
         #self.dx_downstream = [] # Should be in input, at least for now
         for lp in self.list_of_LongProfile_objects:
-            # IDs
-            self.IDs.append(lp.ID)
             # Absolute start and end list
             if len(self.block_start_absolute) > 0:
                 self.block_start_absolute.append \
@@ -559,7 +563,6 @@ class Network(object):
             # n-diagonal matrices
             self.sparse_matrices.append(lp.LHSmatrix)
         self.LHSblock_matrix = sparse.lil_matrix(block_diag(self.sparse_matrices))
-        self.IDs = np.array(self.IDs)
         self.block_start_absolute = np.array(self.block_start_absolute)
         self.block_end_absolute = np.array(self.block_end_absolute) - 1
         
@@ -686,3 +689,16 @@ class Network(object):
                 if lp.S0 is not None:
                     lp.update_z_ext_0()
     
+    def set_dQ(self):
+        """
+        Set dQ as the sum of inputs to a river segment
+        """
+        for lp in self.list_of_LongProfile_objects:
+            upstream_Q = 0
+            for upstream_ID in lp.upstream_segment_IDs:
+                upseg = np.array(self.list_of_LongProfile_objects)[self.IDs == upstream_ID][0]
+                upstream_Q += upseg.Q[-1]
+            if len(lp.upstream_segment_IDs) > 0:
+                lp.dQ[0] = lp.Q[0] - upstream_Q # dQ over 2*dx!
+            print lp.upstream_segment_IDs
+        

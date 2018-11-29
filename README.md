@@ -1,7 +1,7 @@
 # gravel-river-long-profile
 Long-profile evolution of gravel-bed rivers
 
-Use `run_grlp.py` to run `grlp.py`. Just like the name says!
+`grlp.py` is module that contains the equations and solvers. `run_grlp.py` interfaces with these to, well, run a model based off of `grlp.py`. Comments inside `run_grlp.py` should help you learn how to write your own models. Please contact Andy Wickert for questions or assistance.
 
 
 When you use **grlp**, please cite:

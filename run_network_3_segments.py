@@ -11,17 +11,17 @@ S0 = 0.015
 P_xB = 0.2
 z1 = 0+7.5 # Interesting -- my RHS always has to be 0 (not quite right)
 
-dt = 3.15E20
+dt = 3.15E0
 
-nseg = 2
+nseg = 3
 
 segments = []
 for i in range(nseg):
     segments.append(grlp.LongProfile())
 
-Qlist = [10., 100.]
-upstream_segment_list = [[], [0]]
-downstream_segment_list = [[1], []]
+Qlist = [10., 10., 20.]
+upstream_segment_list = [[], [], [0]]
+downstream_segment_list = [[2], [], []]
 
 i = 0
 for lp in segments:
@@ -47,18 +47,23 @@ for lp in segments:
     lp.set_B(100.)
     # START HERE
     if len(upstream_segment_list[i]) == 0:
-        Qs0 = lp.k_Qs * lp.Q[0] * (5*S0)**(7/6.)
+        Qs0 = lp.k_Qs * lp.Q[0] * (1*S0)**(7/6.)
         lp.set_Qs_input_upstream(Qs0)
     i += 1
     lp.set_uplift_rate(0)
     
 
-segments[0].z += segments[1].z_ext[0] - 7.5 # BAND-AID
-segments[0].z_ext += segments[1].z_ext[0] - 7.5 # BAND-AID
+segments[0].z += segments[-1].z_ext[0] - 7.5 # BAND-AID
+segments[0].z_ext += segments[-1].z_ext[0] - 7.5 # BAND-AID
+segments[1].z += segments[-1].z_ext[0] - 7.5 # BAND-AID
+segments[1].z_ext += segments[-1].z_ext[0] - 7.5 # BAND-AID
 
 x0 = segments[0].x[-1]
-segments[0].x += segments[1].x_ext[0] - x0
-segments[0].x_ext += segments[1].x_ext[0] - x0
+segments[0].x += segments[-1].x_ext[0] - x0
+segments[0].x_ext += segments[-1].x_ext[0] - x0
+x0 = segments[1].x[-1]
+segments[1].x += segments[-1].x_ext[0] - x0
+segments[1].x_ext += segments[-1].x_ext[0] - x0
 
 #segments[1].Q[0] = 10.
 
@@ -68,7 +73,8 @@ for lp in segments:
         lp.set_z_bl(lp.z_ext[-1])
     i += 1
 
-#segments[0].dQ[-1] = 90.
+#segments[0].dQ[-1] = 10
+#segments[1].dQ[-1] = 10
 #lp.dQ[0] = Qlist[1] - Qlist[0] # BAND-AID!
 # DOWNSTREAM DQ?
 
@@ -83,7 +89,7 @@ net.get_z_lengths()
 net.set_niter()
 net.build_ID_list()
 net.set_dQ()
-net.evolve_threshold_width_river_network(nt=1, dt=dt)
+net.evolve_threshold_width_river_network(nt=10, dt=dt)
 
 plt.figure()
 for lp in segments:

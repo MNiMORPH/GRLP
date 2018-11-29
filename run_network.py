@@ -11,9 +11,9 @@ S0 = 0.015
 P_xB = 0.2
 z1 = 0+7.5 # Interesting -- my RHS always has to be 0 (not quite right)
 
-dt = 3.15E22
+dt = 3.15E10
 
-nseg = 1
+nseg = 2
 
 segments = []
 for i in range(nseg):
@@ -24,13 +24,13 @@ for i in range(nseg):
 #upstream_segment_list = [[], [], [0,1], [], [2,3]]
 #downstream_segment_list = [[2], [2], [4], [4], []]
 
-Qlist = [10., 10.]
+Qlist = [10., 100.]
 upstream_segment_list = [[], [0]]
 downstream_segment_list = [[1], []]
 
-Qlist = [10.]
-upstream_segment_list = [[]]
-downstream_segment_list = [[]]
+#Qlist = [10.]
+#upstream_segment_list = [[]]
+#downstream_segment_list = [[]]
 
 
 i = 0
@@ -57,7 +57,7 @@ for lp in segments:
     lp.set_B(100.)
     # START HERE
     if len(upstream_segment_list[i]) == 0:
-        Qs0 = lp.k_Qs * lp.Q[0] * S0**(7/6.)
+        Qs0 = lp.k_Qs * lp.Q[0] * (1.5*S0)**(7/6.)
         lp.set_Qs_input_upstream(Qs0)
     i += 1
     lp.set_uplift_rate(0)
@@ -97,14 +97,12 @@ segments[0].x += segments[2].x_ext[0] - x0 + 2*dx
 segments[0].x_ext += segments[2].x[0] - x0 + 2*dx
 """
 
-"""
 segments[0].z += segments[1].z_ext[0]
 segments[0].z_ext += segments[1].z_ext[0]
 
 x0 = segments[0].x[-1]
 segments[0].x += segments[1].x_ext[0] - x0
 segments[0].x_ext += segments[1].x_ext[0] - x0
-"""
 
 i = 0
 for lp in segments:

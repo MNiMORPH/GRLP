@@ -16,21 +16,20 @@ from matplotlib import pyplot as plt
 import grlp
 reload(grlp)
 
+# Instantiate the long profile object
+lp = grlp.LongProfile()
+# Uncomment this so you can refer to lp as "self" for debugging in the 
+# grlp module (e.g., while modifying it)
+# self = lp
+
 # Uncomment this if you want to enable interactive plotting
 # plt.ion()
 
 # S0 is the upstream-end slope that determines the sediment input to the 
 # catchment
 S0 = 1E-2
-# Valley width: B = k_xB * x**P_xB 
+# Valley width: B = k_xB * x**P_xB (k_xB defined below)
 P_xB = 0.8
-k_xB = 10./np.max(lp.x**P_xB)
-
-# Instantiate the long profile object
-lp = grlp.LongProfile()
-# Uncomment this so you can refer to lp as "self" for debugging in the 
-# grlp module (e.g., while modifying it)
-# self = lp
 
 # Intermittency: What fraction of the total time is the river experiencing a
 # geomorphically-effective flood? This assumes a binary on--off state, common 
@@ -53,6 +52,7 @@ lp.set_z(S0=-S0)
 # available for each of these functions.
 lp.set_A(k_xA=1.)
 lp.set_Q(q_R=0.01, A_R=1E5)
+k_xB = 10./np.max(lp.x**P_xB)
 lp.set_B(k_xB=k_xB, P_xB=P_xB)
 
 # Set the uplift rate [m/s]; positive upwards

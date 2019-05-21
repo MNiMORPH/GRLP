@@ -119,7 +119,7 @@ class LongProfile(object):
             self.x = x_ext[1:-1]
             diff = np.diff(self.x_ext)
             dx_mean = np.mean(diff)
-            print (diff == dx_mean).all()
+            print((diff == dx_mean).all())
             if (diff == dx_mean).all():
                 self.dx_ext = dx_mean
                 self.dx_isscalar = True
@@ -483,7 +483,7 @@ class LongProfile(object):
             * abs(self.k_a * self.P_a)**(1/6.) \
             * self.k_xQ / self.k_xB
         P = self.P_xQ - self.P_xB + (self.P_xB - 1.)/6.
-        print P
+        print(P)
         # Constants of integration
         #c1 = self.U * (x0**(P+2) - x1**(P+2)) / (K*(P-2)*(self.P_a + P - 2) \
         #     + (x1**self.P_a - x0**self.P_a) / self.P_a
@@ -518,9 +518,9 @@ class LongProfile(object):
         self.ks = 10.**out.intercept
         self.thetaR2 = out.rvalue**2.
         if verbose:
-            print "Concavity = ", self.theta
-            print "k_s = ", self.ks
-            print "R2 = ", out.rvalue**2.
+            print("Concavity = ", self.theta)
+            print("k_s = ", self.ks)
+            print("R2 = ", out.rvalue**2.)
         
 class Network(object):
     """
@@ -700,5 +700,5 @@ class Network(object):
                 upstream_Q += upseg.Q[-1]
             if len(lp.upstream_segment_IDs) > 0:
                 lp.dQ[0] = lp.Q[0] - upstream_Q # dQ over 2*dx!
-            print lp.upstream_segment_IDs
+            print(lp.upstream_segment_IDs)
         

@@ -9,12 +9,13 @@
 # Import numerical and plotting libraries
 import numpy as np
 from matplotlib import pyplot as plt
+import importlib
 
 # Import the GRLP module
 # "reload(grlp)" is to refresh grlp if you are running this interactively
 # while modifying the grlp library
 import grlp
-reload(grlp)
+importlib.reload(grlp)
 
 # Instantiate the long profile object
 lp = grlp.LongProfile()

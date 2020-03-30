@@ -285,12 +285,12 @@ class LongProfile(object):
         if self.S0 is not None:
             self.update_z_ext_0()
         if self.dx_isscalar:
-            self.dzdt_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
+            self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                              / (2*self.dx) )**(1/6.)
         else:
-            self.dzdt_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
+            self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                              / self.dx_ext_2cell )**(1/6.)
-        self.C1 = self.C0 * self.dzdt_0_16 * self.Q / self.B
+        self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
 
     def set_z_bl(self, z_bl):
         """

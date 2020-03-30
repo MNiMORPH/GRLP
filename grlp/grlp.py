@@ -145,6 +145,8 @@ class LongProfile(object):
         """
         Set z directly or calculate it
         S0 = initial slope (negative for flow from left to right)
+             unlike in the paper, this is a dz/dx value down the valley,
+             so we account for sinuosity as well at the upstream boundary.
         z1 = elevation value at RHS
         """
         if z is not None:
@@ -254,9 +256,17 @@ class LongProfile(object):
         self.niter = niter
         
     def set_Qs_input_upstream(self, Q_s_0):
+        """
+        S0, the boundary-condition slope, is set as a function of Q_s_0.
+        Note that here I use S in a different sense than in the paper:
+        sinuosity is external to S here, meaning that it has to be included
+        explicitly in the equation to compute S0. This is so S0 impacts
+        dz/dx|boundary directly, instead of needing to be modulated each time.
+        """
         self.Q_s_0 = Q_s_0
         # Q[0] is centerpoint of S?
-        self.S0 = -( Q_s_0 / (self.k_Qs* self.intermittency * self.Q[0]) )**(6/7.)
+        self.S0 = -self.sinuosity * ( Q_s_0 / ( self.k_Qs* self.intermittency 
+                                                * self.Q[0]) )**(6/7.)
         if self.dx_isscalar:
             self.z_ext[0] = self.z[0] - self.S0 * self.dx
             #self.z_ext[0]

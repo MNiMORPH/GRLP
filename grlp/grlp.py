@@ -256,7 +256,7 @@ class LongProfile(object):
     def set_Qs_input_upstream(self, Q_s_0):
         self.Q_s_0 = Q_s_0
         # Q[0] is centerpoint of S?
-        self.S0 = -((1/self.k_Qs) * (Q_s_0/self.Q[0]))**(6/7.)
+        self.S0 = -( Q_s_0 / (self.k_Qs* self.intermittency * self.Q[0]) )**(6/7.)
         if self.dx_isscalar:
             self.z_ext[0] = self.z[0] - self.S0 * self.dx
             #self.z_ext[0]

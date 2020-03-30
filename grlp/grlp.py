@@ -388,14 +388,19 @@ class LongProfile(object):
         This is the "C0" coefficient, which is likely to be constant and 
         uniform unless there are dynamic changes in width (epsilon_0 in
         k_Qs), sinuosity, or intermittency, in space and/or through time
+        
+        See eq. D3. "1/4" subsumed into "build matrices".
+        For C1 (other function), Q/B included as well.
         """
         self.dt = dt # Needed to build C0, C1
         if self.dx_isscalar:
-            self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
-                      * self.intermittency * self.dt / self.dx**2
+            self.C0 = self.k_Qs * self.intermittency \
+                        / ((1-self.lambda_p) * self.sinuosity^(7/6.)) \
+                        * self.dt / self.dx**2
         else:
-            self.C0 = self.k_Qs/(1-self.lambda_p) * self.sinuosity \
-                      * self.intermittency * self.dt / self.dx_ext_2cell
+            self.C0 = self.k_Qs * self.intermittency \
+                        / ((1-self.lambda_p) * self.sinuosity^(7/6.)) \
+                        * self.dt / self.dx_ext_2cell
 
     def build_matrices(self):
         """

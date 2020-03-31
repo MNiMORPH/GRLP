@@ -395,11 +395,11 @@ class LongProfile(object):
         self.dt = dt # Needed to build C0, C1
         if self.dx_isscalar:
             self.C0 = self.k_Qs * self.intermittency \
-                        / ((1-self.lambda_p) * self.sinuosity^(7/6.)) \
+                        / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \
                         * self.dt / self.dx**2
         else:
             self.C0 = self.k_Qs * self.intermittency \
-                        / ((1-self.lambda_p) * self.sinuosity^(7/6.)) \
+                        / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \
                         * self.dt / self.dx_ext_2cell
 
     def build_matrices(self):

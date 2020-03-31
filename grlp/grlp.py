@@ -522,7 +522,8 @@ class LongProfile(object):
         else:
             self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / 
                              (self.dx_ext_2cell) ) / self.sinuosity
-        self.Q_s = self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
+        self.Q_s = -np.sign( self.z_ext[2:] - self.z_ext[:-2] ) \
+                   * self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
 
     def slope_area(self, verbose=False):
         self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / (2*self.dx) )

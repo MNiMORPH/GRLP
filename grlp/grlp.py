@@ -217,7 +217,7 @@ class LongProfile(object):
             Q_ext = k_xQ * self.x_ext**P_xQ
         else:
             sys.exit("Error defining variable")
-        self.dQ = Q_ext[2:] - Q_ext[:-2] # dQ over 2*dx!
+        self.dQ = (Q_ext[2:] - Q_ext[:-2])/2. # dQ over 2*dx!
         # Keep sediment supply tied to water supply, except
         # by changing S_0, to only turn one knob for one change (Q/Qs)
         if update_Qs_input:

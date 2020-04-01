@@ -311,7 +311,7 @@ class LongProfile(object):
                                      #+ self.z[-1]
         else:
             self.bcr = self.z_bl * ( self.C1[-1] * 7/3. \
-                           * (-1/self.dx_ext[-2] - 1/self.dx_ext[-1]) \
+                           * (1/self.dx_ext[-2] + 1/self.dx_ext[-1])/2. \
                            + self.dQ[-1]/self.Q[-1] \
                            - self.dB[-1]/self.B[-1] )
         

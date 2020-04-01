@@ -219,7 +219,11 @@ class LongProfile(object):
             Q_ext = k_xQ * self.x_ext**P_xQ
         else:
             sys.exit("Error defining variable")
-        self.dQ = (Q_ext[2:] - Q_ext[:-2])/2. # dQ over 2*dx!
+        # dQ over 2*dx!
+        # See Eq. D3 in Wickert & Schildgen (2019)
+        # This then combines with the 1/4 factor in the coefficients
+        # for the stencil that results from (2*dx)**2
+        self.dQ = Q_ext[2:] - Q_ext[:-2]
         # Keep sediment supply tied to water supply, except
         # by changing S_0, to only turn one knob for one change (Q/Qs)
         if update_Qs_input:
@@ -245,7 +249,9 @@ class LongProfile(object):
             B_ext = k_xB * self.x_ext**P_xB
             self.k_xB = k_xB
             self.P_xB = P_xB
-        self.dB = B_ext[2:] - B_ext[:-2] # dB over 2*dx!
+        # dB over 2*dx!
+        # This, like the dQ, is intentional.
+        self.dB = B_ext[2:] - B_ext[:-2]
         
     def set_uplift_rate(self, U):
         """

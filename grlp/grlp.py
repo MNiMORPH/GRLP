@@ -674,8 +674,11 @@ class Network(object):
             # Then sum these to create a ficticious slope for sediment input
             # to equal that from both tributaries
             Q_s_input = np.sum(Q_s_input_list)
-            S_ficticious = ( Q_s_input / ( lp.k_Qs * lp.intermittency 
-                                           * lp.Q[0] ) )**(6/7.)
+            S_ficticious = np.sign(Q_s_input) * \
+                           ( ( lp.sinuosity / (lp.k_Qs * lp.intermittency) )
+                           * ( np.abs(Q_s_input) / lp.Q[0] ) )**(6/7.)
+            # Finally, update the padded long-profile array to compute
+            # an appropriate sediment input
             lp.z_ext[0] = lp.z_ext[1] + S_ficticious * lp.dx_ext[0]
                 
             # To make sure that we aren't involving these on accident

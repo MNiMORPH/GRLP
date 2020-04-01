@@ -802,27 +802,4 @@ class Network(object):
                 #lp.Qs_internal = 1/(1-lp.lambda_p) * np.cumsum(lp.dz_dt)*lp.B + lp.Q_s_0
                 if lp.S0 is not None:
                     lp.update_z_ext_0()
-    
-    def set_dQ(self):
-        """
-        Set dQ as the sum of inputs to a river segment
-        """
-        for lp in self.list_of_LongProfile_objects:
-            downstream_Q = 0
-            for downstream_ID in lp.downstream_segment_IDs:
-                downstream_Q += self.list_of_LongProfile_objects[downstream_ID].Q[0]
-                lp.dQ[-1] = downstream_Q - lp.Q[-1]
 
-        """
-        for lp in self.list_of_LongProfile_objects:
-            upstream_Q = 0
-            for upstream_ID in lp.upstream_segment_IDs:
-                upseg = np.array(self.list_of_LongProfile_objects)[self.IDs == upstream_ID][0]
-                upstream_Q += upseg.Q[-1]
-            if len(lp.upstream_segment_IDs) > 0:
-                lp.dQ[0] = lp.Q[0] - upstream_Q # dQ over 2*dx!
-            print(lp.upstream_segment_IDs)
-            print upstream_Q
-        """
-
-        

@@ -23,7 +23,7 @@ class LongProfile(object):
         self.dx_2cell = None
         self.Q_s_0 = None
         self.sinuosity = 1.
-        self.intermittency = 0.01
+        self.intermittency = 1.
         self.t = 0
         self.upstream_segment_IDs = []
         self.downstream_segment_IDs = []
@@ -85,7 +85,7 @@ class LongProfile(object):
             self.P_xQ = P_xA * P_AQ
 
     def set_intermittency(self, I):
-        self.I = I
+        self.intermittency = I
                 
     #def set_base_level(self, z_bl):
     #    """

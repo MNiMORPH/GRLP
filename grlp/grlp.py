@@ -426,6 +426,7 @@ class LongProfile(object):
                             - self.dB/self.B/self.dx_ext_2cell)
         # Apply boundary conditions if the segment is at the edges of the
         # network (both if there is only one segment!)
+        # REVISIT THIS FOR INTERNAL BOUNDARIES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         if len(self.upstream_segment_IDs) == 0:
             #print self.dx_ext_2cell
             self.set_bcl_Neumann_LHS()
@@ -582,12 +583,46 @@ class Network(object):
         self.block_start_absolute = np.array(self.block_start_absolute)
         self.block_end_absolute = np.array(self.block_end_absolute) - 1
         
+    # My attempt to modify the internal b.c. is thwarted by the 
+    # use of this full-matrix solution for consistency -- 
+    # upstream elevations are used instead of the ficticious slope
+    # internal boundary condition.
+    # This makes the sum across the downstream row become a sum of both upstream
+    # forcings.
+    # Is this right? It seems no, and I intuitively think I know why
+    # (sediment transport vs. discharge) but have to rigorously think 
+    # through it.
+    # I could add a ghost node in the equation for the upstream b.c.
+    # to solve this problem, but will think about it for a little bit.
+    # Yes, this is the right solution:
+    # As is currently written, by summing the two upstream results, the
+    # upstream slopes will drive sediment transport into the downstream cell,
+    # potentially giving it way too much sediment, causing it to aggrade, and
+    # making the solution completely insensitive to anything from update_zext().
+    # I can still keep lp.z[0] as the downstream boundary condition because
+    # elevation is simply that -- elevation!
+    # But that lp.z[0] must evolve in response to water and sediment supply,
+    # which requires that it have a ghost node instead of looking directly
+    # to its upstream neighbors -- this is because of the nonlinearity
+    # related to slope.
+    # This will also be important when adding any lateral sediment inputs to
+    # channels: will also represent w/ "ghost node" (though in middle??) or
+    # maybe just uplift term ... will think this through too.
     def add_block_diagonal_matrix_upstream_boundary_conditions(self):
+        """
+        # OLD!
         for lp in self.list_of_LongProfile_objects:
             for ID in lp.upstream_segment_IDs:
                 col = self.block_end_absolute[self.IDs == ID][0]
                 row = self.block_start_absolute[self.IDs == lp.ID][0]
                 self.LHSblock_matrix[row, col] = lp.left[-1]
+        """
+        # NEW!
+        for lp in self.list_of_LongProfile_objects:
+            self.update_zext()
+            lp.set_bcl_Neumann_LHS()
+            lp.set_bcl_Neumann_RHS()
+        
         
     def add_block_diagonal_matrix_downstream_boundary_conditions(self):
         for lp in self.list_of_LongProfile_objects:
@@ -672,13 +707,20 @@ class Network(object):
                                        * np.abs(S_upstream_list[i])**(7/6.) )
             # Then sum these to create a ficticious slope for sediment input
             # to equal that from both tributaries
-            Q_s_input = np.sum(Q_s_input_list)
+            Q_s_input = np.sum(Q_s_input_list) # Superfluous !!!!!!!!!!!!!!!!!!
+            if len(lp.upstream_segment_IDs) > 0:
+                lp.set_Qs_input_upstream(Q_s_input)
+            """
             S_ficticious = np.sign(Q_s_input) * \
                            ( ( lp.sinuosity / (lp.k_Qs * lp.intermittency) )
                            * ( np.abs(Q_s_input) / lp.Q[0] ) )**(6/7.)
             # Finally, update the padded long-profile array to compute
             # an appropriate sediment input
+            # Probably does nothing!!!!!
             lp.z_ext[0] = lp.z_ext[1] + S_ficticious * lp.dx_ext[0]
+            # Finally-finally, define its S0!
+            lp.S0 = S_ficticious
+            """
                 
             # To make sure that we aren't involving these on accident
             """

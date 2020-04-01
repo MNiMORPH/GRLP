@@ -657,7 +657,7 @@ class Network(object):
                 S_upstream_list.append( ( lp_upstream.z_ext[-2] 
                                           - lp_upstream.z_ext[-1] )
                                         / dx_upstream )
-                Q_upstream_list.append( lp.Q[-1] )
+                Q_upstream_list.append( lp_upstream.Q[-1] )
                 # And then also save a reference to the object for
                 # additional variables
                 # This does make getting Q, above, a bit superfluous...!!!!!!!!

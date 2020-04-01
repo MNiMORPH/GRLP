@@ -120,7 +120,7 @@ class LongProfile(object):
             self.x = x_ext[1:-1]
             diff = np.diff(self.x_ext)
             dx_mean = np.mean(diff)
-            print((diff == dx_mean).all())
+            #print((diff == dx_mean).all())
             if (diff == dx_mean).all():
                 self.dx_ext = dx_mean
                 self.dx = dx_mean
@@ -444,9 +444,7 @@ class LongProfile(object):
         self.set_bcl_Neumann_LHS()
         self.set_bcl_Neumann_RHS()
         if len(self.downstream_segment_IDs) == 0:
-            print self.z_bl
             self.set_bcr_Dirichlet()
-            print self.bcr
         else:
             self.bcr = 0. # no b.c.-related changes: below self.bcr + self.z[-1]
         self.left = np.roll(self.left, -1)

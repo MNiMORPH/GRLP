@@ -431,16 +431,20 @@ class LongProfile(object):
         # Apply boundary conditions if the segment is at the edges of the
         # network (both if there is only one segment!)
         # REVISIT THIS FOR INTERNAL BOUNDARIES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        #if len(self.upstream_segment_IDs) == 0:
+        """
+        if len(self.upstream_segment_IDs) == 0:
             #print self.dx_ext_2cell
+            self.set_bcl_Neumann_LHS()
+            self.set_bcl_Neumann_RHS()
+        else:
+            self.bcl = 0. # no b.c.-related changes
+        """
         self.set_bcl_Neumann_LHS()
         self.set_bcl_Neumann_RHS()
-        #else:
-        #    self.bcl = 0. # no b.c.-related changes
         if len(self.downstream_segment_IDs) == 0:
             self.set_bcr_Dirichlet()
         else:
-            self.bcr = 0. # no b.c.-related changes
+            self.bcr = 0. # no b.c.-related changes: below self.bcr + self.z[-1]
         self.left = np.roll(self.left, -1)
         self.right = np.roll(self.right, 1)
         self.diagonals = np.vstack((self.left, self.center, self.right))
@@ -620,6 +624,8 @@ class Network(object):
                 col = self.block_end_absolute[self.IDs == ID][0]
                 row = self.block_start_absolute[self.IDs == lp.ID][0]
                 self.LHSblock_matrix[row, col] = lp.left[-1]
+                # --- THE ABOVE SHOULD BE "RIGHT", BUT ALSO DOES NOT WORK ---
+                # ---         FOR GHOST-NODE REASON EXPLAINED ABOVE       ---
         """
         # NEW!
         for lp in self.list_of_LongProfile_objects:

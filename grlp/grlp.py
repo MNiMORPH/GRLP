@@ -22,6 +22,7 @@ class LongProfile(object):
         self.dx_ext = None
         self.dx_2cell = None
         self.Q_s_0 = None
+        self.z_bl = None
         self.sinuosity = 1.
         self.intermittency = 1.
         self.t = 0
@@ -108,12 +109,12 @@ class LongProfile(object):
             dx_mean = np.mean(diff)
             if (diff == dx_mean).all():
                 self.dx = dx_mean
-                self.dx_isscalar = False
+                self.dx_isscalar = True
             else:
                 #sys.exit("Uniform x spacing required")
                 self.dx = diff
                 self.dx_2cell = self.x[2:] - self.x[:-2]
-                self.dx_isscalar = True
+                self.dx_isscalar = False
         elif x_ext is not None:
             self.x_ext = np.array(x_ext)
             self.x = x_ext[1:-1]
@@ -122,6 +123,7 @@ class LongProfile(object):
             print((diff == dx_mean).all())
             if (diff == dx_mean).all():
                 self.dx_ext = dx_mean
+                self.dx = dx_mean
                 self.dx_isscalar = True
             else:
                 #sys.exit("Uniform x spacing required")
@@ -442,7 +444,9 @@ class LongProfile(object):
         self.set_bcl_Neumann_LHS()
         self.set_bcl_Neumann_RHS()
         if len(self.downstream_segment_IDs) == 0:
+            print self.z_bl
             self.set_bcr_Dirichlet()
+            print self.bcr
         else:
             self.bcr = 0. # no b.c.-related changes: below self.bcr + self.z[-1]
         self.left = np.roll(self.left, -1)
@@ -647,6 +651,9 @@ class Network(object):
                 # But wait -- actually should be LEFT! 
                 # HOLY SMOKES! This may be the whole problem!
                 self.LHSblock_matrix[row, col] = lp.left[0]
+            # MAYBE IMPORTANT? NOT SURE.
+            #if len(lp.downstream_segment_IDs) == 0:
+            #    lp.set_bcr_Dirichlet()
 
     """
     def get_z_all(self):
@@ -760,7 +767,9 @@ class Network(object):
             #print lp.z
             for lp in self.list_of_LongProfile_objects:
                 lp.zold = lp.z.copy()
-            #self.set_z_bl(self.z_bl + self.U * self.dt)
+                # Not important, I think; leaving commented anyway
+                #if lp.z_bl is not None:
+                #    lp.set_z_bl(lp.z_bl + lp.U * self.dt)
             # Update all dt for all segments' C0 values
             self.update_zext()
             for lp in self.list_of_LongProfile_objects:

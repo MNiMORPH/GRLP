@@ -424,15 +424,19 @@ class LongProfile(object):
             self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:] # REALLY?
                             + self.dQ/self.Q/self.dx_ext_2cell \
                             - self.dB/self.B/self.dx_ext_2cell)
+        # INEFFICIENT -- FIX LATER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # NOT NEEDED -- think I confused L/R physically vs. in matrix
+        #self.left_original = self.left.copy()
+        #self.right_original = self.left.copy()
         # Apply boundary conditions if the segment is at the edges of the
         # network (both if there is only one segment!)
-        # REVISIT THIS FOR INTERNAL BOUNDARIES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        if len(self.upstream_segment_IDs) == 0:
+        # REVISIT THIS FOR INTERNAL BOUNDARIES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        #if len(self.upstream_segment_IDs) == 0:
             #print self.dx_ext_2cell
-            self.set_bcl_Neumann_LHS()
-            self.set_bcl_Neumann_RHS()
-        else:
-            self.bcl = 0. # no b.c.-related changes
+        self.set_bcl_Neumann_LHS()
+        self.set_bcl_Neumann_RHS()
+        #else:
+        #    self.bcl = 0. # no b.c.-related changes
         if len(self.downstream_segment_IDs) == 0:
             self.set_bcr_Dirichlet()
         else:
@@ -623,14 +627,20 @@ class Network(object):
             lp.set_bcl_Neumann_LHS()
             lp.set_bcl_Neumann_RHS()
         
-        
+    # Should not need this! Will now just repeat what padded b.c.'s do.
+    # ... so long as those get included in the block
+    # Which isn't the case! So it *IS* necessary.
     def add_block_diagonal_matrix_downstream_boundary_conditions(self):
         for lp in self.list_of_LongProfile_objects:
             for ID in lp.downstream_segment_IDs:
                 #print downseg_ID
                 col = self.block_start_absolute[self.IDs == ID][0]
                 row = self.block_end_absolute[self.IDs == lp.ID][0]
-                self.LHSblock_matrix[row, col] = lp.right[0]
+                # Include the "original" designator to make sure that this is
+                # the value prior to assigning the ghost node!
+                # But wait -- actually should be LEFT! 
+                # HOLY SMOKES! This may be the whole problem!
+                self.LHSblock_matrix[row, col] = lp.left[0]
 
     """
     def get_z_all(self):
@@ -746,6 +756,7 @@ class Network(object):
                 lp.zold = lp.z.copy()
             #self.set_z_bl(self.z_bl + self.U * self.dt)
             # Update all dt for all segments' C0 values
+            self.update_zext()
             for lp in self.list_of_LongProfile_objects:
                 lp.build_LHS_coeff_C0(dt=self.dt)
                 lp.build_matrices()

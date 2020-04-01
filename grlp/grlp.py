@@ -625,22 +625,59 @@ class Network(object):
     def update_zext(self):
         # Should just do this less ad-hoc
         for lp in self.list_of_LongProfile_objects:
+            
+            # DOWNSTREAM
+            # fix!!!!!!!!!! works for now !!!!!!!!!!!!!!!!!!
+            
             for ID in lp.downstream_segment_IDs:
+                # !!!!!!!!!!!!!! DOESN'T WORK WITH MANY!!!!!!!!!!!!!!!
                 lp_downstream = np.array(self.list_of_LongProfile_objects) \
                                 [self.IDs == ID][0]
                 lp.z_ext[-1] = lp_downstream.z_ext[1]
-            # To make sure that we aren't involving these on accident
-            """
-            else:
-                for ID in lp.downstream_segment_IDs:
-                    lp_downstream = np.array(self.list_of_LongProfile_objects) \
-                                    [self.IDs == ID][0]
-                    lp.z_ext[-1] = np.nan
-            """
+
+            # UPSTREAM
+            # In this case, we need to create a ficticious slope that
+            # represents the full sediment input from both tributaries.
+            # To do so, we first find the slope and water discharge
+            # coming in from upstream:
+            lp_upstream_list = []
+            S_upstream_list = []
+            Q_upstream_list = []
             for ID in lp.upstream_segment_IDs:
                 lp_upstream = np.array(self.list_of_LongProfile_objects) \
                                 [self.IDs == ID][0]
-                lp.z_ext[0] = lp_upstream.z_ext[-2]
+                # Check if dx is a scalar or an array
+                if hasattr(lp_upstream.dx_ext, "__iter__"):
+                    dx_upstream = lp_upstream.dx_ext[-1]
+                else:
+                    dx_upstream = lp_upstream.dx_ext
+                # Get S and Q
+                # Keep sign connected to S -- messy for comparison
+                # with the paper, but convenient for programming
+                S_upstream_list.append( ( lp_upstream.z_ext[-2] 
+                                          - lp_upstream.z_ext[-1] )
+                                        / dx_upstream )
+                Q_upstream_list.append( lp.Q[-1] )
+                # And then also save a reference to the object for
+                # additional variables
+                # This does make getting Q, above, a bit superfluous...!!!!!!!!
+                lp_upstream_list.append( lp_upstream )
+            # After this, compute the incoming sediment discharge from each
+            # of these two branches.
+            Q_s_input_list = []
+            for i in range(len(S_upstream_list)):
+                Q_s_input_list.append( np.sign( S_upstream_list[i] ) \
+                                       * lp_upstream_list[i].k_Qs \
+                                       * lp_upstream_list[i].intermittency \
+                                       * Q_upstream_list[i] \
+                                       * np.abs(S_upstream_list[i])**(7/6.) )
+            # Then sum these to create a ficticious slope for sediment input
+            # to equal that from both tributaries
+            Q_s_input = np.sum(Q_s_input_list)
+            S_ficticious = ( Q_s_input / ( lp.k_Qs * lp.intermittency 
+                                           * lp.Q[0] ) )**(6/7.)
+            lp.z_ext[0] = lp.z_ext[1] + S_ficticious * lp.dx_ext[0]
+                
             # To make sure that we aren't involving these on accident
             """
             else:
@@ -713,7 +750,7 @@ class Network(object):
             downstream_Q = 0
             for downstream_ID in lp.downstream_segment_IDs:
                 downstream_Q += self.list_of_LongProfile_objects[downstream_ID].Q[0]
-                lp.dQ[-2] = downstream_Q - lp.Q[-1]
+                lp.dQ[-1] = downstream_Q - lp.Q[-1]
 
         """
         for lp in self.list_of_LongProfile_objects:

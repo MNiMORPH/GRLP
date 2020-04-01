@@ -646,11 +646,10 @@ class Network(object):
             for ID in lp.upstream_segment_IDs:
                 lp_upstream = np.array(self.list_of_LongProfile_objects) \
                                 [self.IDs == ID][0]
-                # Check if dx is a scalar or an array
-                if hasattr(lp_upstream.dx_ext, "__iter__"):
-                    dx_upstream = lp_upstream.dx_ext[-1]
-                else:
+                if lp_upstream.dx_isscalar:
                     dx_upstream = lp_upstream.dx_ext
+                else:
+                    dx_upstream = lp_upstream.dx_ext[-1]
                 # Get S and Q
                 # Keep sign connected to S -- messy for comparison
                 # with the paper, but convenient for programming

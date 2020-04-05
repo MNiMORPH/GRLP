@@ -88,13 +88,6 @@ class LongProfile(object):
     def set_intermittency(self, I):
         self.intermittency = I
                 
-    #def set_base_level(self, z_bl):
-    #    """
-    #    Set the right-hand Dirichlet boundary conditions, i.e. the base level,
-    #    given in the variable "z_bl" (elevation, base level)
-    #    """
-    #    self.z_bl = z_bl
-                
     def set_x(self, x=None, x_ext=None, dx=None, nx=None, x0=None):
         """
         Set x directly or calculate it.
@@ -367,19 +360,6 @@ class LongProfile(object):
         Build the tridiagonal matrix (LHS) and the RHS matrix for the solution
         """
         self.compute_coefficient_time_varying()
-        """
-        if self.dx_isscalar:
-            self.left = -self.C1 * ( (7/3.) - self.dQ/self.Q \
-                        + self.dB/self.B ) / (2 * self.dx)
-            self.center = self.C1 * 2 * (7/6.) * 2/self.dx + 1.
-            self.right = -self.C1 * ( (7/3.) + self.dQ/self.Q/4. \
-                         - self.dB/self.B/4. ) / (2 * self.dx)
-            self.left = -self.C1 * ( (7/6.) - self.dQ/self.Q/4. \
-                        + self.dB/self.B/4.)
-            self.center = self.C1 * 2 * ( (7/6.) ) + 1.
-            self.right = -self.C1 * ( (7/6.) + self.dQ/self.Q/4. \
-                         - self.dB/self.B/4. )
-        """
         self.left = -self.C1 * ( (7/3.)/self.dx_ext[:-1]
                         - self.dQ/self.Q/self.dx_ext_2cell \
                         + self.dB/self.B/self.dx_ext_2cell)
@@ -390,21 +370,6 @@ class LongProfile(object):
         self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:] # REALLY?
                         + self.dQ/self.Q/self.dx_ext_2cell \
                         - self.dB/self.B/self.dx_ext_2cell)
-        # INEFFICIENT -- FIX LATER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # NOT NEEDED -- think I confused L/R physically vs. in matrix
-        #self.left_original = self.left.copy()
-        #self.right_original = self.left.copy()
-        # Apply boundary conditions if the segment is at the edges of the
-        # network (both if there is only one segment!)
-        # REVISIT THIS FOR INTERNAL BOUNDARIES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        """
-        if len(self.upstream_segment_IDs) == 0:
-            #print self.dx_ext_2cell
-            self.set_bcl_Neumann_LHS()
-            self.set_bcl_Neumann_RHS()
-        else:
-            self.bcl = 0. # no b.c.-related changes
-        """
         self.set_bcl_Neumann_LHS()
         self.set_bcl_Neumann_RHS()
         if len(self.downstream_segment_IDs) == 0:
@@ -553,31 +518,6 @@ class Network(object):
         self.block_start_absolute = np.array(self.block_start_absolute)
         self.block_end_absolute = np.array(self.block_end_absolute) - 1
         
-    # My attempt to modify the internal b.c. is thwarted by the 
-    # use of this full-matrix solution for consistency -- 
-    # upstream elevations are used instead of the ficticious slope
-    # internal boundary condition.
-    # This makes the sum across the downstream row become a sum of both upstream
-    # forcings.
-    # Is this right? It seems no, and I intuitively think I know why
-    # (sediment transport vs. discharge) but have to rigorously think 
-    # through it.
-    # I could add a ghost node in the equation for the upstream b.c.
-    # to solve this problem, but will think about it for a little bit.
-    # Yes, this is the right solution:
-    # As is currently written, by summing the two upstream results, the
-    # upstream slopes will drive sediment transport into the downstream cell,
-    # potentially giving it way too much sediment, causing it to aggrade, and
-    # making the solution completely insensitive to anything from update_zext().
-    # I can still keep lp.z[0] as the downstream boundary condition because
-    # elevation is simply that -- elevation!
-    # But that lp.z[0] must evolve in response to water and sediment supply,
-    # which requires that it have a ghost node instead of looking directly
-    # to its upstream neighbors -- this is because of the nonlinearity
-    # related to slope.
-    # This will also be important when adding any lateral sediment inputs to
-    # channels: will also represent w/ "ghost node" (though in middle??) or
-    # maybe just uplift term ... will think this through too.
     def add_block_diagonal_matrix_upstream_boundary_conditions(self):
         """
         # OLD!

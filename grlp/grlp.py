@@ -264,6 +264,23 @@ class LongProfile(object):
         self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                          / self.dx_ext_2cell )**(1/6.)
         self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
+        # Handling C1 for networked rivers
+        # Need to link the two segments without skipping the channel head
+        # DOESN'T SEEM TO CHANGE ANYTHING!
+        # Looks right when both are 0! Any accidental inclusion of its own
+        # ghost-node Qs,in?
+        if len(self.downstream_segment_IDs) > 0:
+            self.C1[-1] = self.C0[-1] \
+                          * (np.abs(self.z_ext[-2] - self.z_ext[-1]) \
+                                   /self.dx[-1])**(1/6.) \
+                          * self.Q[-1] / self.B[-1]
+        # This one matters! The above doesn't!!!! (Maybe.)
+        # WORK HERE. If turns to 0, fixed. But why? Stays at initial profile?
+        if len(self.upstream_segment_IDs) > 0:
+            self.C1[0] = self.C0[0] \
+                          * (np.abs(self.z_ext[1] - self.z_ext[0]) \
+                                   /self.dx[0])**(1/6.) \
+                          * self.Q[0] / self.B[0]
 
     def set_z_bl(self, z_bl):
         """
@@ -370,12 +387,18 @@ class LongProfile(object):
         self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:] # REALLY?
                         + self.dQ/self.Q/self.dx_ext_2cell \
                         - self.dB/self.B/self.dx_ext_2cell)
-        self.set_bcl_Neumann_LHS()
-        self.set_bcl_Neumann_RHS()
+        # Apply boundary conditions if the segment is at the edges of the
+        # network (both if there is only one segment!)
+        if len(self.upstream_segment_IDs) == 0:
+            #print self.dx_ext_2cell
+            self.set_bcl_Neumann_LHS()
+            self.set_bcl_Neumann_RHS()
+        else:
+            self.bcl = 0. # no b.c.-related changes
         if len(self.downstream_segment_IDs) == 0:
             self.set_bcr_Dirichlet()
         else:
-            self.bcr = 0. # no b.c.-related changes: below self.bcr + self.z[-1]
+            self.bcr = 0. # no b.c.-related changes
         self.left = np.roll(self.left, -1)
         self.right = np.roll(self.right, 1)
         self.diagonals = np.vstack((self.left, self.center, self.right))
@@ -519,39 +542,40 @@ class Network(object):
         self.block_end_absolute = np.array(self.block_end_absolute) - 1
         
     def add_block_diagonal_matrix_upstream_boundary_conditions(self):
-        """
-        # OLD!
         for lp in self.list_of_LongProfile_objects:
             for ID in lp.upstream_segment_IDs:
+                # Space to edit
                 col = self.block_end_absolute[self.IDs == ID][0]
                 row = self.block_start_absolute[self.IDs == lp.ID][0]
-                self.LHSblock_matrix[row, col] = lp.left[-1]
-                # --- THE ABOVE SHOULD BE "RIGHT", BUT ALSO DOES NOT WORK ---
-                # ---         FOR GHOST-NODE REASON EXPLAINED ABOVE       ---
-        """
-        # NEW!
-        for lp in self.list_of_LongProfile_objects:
-            self.update_zext()
-            lp.set_bcl_Neumann_LHS()
-            lp.set_bcl_Neumann_RHS()
+                # Matrix entry, assuming net aligns with ids
+                upseg = self.list_of_LongProfile_objects[ID]
+                C0 = upseg.k_Qs * upseg.intermittency \
+                        / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
+                        * self.dt / (2 * lp.dx_ext[0])
+                #C0 = upseg.C0[-1] # Should be consistent
+                dzdx_0_16 = ( np.abs(lp.z_ext[1] - lp.z_ext[0]) 
+                              / (lp.dx_ext[0]))**(1/6.)
+                C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
+                left_new = -C1 * 7/6. * 2 / lp.dx_ext[0]
+                self.LHSblock_matrix[row, col] = left_new
         
-    # Should not need this! Will now just repeat what padded b.c.'s do.
-    # ... so long as those get included in the block
-    # Which isn't the case! So it *IS* necessary.
     def add_block_diagonal_matrix_downstream_boundary_conditions(self):
         for lp in self.list_of_LongProfile_objects:
             for ID in lp.downstream_segment_IDs:
-                #print downseg_ID
+                # Space to edit
                 col = self.block_start_absolute[self.IDs == ID][0]
                 row = self.block_end_absolute[self.IDs == lp.ID][0]
-                # Include the "original" designator to make sure that this is
-                # the value prior to assigning the ghost node!
-                # But wait -- actually should be LEFT! 
-                # HOLY SMOKES! This may be the whole problem!
-                self.LHSblock_matrix[row, col] = lp.left[0]
-            # MAYBE IMPORTANT? NOT SURE.
-            #if len(lp.downstream_segment_IDs) == 0:
-            #    lp.set_bcr_Dirichlet()
+                # Matrix entry, assuming net aligns with ids
+                downseg = self.list_of_LongProfile_objects[ID]
+                C0 = downseg.k_Qs * downseg.intermittency \
+                        / ((1-downseg.lambda_p) * downseg.sinuosity**(7/6.)) \
+                        * self.dt / (2 * lp.dx_ext[-1])
+                dzdx_0_16 = ( np.abs(lp.z_ext[-2] - lp.z_ext[-1]) 
+                              / (lp.dx_ext[0]))**(1/6.)
+                C1 = C0 * dzdx_0_16 * lp.Q[-1] / downseg.B[0]
+                right_new = -C1 * 7/6. * 2 / lp.dx_ext[-1]
+                self.LHSblock_matrix[row, col] = right_new
+
 
     """
     def get_z_all(self):
@@ -581,76 +605,80 @@ class Network(object):
     def update_zext(self):
         # Should just do this less ad-hoc
         for lp in self.list_of_LongProfile_objects:
-            
-            # DOWNSTREAM
-            # fix!!!!!!!!!! works for now !!!!!!!!!!!!!!!!!!
-            
             for ID in lp.downstream_segment_IDs:
-                # !!!!!!!!!!!!!! DOESN'T WORK WITH MANY!!!!!!!!!!!!!!!
                 lp_downstream = np.array(self.list_of_LongProfile_objects) \
                                 [self.IDs == ID][0]
                 lp.z_ext[-1] = lp_downstream.z_ext[1]
-
-            # UPSTREAM
-            # In this case, we need to create a ficticious slope that
-            # represents the full sediment input from both tributaries.
-            # To do so, we first find the slope and water discharge
-            # coming in from upstream:
-            lp_upstream_list = []
-            S_upstream_list = []
-            Q_upstream_list = []
             for ID in lp.upstream_segment_IDs:
                 lp_upstream = np.array(self.list_of_LongProfile_objects) \
                                 [self.IDs == ID][0]
-                dx_upstream = lp_upstream.dx_ext[-1]
-                # Get S and Q
-                # Keep sign connected to S -- messy for comparison
-                # with the paper, but convenient for programming
-                S_upstream_list.append( ( lp_upstream.z_ext[-2] 
-                                          - lp_upstream.z_ext[-1] )
-                                        / dx_upstream )
-                Q_upstream_list.append( lp_upstream.Q[-1] )
-                # And then also save a reference to the object for
-                # additional variables
-                # This does make getting Q, above, a bit superfluous...!!!!!!!!
-                lp_upstream_list.append( lp_upstream )
-            # After this, compute the incoming sediment discharge from each
-            # of these two branches.
-            Q_s_input_list = []
-            for i in range(len(S_upstream_list)):
-                Q_s_input_list.append( np.sign( S_upstream_list[i] ) \
-                                       * lp_upstream_list[i].k_Qs \
-                                       * lp_upstream_list[i].intermittency \
-                                       * Q_upstream_list[i] \
-                                       * np.abs(S_upstream_list[i])**(7/6.) )
-            # Then sum these to create a ficticious slope for sediment input
-            # to equal that from both tributaries
-            Q_s_input = np.sum(Q_s_input_list) # Superfluous !!!!!!!!!!!!!!!!!!
-            if len(lp.upstream_segment_IDs) > 0:
-                lp.set_Qs_input_upstream(Q_s_input)
-            """
-            S_ficticious = np.sign(Q_s_input) * \
-                           ( ( lp.sinuosity / (lp.k_Qs * lp.intermittency) )
-                           * ( np.abs(Q_s_input) / lp.Q[0] ) )**(6/7.)
-            # Finally, update the padded long-profile array to compute
-            # an appropriate sediment input
-            # Probably does nothing!!!!!
-            lp.z_ext[0] = lp.z_ext[1] + S_ficticious * lp.dx_ext[0]
-            # Finally-finally, define its S0!
-            lp.S0 = S_ficticious
-            """
-                
-            # To make sure that we aren't involving these on accident
-            """
-            else:
-                for ID in lp.upstream_segment_IDs:
-                    lp_upstream = np.array(self.list_of_LongProfile_objects) \
-                                    [self.IDs == ID]
-                    lp.z_ext[0] = np.nan
-            """
-            #print lp.z_ext
+                lp.z_ext[0] = lp_upstream.z_ext[-2]
+
 
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
+        """
+        Solve the triadiagonla matrix through time, with a given
+        number of time steps (nt) and time-step length (dt)
+        """
+        # self.dt is decided earlier
+        self.nt = nt
+        self.dt = dt
+        for ti in range(int(self.nt)):
+            for lp in self.list_of_LongProfile_objects:
+                lp.zold = lp.z.copy()
+                lp.build_LHS_coeff_C0(dt=self.dt)
+                lp.compute_coefficient_time_varying()
+            for lp in self.list_of_LongProfile_objects:
+                #print lp.C1
+                lp.build_matrices()
+            self.build_block_diagonal_matrix_core()
+            self.add_block_diagonal_matrix_upstream_boundary_conditions()
+            self.add_block_diagonal_matrix_downstream_boundary_conditions()
+            # b.c. for no links
+            """
+            for lp in self.list_of_LongProfile_objects:
+                if len(lp.upstream_segment_IDs) == 0:
+                    lp.set_bcl_Neumann_LHS()
+                    lp.set_bcl_Neumann_RHS()
+                if len(lp.downstream_segment_IDs) == 0:
+                    lp.set_bcr_Dirichlet()
+            """
+            self.stack_RHS_vector()
+
+            for i in range(self.niter):
+                self.update_zext()
+                for lp in self.list_of_LongProfile_objects:
+                    # Update coefficient for all: elements may call to others
+                    # within the net
+                    lp.compute_coefficient_time_varying()
+                for lp in self.list_of_LongProfile_objects:
+                    lp.build_matrices()
+                # Update semi-implicit on boundaries
+                # Commenting these two out helps solution!
+                # Don't understand why. Perhaps error in code for them?
+                #self.add_block_diagonal_matrix_upstream_boundary_conditions()
+                #self.add_block_diagonal_matrix_downstream_boundary_conditions()
+                out = spsolve(self.LHSblock_matrix, self.RHS)
+                i = 0
+                idx = 0
+                for lp in self.list_of_LongProfile_objects:
+                    lp.z_ext[1:-1] = out[idx:idx+self.list_of_segment_lengths[i]]
+                    idx += +self.list_of_segment_lengths[i]
+                    i += 1
+            self.update_zext()
+            self.t += self.dt # Update each lp z? Should make a global class
+                              # that these both inherit from
+            i = 0
+            idx = 0
+            for lp in self.list_of_LongProfile_objects:
+                lp.z = lp.z_ext[1:-1].copy()
+                lp.dz_dt = (lp.z - lp.zold)/self.dt
+                #lp.Qs_internal = 1/(1-lp.lambda_p) * np.cumsum(lp.dz_dt)*lp.B + lp.Q_s_0
+                if lp.S0 is not None:
+                    lp.update_z_ext_0()
+    
+    
+    def evolve_threshold_width_river_network__old(self, nt=1, dt=3.15E7):
         """
         Solve the triadiagonla matrix through time, with a given
         number of time steps (nt) and time-step length (dt)

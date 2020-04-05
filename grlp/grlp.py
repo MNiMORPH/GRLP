@@ -105,37 +105,20 @@ class LongProfile(object):
         """
         if x is not None:
             self.x = np.array(x)
-            diff = np.diff(self.x)
-            dx_mean = np.mean(diff)
-            if (diff == dx_mean).all():
-                self.dx = dx_mean
-                self.dx_isscalar = True
-            else:
-                #sys.exit("Uniform x spacing required")
-                self.dx = diff
-                self.dx_2cell = self.x[2:] - self.x[:-2]
-                self.dx_isscalar = False
+            self.dx = np.diff(self.x)
+            self.dx_2cell = self.x[2:] - self.x[:-2]
         elif x_ext is not None:
             self.x_ext = np.array(x_ext)
             self.x = x_ext[1:-1]
-            diff = np.diff(self.x_ext)
-            dx_mean = np.mean(diff)
-            #print((diff == dx_mean).all())
-            if (diff == dx_mean).all():
-                self.dx_ext = dx_mean
-                self.dx = dx_mean
-                self.dx_isscalar = True
-            else:
-                #sys.exit("Uniform x spacing required")
-                self.dx_ext = diff
-                self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
-                self.dx_2cell = self.x[2:] - self.x[:-2]
-                self.dx = np.diff(self.x)
-                self.dx_isscalar = False
+            self.dx_ext = np.diff(self.x_ext)
+            self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
+            self.dx_2cell = self.x[2:] - self.x[:-2]
+            self.dx = np.diff(self.x)
         elif (dx is not None) and (nx is not None) and (x0 is not None):
+            # This may not be enough to work, as currently written.
             self.x = np.arange(x0, x0+dx*nx, dx)
-            self.dx = dx
-            self.dx_isscalar = True
+            self.dx = np.diff(self.x)
+            self.dx_2cell = self.x[2:] - self.x[:-2]
             self.x_ext = np.hstack((self.x[0]-dx, self.x, self.x[-1]+dx))
         else:
             sys.exit("Need x OR x_ext OR (dx, nx, x0)")
@@ -275,29 +258,18 @@ class LongProfile(object):
         # Q[0] is centerpoint of S?
         self.S0 = -self.sinuosity * ( Q_s_0 / ( self.k_Qs* self.intermittency 
                                                 * self.Q[0]) )**(6/7.)
-        if self.dx_isscalar:
-            self.z_ext[0] = self.z[0] - self.S0 * self.dx
-            #self.z_ext[0]
-        else:
-            # Give upstream cell the same width as the first cell in domain
-            self.z_ext[0] = self.z[0] - self.S0 * self.dx_ext[0]
+        # Give upstream cell the same width as the first cell in domain
+        self.z_ext[0] = self.z[0] - self.S0 * self.dx_ext[0]
         
     def update_z_ext_0(self):
-        if self.dx_isscalar:
-            self.z_ext[0] = self.z[0] - self.S0 * self.dx
-        else:
-            # Give upstream cell the same width as the first cell in domain
-            self.z_ext[0] = self.z[0] - self.S0 * self.dx_ext[0]
+        # Give upstream cell the same width as the first cell in domain
+        self.z_ext[0] = self.z[0] - self.S0 * self.dx_ext[0]
 
     def compute_coefficient_time_varying(self):
         if self.S0 is not None:
             self.update_z_ext_0()
-        if self.dx_isscalar:
-            self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
-                             / (2*self.dx) )**(1/6.)
-        else:
-            self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
-                             / self.dx_ext_2cell )**(1/6.)
+        self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
+                         / self.dx_ext_2cell )**(1/6.)
         self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
 
     def set_z_bl(self, z_bl):
@@ -309,17 +281,10 @@ class LongProfile(object):
         self.z_ext[-1] = self.z_bl
 
     def set_bcr_Dirichlet(self):
-        #self.bcr_value = bcr
-        if self.dx_isscalar:
-            self.bcr = self.z_bl * ( self.C1[-1] * 7/6. \
-                                     + self.dQ[-1]/self.Q[-1]/4. \
-                                     - self.dB[-1]/self.B[-1]/4. )
-                                     #+ self.z[-1]
-        else:
-            self.bcr = self.z_bl * ( self.C1[-1] * 7/3. \
-                           * (1/self.dx_ext[-2] + 1/self.dx_ext[-1])/2. \
-                           + self.dQ[-1]/self.Q[-1] \
-                           - self.dB[-1]/self.B[-1] )
+        self.bcr = self.z_bl * ( self.C1[-1] * 7/3. \
+                       * (1/self.dx_ext[-2] + 1/self.dx_ext[-1])/2. \
+                       + self.dQ[-1]/self.Q[-1] \
+                       - self.dB[-1]/self.B[-1] )
         
     def set_bcl_Neumann_RHS(self):
         """
@@ -334,17 +299,12 @@ class LongProfile(object):
         (2*dx is replaced with the x_ext{i+1} - x_ext{i-1} for the irregular
         grid case)
         """
-        if self.dx_isscalar:
-            self.bcl = -2 * self.dx * self.S0 * \
-                       self.C1[0] * ( 7/6. - self.dQ[0]/self.Q[0]/4. \
-                                           + self.dB[0]/self.B[0]/4.)
-        else:
-            # Give upstream cell the same width as the first cell in domain
-            # 2*dx * S_0 * left_coefficients
-            self.bcl = self.dx_ext_2cell[0] * self.S0 * \
-                                - self.C1[0] * ( 7/3./self.dx_ext[0]
-                                - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0]
-                                + self.dB[0]/self.B[0]/self.dx_ext_2cell[0] )
+        # Give upstream cell the same width as the first cell in domain
+        # 2*dx * S_0 * left_coefficients
+        self.bcl = self.dx_ext_2cell[0] * self.S0 * \
+                            - self.C1[0] * ( 7/3./self.dx_ext[0]
+                            - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0]
+                            + self.dB[0]/self.B[0]/self.dx_ext_2cell[0] )
 
     def set_bcl_Neumann_LHS(self):
         """
@@ -358,11 +318,8 @@ class LongProfile(object):
         LHS = coeff_right at 0 + coeff_left at 0, with appropriate dx
               for boundary (already supplied)
         """
-        if self.dx_isscalar:
-            self.right[0] = -2 * self.C1[0] * 7/6.
-        else:
-            self.right[0] = -self.C1[0] * 7/3. \
-                             * (1/self.dx_ext[0] + 1/self.dx_ext[1])
+        self.right[0] = -self.C1[0] * 7/3. \
+                         * (1/self.dx_ext[0] + 1/self.dx_ext[1])
     
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
         """
@@ -401,37 +358,38 @@ class LongProfile(object):
         For C1 (other function), Q/B included as well.
         """
         self.dt = dt # Needed to build C0, C1
-        if self.dx_isscalar:
-            self.C0 = self.k_Qs * self.intermittency \
-                        / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \
-                        * self.dt / self.dx**2
-        else:
-            self.C0 = self.k_Qs * self.intermittency \
-                        / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \
-                        * self.dt / self.dx_ext_2cell
+        self.C0 = self.k_Qs * self.intermittency \
+                    / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \
+                    * self.dt / self.dx_ext_2cell
 
     def build_matrices(self):
         """
         Build the tridiagonal matrix (LHS) and the RHS matrix for the solution
         """
         self.compute_coefficient_time_varying()
+        """
         if self.dx_isscalar:
+            self.left = -self.C1 * ( (7/3.) - self.dQ/self.Q \
+                        + self.dB/self.B ) / (2 * self.dx)
+            self.center = self.C1 * 2 * (7/6.) * 2/self.dx + 1.
+            self.right = -self.C1 * ( (7/3.) + self.dQ/self.Q/4. \
+                         - self.dB/self.B/4. ) / (2 * self.dx)
             self.left = -self.C1 * ( (7/6.) - self.dQ/self.Q/4. \
                         + self.dB/self.B/4.)
             self.center = self.C1 * 2 * ( (7/6.) ) + 1.
             self.right = -self.C1 * ( (7/6.) + self.dQ/self.Q/4. \
                          - self.dB/self.B/4. )
-        else:
-            self.left = -self.C1 * ( (7/3.)/self.dx_ext[:-1]
-                            - self.dQ/self.Q/self.dx_ext_2cell \
-                            + self.dB/self.B/self.dx_ext_2cell)
-            self.center = -self.C1 * ( (7/3.) \
-                                  * (-1/self.dx_ext[:-1] \
-                                     -1/self.dx_ext[1:]) ) \
-                                     + 1.
-            self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:] # REALLY?
-                            + self.dQ/self.Q/self.dx_ext_2cell \
-                            - self.dB/self.B/self.dx_ext_2cell)
+        """
+        self.left = -self.C1 * ( (7/3.)/self.dx_ext[:-1]
+                        - self.dQ/self.Q/self.dx_ext_2cell \
+                        + self.dB/self.B/self.dx_ext_2cell)
+        self.center = -self.C1 * ( (7/3.) \
+                              * (-1/self.dx_ext[:-1] \
+                                 -1/self.dx_ext[1:]) ) \
+                                 + 1.
+        self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:] # REALLY?
+                        + self.dQ/self.Q/self.dx_ext_2cell \
+                        - self.dB/self.B/self.dx_ext_2cell)
         # INEFFICIENT -- FIX LATER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         # NOT NEEDED -- think I confused L/R physically vs. in matrix
         #self.left_original = self.left.copy()
@@ -533,12 +491,8 @@ class LongProfile(object):
     #    self.analytical_threshold_width()
     
     def compute_Q_s(self):
-        if self.dx_isscalar:
-            self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / 
-                             (2*self.dx) ) / self.sinuosity
-        else:
-            self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / 
-                             (self.dx_ext_2cell) ) / self.sinuosity
+        self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / 
+                         (self.dx_ext_2cell) ) / self.sinuosity
         self.Q_s = -np.sign( self.z_ext[2:] - self.z_ext[:-2] ) \
                    * self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
 
@@ -708,10 +662,7 @@ class Network(object):
             for ID in lp.upstream_segment_IDs:
                 lp_upstream = np.array(self.list_of_LongProfile_objects) \
                                 [self.IDs == ID][0]
-                if lp_upstream.dx_isscalar:
-                    dx_upstream = lp_upstream.dx_ext
-                else:
-                    dx_upstream = lp_upstream.dx_ext[-1]
+                dx_upstream = lp_upstream.dx_ext[-1]
                 # Get S and Q
                 # Keep sign connected to S -- messy for comparison
                 # with the paper, but convenient for programming

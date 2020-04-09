@@ -662,7 +662,7 @@ class Network(object):
                 # Don't understand why. Perhaps error in code for them?
                 #self.add_block_diagonal_matrix_upstream_boundary_conditions()
                 #self.add_block_diagonal_matrix_downstream_boundary_conditions()
-                out = spsolve(self.LHSblock_matrix, self.RHS)
+                out = spsolve(sparse.csr_matrix(self.LHSblock_matrix), self.RHS)
                 i = 0
                 idx = 0
                 for lp in self.list_of_LongProfile_objects:

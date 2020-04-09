@@ -2,10 +2,17 @@
 
 import numpy as np
 from matplotlib import pyplot as plt
-plt.ion()
+import importlib
+import sys
+#plt.ion()
 
 import grlp
-reload(grlp)
+
+# Reload -- for testing purposes
+if sys.version_info.major == 3:
+    importlib.reload(grlp)
+else:
+    reload(grlp)
 
 S0 = 0.015
 P_xB = 0.2
@@ -50,7 +57,7 @@ lp.slope_area()
 ax1.plot(lp.x/1000., lp.z, '-', color='.6', linewidth=6, label='Numerical')
 ax1.plot(lp.x/1000., lp.zanalytical, '-', color='0', linewidth=2, label='Analytical')
 plt.legend(loc='upper right')
-plt.show()
 plt.tight_layout()
+plt.show()
 
 #plt.savefig('Uplift_Subsidence.svg')

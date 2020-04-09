@@ -1,5 +1,3 @@
-# Figure UpliftSubsidence in paper
-
 import numpy as np
 from matplotlib import pyplot as plt
 import importlib

@@ -183,7 +183,9 @@ class LongProfile(object):
                 self.Q = Q * np.ones(self.x.shape)
             # Have to be able to pass Q_ext, created with adjacencies
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            Q_ext = np.hstack((2*self.Q[0]-self.Q[1], self.Q, 2*self.Q[-1]-self.Q[-2]))
+            Q_ext = np.hstack( (2*self.Q[0]-self.Q[1], 
+                                self.Q,
+                                2*self.Q[-1]-self.Q[-2]) )
         elif Q_ext is not None:
             self.Q = Q_ext[1:-1]
         elif q_R and A_R:
@@ -356,7 +358,8 @@ class LongProfile(object):
             self.t += self.dt
             self.z = self.z_ext[1:-1].copy()
             self.dz_dt = (self.z - self.zold)/self.dt
-            self.Qs_internal = 1/(1-self.lambda_p) * np.cumsum(self.dz_dt)*self.B + self.Q_s_0
+            self.Qs_internal = 1/(1-self.lambda_p) * np.cumsum(self.dz_dt) \
+                                * self.B + self.Q_s_0
             if self.S0 is not None:
                 self.update_z_ext_0()
     
@@ -541,7 +544,8 @@ class Network(object):
                 self.block_end_absolute.append(lp.LHSmatrix.shape[0])
             # n-diagonal matrices
             self.sparse_matrices.append(lp.LHSmatrix)
-        self.LHSblock_matrix = sparse.lil_matrix(block_diag(self.sparse_matrices))
+        self.LHSblock_matrix = sparse.lil_matrix(
+                                          block_diag(self.sparse_matrices) )
         self.block_start_absolute = np.array(self.block_start_absolute)
         self.block_end_absolute = np.array(self.block_end_absolute) - 1
         
@@ -621,7 +625,7 @@ class Network(object):
 
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
         """
-        Solve the triadiagonla matrix through time, with a given
+        Solve the triadiagonal matrix through time, with a given
         number of time steps (nt) and time-step length (dt)
         """
         # self.dt is decided earlier
@@ -666,7 +670,8 @@ class Network(object):
                 i = 0
                 idx = 0
                 for lp in self.list_of_LongProfile_objects:
-                    lp.z_ext[1:-1] = out[idx:idx+self.list_of_segment_lengths[i]]
+                    lp.z_ext[1:-1] = \
+                                    out[idx:idx+self.list_of_segment_lengths[i]]
                     idx += +self.list_of_segment_lengths[i]
                     i += 1
             self.update_zext()
@@ -677,7 +682,8 @@ class Network(object):
             for lp in self.list_of_LongProfile_objects:
                 lp.z = lp.z_ext[1:-1].copy()
                 lp.dz_dt = (lp.z - lp.zold)/self.dt
-                #lp.Qs_internal = 1/(1-lp.lambda_p) * np.cumsum(lp.dz_dt)*lp.B + lp.Q_s_0
+                #lp.Qs_internal = 1/(1-lp.lambda_p) * np.cumsum(lp.dz_dt)*lp.B \
+                #                 + lp.Q_s_0
                 if lp.S0 is not None:
                     lp.update_z_ext_0()
 

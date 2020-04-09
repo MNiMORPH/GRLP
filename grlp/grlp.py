@@ -97,6 +97,8 @@ class LongProfile(object):
         dx, nx, and x0
         """
         if x is not None:
+            # This doesn't have enough information to work consistently
+            # Needs ext
             self.x = np.array(x)
             self.dx = np.diff(self.x)
             self.dx_2cell = self.x[2:] - self.x[:-2]
@@ -108,11 +110,12 @@ class LongProfile(object):
             self.dx_2cell = self.x[2:] - self.x[:-2]
             self.dx = np.diff(self.x)
         elif (dx is not None) and (nx is not None) and (x0 is not None):
-            # This may not be enough to work, as currently written.
             self.x = np.arange(x0, x0+dx*nx, dx)
-            self.dx = np.diff(self.x)
-            self.dx_2cell = self.x[2:] - self.x[:-2]
-            self.x_ext = np.hstack((self.x[0]-dx, self.x, self.x[-1]+dx))
+            self.x_ext = np.arange(x0-dx, x0+dx*(nx+1), dx)
+            self.dx = dx * np.ones(len(self.x) - 1)
+            self.dx_ext = dx * np.ones(len(self.x) + 1)
+            self.dx_2cell = np.ones(len(self.x) - 1)
+            self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
         else:
             sys.exit("Need x OR x_ext OR (dx, nx, x0)")
         self.nx = len(self.x)
@@ -370,7 +373,7 @@ class LongProfile(object):
         self.dt = dt # Needed to build C0, C1
         self.C0 = self.k_Qs * self.intermittency \
                     / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \
-                    * self.dt / self.dx_ext_2cell
+                    * self.dt / self.dx_ext_2cell # / 2. ???????????????????????????
 
     def build_matrices(self):
         """

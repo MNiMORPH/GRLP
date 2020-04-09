@@ -488,7 +488,8 @@ class LongProfile(object):
                    * self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
 
     def slope_area(self, verbose=False):
-        self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / (2*self.dx) )
+        self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
+                         / self.dx_ext_2cell )
         logS = np.log10(self.S)
         logA = np.log10(self.A)
         out = linregress(logA[1:-1], logS[1:-1]) # remove edge effects

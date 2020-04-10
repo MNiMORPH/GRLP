@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="GRLP",
-    version="1.2.1",
+    version="1.2.2",
     author="Andrew D. Wickert",
     author_email="awickert@umn.edu",
     description="Evolves gravel-bed river long profiles",
@@ -16,8 +16,6 @@ setuptools.setup(
         'numpy',
         'scipy',
         'matplotlib',
-        'warnings',
-        'sys'
         ],
     packages=setuptools.find_packages(),
     classifiers=[

@@ -12,6 +12,13 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/awickert/GRLP",
+    install_requires=[
+        'numpy',
+        'scipy',
+        'matplotlib',
+        'warnings',
+        'sys'
+        ]
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 2",

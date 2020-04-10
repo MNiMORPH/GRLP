@@ -18,7 +18,7 @@ setuptools.setup(
         'matplotlib',
         'warnings',
         'sys'
-        ]
+        ],
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 2",
@@ -26,5 +26,10 @@ setuptools.setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
         "Topic :: Scientific/Engineering :: Hydrology",
+        "Intended Audience :: Science/Research",
     ],
+    keywords='fluvial geomorphology sediment transport landscape evolution',
+    project_urls={
+        'Model page': 'https://csdms.colorado.edu/wiki/Model:GRLP',
+    },
 )

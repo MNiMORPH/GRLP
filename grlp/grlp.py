@@ -23,6 +23,7 @@ class LongProfile(object):
         self.dx_2cell = None
         self.Q_s_0 = None
         self.z_bl = None
+        self.ssd = 0. # distributed sources or sinks
         self.sinuosity = 1.
         self.intermittency = 1.
         self.t = 0
@@ -44,7 +45,7 @@ class LongProfile(object):
         Requires list or None input
         """
         self.upstream_segment_IDs = upstream_segment_IDs
-    
+
     def set_downstream_segment_IDs(self, downstream_segment_IDs):
         """
         Set a list of ID numbers assigned to downstream river segments
@@ -54,7 +55,7 @@ class LongProfile(object):
 
     #def set_downstream_dx(self, downstream_dx)
     #    """
-    #    Downstream dx, if applicable, for linking together segments in a 
+    #    Downstream dx, if applicable, for linking together segments in a
     #    network. This could be part of x_ext
     #    """
     #    self.downstream_dx = downstream_dx
@@ -67,7 +68,7 @@ class LongProfile(object):
         self.epsilon = 0.2 # Parker channel criterion
         self.tau_star_c = 0.0495
         self.phi = 3.97 # coefficient for Wong and Parker MPM
-        
+
     def bedload_lumped_constants(self):
         self.k_qs = self.phi * ((self.rho_s - self.rho)/self.rho)**.5 \
                     * self.g**.5 * self.epsilon**1.5 * self.tau_star_c**1.5
@@ -75,7 +76,7 @@ class LongProfile(object):
                    * ((self.rho_s - self.rho)/self.rho)**(-5/3.) \
                    * (1+self.epsilon)**(-5/3.) * self.tau_star_c**(-5/3.)
         self.k_Qs = self.k_b * self.k_qs
-        
+
     def set_hydrologic_constants(self, P_xA=7/4., P_AQ=0.7, P_xQ=None):
         self.P_xA = P_xA # inverse Hack exponent
         self.P_AQ = P_AQ # drainage area -- discharge exponent
@@ -87,7 +88,7 @@ class LongProfile(object):
 
     def set_intermittency(self, I):
         self.intermittency = I
-                
+
     def set_x(self, x=None, x_ext=None, dx=None, nx=None, x0=None):
         """
         Set x directly or calculate it.
@@ -121,7 +122,7 @@ class LongProfile(object):
         self.nx = len(self.x)
         if (nx is not None) and (nx != self.nx):
             warnings.warn("Choosing x length instead of supplied nx")
-            
+
     def set_z(self, z=None, z_ext=None, S0=None, z1=0):
         """
         Set z directly or calculate it
@@ -143,7 +144,7 @@ class LongProfile(object):
         else:
             sys.exit("Error defining variable")
         #self.dz = self.z_ext[2:] - self.z_ext[:-2] # dz over 2*dx!
-            
+
     def set_A(self, A=None, A_ext=None, k_xA=None, P_xA=None):
         """
         Set A directly or calculate it
@@ -183,7 +184,7 @@ class LongProfile(object):
                 self.Q = Q * np.ones(self.x.shape)
             # Have to be able to pass Q_ext, created with adjacencies
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            Q_ext = np.hstack( (2*self.Q[0]-self.Q[1], 
+            Q_ext = np.hstack( (2*self.Q[0]-self.Q[1],
                                 self.Q,
                                 2*self.Q[-1]-self.Q[-2]) )
         elif Q_ext is not None:
@@ -230,10 +231,7 @@ class LongProfile(object):
             B_ext = k_xB * self.x_ext**P_xB
             self.k_xB = k_xB
             self.P_xB = P_xB
-        # dB over 2*dx!
-        # This, like the dQ, is intentional.
-        self.dB = B_ext[2:] - B_ext[:-2]
-        
+
     def set_uplift_rate(self, U):
         """
         Uplift rate if positive -- or equivalently, rate of base-level fall
@@ -241,9 +239,12 @@ class LongProfile(object):
         """
         self.U = -U # not sure this is the best -- flipping the sign
 
+    def set_source_sink_distributed(self, U):
+        self.ssd = -U * self.dt
+
     def set_niter(self, niter=3):
         self.niter = niter
-        
+
     def set_Qs_input_upstream(self, Q_s_0):
         """
         S0, the boundary-condition slope, is set as a function of Q_s_0.
@@ -254,11 +255,11 @@ class LongProfile(object):
         """
         self.Q_s_0 = Q_s_0
         # Q[0] is centerpoint of S?
-        self.S0 = -self.sinuosity * ( Q_s_0 / ( self.k_Qs* self.intermittency 
+        self.S0 = -self.sinuosity * ( Q_s_0 / ( self.k_Qs* self.intermittency
                                                 * self.Q[0]) )**(6/7.)
         # Give upstream cell the same width as the first cell in domain
         self.z_ext[0] = self.z[0] - self.S0 * self.dx_ext[0]
-        
+
     def update_z_ext_0(self):
         # Give upstream cell the same width as the first cell in domain
         self.z_ext[0] = self.z[0] - self.S0 * self.dx_ext[0]
@@ -298,18 +299,17 @@ class LongProfile(object):
     def set_bcr_Dirichlet(self):
         self.bcr = self.z_bl * ( self.C1[-1] * 7/3. \
                        * (1/self.dx_ext[-2] + 1/self.dx_ext[-1])/2. \
-                       + self.dQ[-1]/self.Q[-1] \
-                       - self.dB[-1]/self.B[-1] )
-        
+                       + self.dQ[-1]/self.Q[-1] )
+
     def set_bcl_Neumann_RHS(self):
         """
-        Boundary condition on the left (conventionally upstream) side of the 
+        Boundary condition on the left (conventionally upstream) side of the
         domain.
-        
-        This is for the RHS of the equation as a result of the ghost-node 
-        approach for the Neumann upstream boundary condition with a prescribed 
+
+        This is for the RHS of the equation as a result of the ghost-node
+        approach for the Neumann upstream boundary condition with a prescribed
         transport slope.
-        
+
         This equals 2*dx * S_0 * left_coefficients
         (2*dx is replaced with the x_ext{i+1} - x_ext{i-1} for the irregular
         grid case)
@@ -318,16 +318,15 @@ class LongProfile(object):
         # 2*dx * S_0 * left_coefficients
         self.bcl = self.dx_ext_2cell[0] * self.S0 * \
                             - self.C1[0] * ( 7/3./self.dx_ext[0]
-                            - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0]
-                            + self.dB[0]/self.B[0]/self.dx_ext_2cell[0] )
+                            - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] )
 
     def set_bcl_Neumann_LHS(self):
         """
-        Boundary condition on the left (conventionally upstream) side of the 
+        Boundary condition on the left (conventionally upstream) side of the
         domain.
-        
-        This changes the right diagonal on the LHS of the equation using a 
-        ghost-node approach by defining a boundary slope that is calculated 
+
+        This changes the right diagonal on the LHS of the equation using a
+        ghost-node approach by defining a boundary slope that is calculated
         as a function of input water-to-sediment supply ratio.
 
         LHS = coeff_right at 0 + coeff_left at 0, with appropriate dx
@@ -335,7 +334,7 @@ class LongProfile(object):
         """
         self.right[0] = -self.C1[0] * 7/3. \
                          * (1/self.dx_ext[0] + 1/self.dx_ext[1])
-    
+
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
         """
         Solve the triadiagonal matrix through time, with a given
@@ -362,14 +361,14 @@ class LongProfile(object):
                                 * self.B + self.Q_s_0
             if self.S0 is not None:
                 self.update_z_ext_0()
-    
+
     def build_LHS_coeff_C0(self, dt=3.15E7):
         """
         Build the LHS coefficient for the tridiagonal matrix.
-        This is the "C0" coefficient, which is likely to be constant and 
+        This is the "C0" coefficient, which is likely to be constant and
         uniform unless there are dynamic changes in width (epsilon_0 in
         k_Qs), sinuosity, or intermittency, in space and/or through time
-        
+
         See eq. D3. "1/4" subsumed into "build matrices".
         For C1 (other function), Q/B included as well.
         """
@@ -384,15 +383,13 @@ class LongProfile(object):
         """
         self.compute_coefficient_time_varying()
         self.left = -self.C1 * ( (7/3.)/self.dx_ext[:-1]
-                        - self.dQ/self.Q/self.dx_ext_2cell \
-                        + self.dB/self.B/self.dx_ext_2cell)
+                        - self.dQ/self.Q/self.dx_ext_2cell )
         self.center = -self.C1 * ( (7/3.) \
                               * (-1/self.dx_ext[:-1] \
                                  -1/self.dx_ext[1:]) ) \
                                  + 1.
         self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:] # REALLY?
-                        + self.dQ/self.Q/self.dx_ext_2cell \
-                        - self.dB/self.B/self.dx_ext_2cell)
+                        + self.dQ/self.Q/self.dx_ext_2cell )
         # Apply boundary conditions if the segment is at the edges of the
         # network (both if there is only one segment!)
         if len(self.upstream_segment_IDs) == 0:
@@ -409,12 +406,12 @@ class LongProfile(object):
         self.right = np.roll(self.right, 1)
         self.diagonals = np.vstack((self.left, self.center, self.right))
         self.offsets = np.array([-1, 0, 1])
-        self.LHSmatrix = spdiags(self.diagonals, self.offsets, len(self.z), 
+        self.LHSmatrix = spdiags(self.diagonals, self.offsets, len(self.z),
                             len(self.z), format='csr')
-        self.RHS = np.hstack((self.bcl+self.z[0], self.z[1:-1], 
-                              self.bcr+self.z[-1]))
-    
-    def analytical_threshold_width(self, P_xB=None, P_xQ=None, x0=None, x1=None, 
+        self.RHS = np.hstack((self.bcl+self.z[0], self.z[1:-1],
+                              self.bcr+self.z[-1])) + self.ssd
+
+    def analytical_threshold_width(self, P_xB=None, P_xQ=None, x0=None, x1=None,
                                    z0=None, z1=None):
         """
         Analytical: no uplift
@@ -440,8 +437,8 @@ class LongProfile(object):
         self.c_a = z0 - x0**self.P_a/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # gamma
         self.zanalytical = self.k_a * self.x**self.P_a + self.c_a
         return self.zanalytical
-        
-    def analytical_threshold_width_perturbation(self, P_xB=None, P_xQ=None, x0=None, x1=None, 
+
+    def analytical_threshold_width_perturbation(self, P_xB=None, P_xQ=None, x0=None, x1=None,
                                    z0=None, z1=None, U=None):
         if x0 is None:
             x0 = self.x[0]
@@ -480,12 +477,12 @@ class LongProfile(object):
         self.zanalytical = c1 * self.x**self.P_a / self.P_a \
             - self.U * self.x**(2-P) / (K * (P-2) * (self.P_a + P - 2)) \
             + c2
-    
+
     #def analytical_threshold_width_perturbation_2(self):
     #    self.analytical_threshold_width()
-    
+
     def compute_Q_s(self):
-        self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) / 
+        self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) /
                          (self.dx_ext_2cell) ) / self.sinuosity
         self.Q_s = -np.sign( self.z_ext[2:] - self.z_ext[:-2] ) \
                    * self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
@@ -503,7 +500,7 @@ class LongProfile(object):
             print("Concavity = ", self.theta)
             print("k_s = ", self.ks)
             print("R2 = ", out.rvalue**2.)
-        
+
 class Network(object):
     """
     Gravel-bed river long-profile solution builder and solver
@@ -517,14 +514,14 @@ class Network(object):
         """
         self.list_of_LongProfile_objects = list_of_LongProfile_objects
         self.t = 0
-        
+
     def build_ID_list(self):
         self.IDs = []
         for lp in self.list_of_LongProfile_objects:
             # IDs
             self.IDs.append(lp.ID)
         self.IDs = np.array(self.IDs)
-        
+
     def build_block_diagonal_matrix_core(self):
         self.block_start_absolute = []
         self.block_end_absolute = []
@@ -548,7 +545,7 @@ class Network(object):
                                           block_diag(self.sparse_matrices) )
         self.block_start_absolute = np.array(self.block_start_absolute)
         self.block_end_absolute = np.array(self.block_end_absolute) - 1
-        
+
     def add_block_diagonal_matrix_upstream_boundary_conditions(self):
         for lp in self.list_of_LongProfile_objects:
             for ID in lp.upstream_segment_IDs:
@@ -561,12 +558,12 @@ class Network(object):
                         / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
                         * self.dt / (2 * lp.dx_ext[0])
                 #C0 = upseg.C0[-1] # Should be consistent
-                dzdx_0_16 = ( np.abs(lp.z_ext[1] - lp.z_ext[0]) 
+                dzdx_0_16 = ( np.abs(lp.z_ext[1] - lp.z_ext[0])
                               / (lp.dx_ext[0]))**(1/6.)
                 C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
                 left_new = -C1 * 7/6. * 2 / lp.dx_ext[0]
                 self.LHSblock_matrix[row, col] = left_new
-        
+
     def add_block_diagonal_matrix_downstream_boundary_conditions(self):
         for lp in self.list_of_LongProfile_objects:
             for ID in lp.downstream_segment_IDs:
@@ -578,7 +575,7 @@ class Network(object):
                 C0 = downseg.k_Qs * downseg.intermittency \
                         / ((1-downseg.lambda_p) * downseg.sinuosity**(7/6.)) \
                         * self.dt / (2 * lp.dx_ext[-1])
-                dzdx_0_16 = ( np.abs(lp.z_ext[-2] - lp.z_ext[-1]) 
+                dzdx_0_16 = ( np.abs(lp.z_ext[-2] - lp.z_ext[-1])
                               / (lp.dx_ext[0]))**(1/6.)
                 C1 = C0 * dzdx_0_16 * lp.Q[-1] / downseg.B[0]
                 right_new = -C1 * 7/6. * 2 / lp.dx_ext[-1]
@@ -677,6 +674,8 @@ class Network(object):
             self.update_zext()
             self.t += self.dt # Update each lp z? Should make a global class
                               # that these both inherit from
+            for lp in self.list_of_LongProfile_objects:
+                lp.t = self.t
             i = 0
             idx = 0
             for lp in self.list_of_LongProfile_objects:
@@ -686,4 +685,3 @@ class Network(object):
                 #                 + lp.Q_s_0
                 if lp.S0 is not None:
                     lp.update_z_ext_0()
-

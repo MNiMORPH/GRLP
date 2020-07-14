@@ -411,7 +411,7 @@ class LongProfile(object):
         self.RHS = np.hstack((self.bcl+self.z[0], self.z[1:-1],
                               self.bcr+self.z[-1])) + self.ssd
 
-    def analytical_threshold_width(self, P_xB=None, P_xQ=None, x0=None, x1=None,
+    def analytical_threshold_width(self, P_xQ=None, x0=None, x1=None,
                                    z0=None, z1=None):
         """
         Analytical: no uplift
@@ -426,13 +426,9 @@ class LongProfile(object):
             z1 = self.z[-1]
         if P_xQ is None:
             P_xQ = self.P_xQ
-        if P_xB is None:
-            P_xB = self.P_xB
-        #print P_xB
         #print P_xQ
-        #e = 1 + 6*(P_xB - P_xQ)/7.
         #self.zanalytical2 = (z1 - z0) * (self.x**e - x0**e)/(x1**e - x0**e) + z0
-        self.P_a = 1 + 6*(P_xB - P_xQ)/7. # beta
+        self.P_a = 1 - 6*P_xQ/7. # beta
         self.k_a = 1/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # alpha
         self.c_a = z0 - x0**self.P_a/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # gamma
         self.zanalytical = self.k_a * self.x**self.P_a + self.c_a

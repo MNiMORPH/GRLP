@@ -74,7 +74,7 @@ lp.set_z_bl(0.)
 # Numerical and analytical solutions.
 # Numerical: (number of time steps, length of time step [s])
 lp.evolve_threshold_width_river(5, 1E12)
-lp.analytical_threshold_width(P_xB=P_xB)
+lp.analytical_threshold_width()
 lp.compute_Q_s()
 
 # Plot

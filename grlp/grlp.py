@@ -242,8 +242,8 @@ class LongProfile(object):
         # instead of dropping base level
         self.U = U # not sure this is the best -- flipping the sign
 
-    def set_source_sink_distributed(self, U):
-        self.ssd = -U * self.dt
+    def set_source_sink_distributed(self, ssd):
+        self.ssd = ssd
 
     def set_Sternberg_gravel_loss(self, gravel_fractional_loss_per_km ):
         """
@@ -427,7 +427,7 @@ class LongProfile(object):
         self.RHS = np.hstack(( self.bcl+self.z[0],
                                self.z[1:-1],
                                self.bcr+self.z[-1])) \
-                               + self.ssd \
+                               + self.ssd * self.dt \
                                + self.downstream_fining_subsidence_equivalent \
                                       *self.dt \
                                + self.U * self.dt

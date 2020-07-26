@@ -30,6 +30,7 @@ class LongProfile(object):
         self.upstream_segment_IDs = []
         self.downstream_segment_IDs = []
         self.ID = None
+        self.downstream_fining_subsidence_equivalent = 0.
         #self.downstream_dx = None # not necessary if x_ext given
         #self.basic_constants()
 
@@ -242,6 +243,19 @@ class LongProfile(object):
     def set_source_sink_distributed(self, U):
         self.ssd = -U * self.dt
 
+    def set_Sternberg_gravel_loss(self, gravel_fractional_loss_per_km ):
+        """
+        Based on Dingle et al. (2017).
+        """
+        distance_downstream_from_boundary = self.x - self.x[0]
+        gravel_input = self.Q_s_0 * \
+                       np.exp( -gravel_fractional_loss_per_km/1000. 
+                                * distance_downstream_from_boundary)
+        # Q_s_0 may cause it to break; perhaps just consider Q_s[0]
+        self.downstream_fining_subsidence_equivalent = np.hstack((
+                0, np.diff(gravel_input) / ( (1-self.lambda_p) * self.B[1:] )
+                ))
+
     def set_niter(self, niter=3):
         self.niter = niter
 
@@ -408,8 +422,12 @@ class LongProfile(object):
         self.offsets = np.array([-1, 0, 1])
         self.LHSmatrix = spdiags(self.diagonals, self.offsets, len(self.z),
                             len(self.z), format='csr')
-        self.RHS = np.hstack((self.bcl+self.z[0], self.z[1:-1],
-                              self.bcr+self.z[-1])) + self.ssd
+        self.RHS = np.hstack(( self.bcl+self.z[0],
+                               self.z[1:-1],
+                               self.bcr+self.z[-1])) \
+                               + self.ssd \
+                               + self.downstream_fining_subsidence_equivalent \
+                                      *self.dt
 
     def analytical_threshold_width(self, P_xQ=None, x0=None, x1=None,
                                    z0=None, z1=None):

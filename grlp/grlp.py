@@ -154,7 +154,6 @@ class LongProfile(object):
         if A:
             self.A = A
             self.A_ext = np.hstack((2*A[0]-A[1], A, 2*A[-1]-A[-2]))
-            self.dA = self.A_ext[2:] - self.A_ext[:-2]
         elif A_ext:
             self.A_ext = A_ext
             self.A = self.A_ext[1:-1]
@@ -166,8 +165,6 @@ class LongProfile(object):
             self.A = self.k_xA * self.x**self.P_xA
         else:
             sys.exit("Error defining variable")
-        self.dA = self.A_ext[2:] - self.A_ext[:-2] # dA over 2*dx!
-                                                   # Not sure if used.
 
     def set_Q(self, Q=None, Q_ext=None, q_R=None, A_R=None, P_AQ=None,
               k_xQ=None, P_xQ=None, update_Qs_input=True):

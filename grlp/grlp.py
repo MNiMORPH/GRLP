@@ -31,6 +31,7 @@ class LongProfile(object):
         self.downstream_segment_IDs = []
         self.ID = None
         self.downstream_fining_subsidence_equivalent = 0.
+        self.gravel_fractional_loss_per_km = None
         #self.downstream_dx = None # not necessary if x_ext given
         #self.basic_constants()
 
@@ -245,9 +246,10 @@ class LongProfile(object):
     def set_source_sink_distributed(self, ssd):
         self.ssd = ssd
 
-    def set_Sternberg_gravel_loss(self, gravel_fractional_loss_per_km ):
+    def set_Sternberg_gravel_loss(self, gravel_fractional_loss_per_km=None ):
         """
         Based on Dingle et al. (2017).
+        """
         """
         distance_downstream_from_boundary = self.x - self.x[0]
         gravel_input = self.Q_s_0 * \
@@ -257,6 +259,20 @@ class LongProfile(object):
         self.downstream_fining_subsidence_equivalent = np.hstack((
                 0, np.diff(gravel_input) / ( (1-self.lambda_p) * self.B[1:] )
                 ))
+        """
+        # Use finite difference
+        # Though this is now separated from the implicit solution
+        # Must include in semi-implicit by iterating through calls to this
+        if gravel_fractional_loss_per_km is not None:
+            self.gravel_fractional_loss_per_km = gravel_fractional_loss_per_km
+        elif self.gravel_fractional_loss_per_km is not None:
+            pass
+        else:
+            raise ValueError('You must define gravel_fractional_loss_per_km.')
+        self.compute_Q_s()
+        self.downstream_fining_subsidence_equivalent = \
+                - self.gravel_fractional_loss_per_km * self.Q_s \
+                / ( (1-self.lambda_p) * self.B )
 
     def set_niter(self, niter=3):
         self.niter = niter
@@ -367,6 +383,10 @@ class LongProfile(object):
         for ti in range(int(self.nt)):
             self.zold = self.z.copy()
             for i in range(self.niter):
+                # If I want to keep this, will have to add to the networked
+                # river too
+                if self.gravel_fractional_loss_per_km is not None:
+                    self.set_Sternberg_gravel_loss()
                 self.build_matrices()
                 self.z_ext[1:-1] = spsolve(self.LHSmatrix, self.RHS)
                 #print self.bcl

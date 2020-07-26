@@ -238,7 +238,9 @@ class LongProfile(object):
         Uplift rate if positive -- or equivalently, rate of base-level fall
         Subsidence (or base-level rise) accomplished by negative uplift
         """
-        self.U = -U # not sure this is the best -- flipping the sign
+        # Keeping sign positive now and including as adding to river
+        # instead of dropping base level
+        self.U = U # not sure this is the best -- flipping the sign
 
     def set_source_sink_distributed(self, U):
         self.ssd = -U * self.dt
@@ -361,9 +363,9 @@ class LongProfile(object):
                           "Local solution on segment will not be sensible.")
         self.nt = nt
         self.build_LHS_coeff_C0(dt)
+        self.set_z_bl(self.z_bl)
         for ti in range(int(self.nt)):
             self.zold = self.z.copy()
-            self.set_z_bl(self.z_bl + self.U * self.dt)
             for i in range(self.niter):
                 self.build_matrices()
                 self.z_ext[1:-1] = spsolve(self.LHSmatrix, self.RHS)
@@ -427,7 +429,8 @@ class LongProfile(object):
                                self.bcr+self.z[-1])) \
                                + self.ssd \
                                + self.downstream_fining_subsidence_equivalent \
-                                      *self.dt
+                                      *self.dt \
+                               + self.U * self.dt
 
     def analytical_threshold_width(self, P_xQ=None, x0=None, x1=None,
                                    z0=None, z1=None):

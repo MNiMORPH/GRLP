@@ -3,20 +3,21 @@ from matplotlib import pyplot as plt
 import os
 
 import grlp
-reload(grlp)
+#reload(grlp)
 
 S0 = 1E-2
 P_xB = 0.2
 #z1 = 1000
 z1 = 0
 
-outroot = '/home/awickert/Dropbox/Papers/InProgress/GRLP_oscillator/OscillatingQ_2panel_outrange/'
+outroot = '/home/andy/Desktop/GRLP_output/'
+#outroot = '/home/awickert/Dropbox/Papers/InProgress/GRLP_oscillator/OscillatingQ_2panel_outrange/'
 
 zall_max = []
 zall_min = []
 for Qperiod_kyr in [20, 40, 100, 400]:
 
-  print Qperiod_kyr, 'kyr cycle'
+  print( Qperiod_kyr, 'kyr cycle' )
 
   Qamp = 0.5
   Qperiod = Qperiod_kyr * 1000. * 3.15E7
@@ -68,13 +69,13 @@ for Qperiod_kyr in [20, 40, 100, 400]:
   z_max_eq = lp.z.copy()
   """
 
-  print "spin-up"
+  print( "spin-up" )
   lp.Q = Q0
   lp.set_Qs_input_upstream(Qs0)
   lp.evolve_threshold_width_river(1000, 3.15E7 * 1000.)
   z0 = lp.z.copy()
 
-  lp.analytical_threshold_width(P_xB=P_xB)
+  lp.analytical_threshold_width()
   lp.compute_Q_s()
 
   Qs0_mean = np.mean(lp.Q_s)
@@ -93,7 +94,7 @@ for Qperiod_kyr in [20, 40, 100, 400]:
   mean_driver = []
   Qs_all = []
 
-  print "time-series"
+  print( "time-series" )
   for i in range(nt):
       lp.Q = Q0 * Qmult[i]
       lp.set_Qs_input_upstream(Qs0)
@@ -119,13 +120,13 @@ for Qperiod_kyr in [20, 40, 100, 400]:
   zall_max.append( np.max(zall[-int(round(len(zall)*2/5.)):], axis=0) )
   zall_min.append( np.min(zall[-int(round(len(zall)*2/5.)):], axis=0) )
   
-  print "plotting"
+  print( "plotting" )
   plt.ioff()
   for i in np.hstack((np.zeros(5), range(nt))).astype(int):
       i = int(i)
       #if i%1 == 0:
       if t[i]/3.15E10 <= 100.:
-          print i,
+          print( i ),
           fig = plt.figure(figsize=(12,9))
           ax1 = plt.subplot(211)
           ax2 = plt.subplot(212)
@@ -139,7 +140,7 @@ for Qperiod_kyr in [20, 40, 100, 400]:
           ax1.plot(lp.x/1000., zall[i], '0.3', linewidth=2)
           ax2.plot(t/3.15E10, Qmult, 'k-', linewidth=3)
           ax2.plot(t[i]/3.15E10, Qmult[i], 'ko')
-          ax1.set_ylim((0, 500))
+          ax1.set_ylim((0, 1200))
           ax1.set_xlim((40, 100))
           #ax2.set_xlim((0, t[-1]/3.15E10))
           ax2.set_xlim((0, 100))
@@ -151,17 +152,17 @@ for Qperiod_kyr in [20, 40, 100, 400]:
           plt.savefig(outroot+'Animate_'+'%03d' %Qperiod_kyr+'kyr/'+'LP_'+'%06d' %(np.round(t[i]/3.15E7))+'.png')
           plt.close()
   
-  print ""
+  print( "" )
 
 # long profile with envelope of total change
 
-print "DC+"
+print( "DC+" )
 # DC shift
 lp.Q = Q0 * np.max(Qmult)
 lp.set_Qs_input_upstream(Qs0)
 lp.evolve_threshold_width_river(1000, 3.15E7 * 1000.)
 ztmp1 = lp.z.copy()
-print "DC-"
+print( "DC-" )
 lp.Q = Q0 * np.min(Qmult)
 lp.set_Qs_input_upstream(Qs0)
 lp.evolve_threshold_width_river(1000, 3.15E7 * 1000.)
@@ -223,7 +224,7 @@ plt.plot(S_out_list_400k, 'g')
 
 
 
-print "plotting"
+print( "plotting" )
 
 """
 plt.ion()

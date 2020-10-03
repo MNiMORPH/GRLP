@@ -532,7 +532,11 @@ class LongProfile(object):
             raise ValueError('Set grain size to compute channel width.')
             
     def compute_flow_depth(self):
-        self.h = np.nan
+        if self.D is not None:
+            h = (self.rho_s - self.rho)/self.rho * (1+self.epsilon) \
+                * self.tau_star_c * self.D / self.S
+        else:
+            raise ValueError('Set grain size to compute channel depth.')
 
     def slope_area(self, verbose=False):
         self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \

@@ -519,6 +519,19 @@ class LongProfile(object):
         self.Q_s = -np.sign( self.z_ext[2:] - self.z_ext[:-2] ) \
                    * self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
 
+    def compute_channel_width(self):
+        if self.D is not None:
+            self.b = 0.17 / ( self.g**.5
+                              * ((self.rho_s - self.rho)/self.rho)**(5/3.)
+                              * (1+self.epsilon)**(5/3.)
+                              * (self.tau_star_c**(5/3.)) ) \
+                            * self.Q * self.S**(7/6.) * self.D**1.5
+        else:
+            raise ValueError('Set grain size to compute channel width.')
+            
+    def compute_flow_depth(self):
+        self.h = np.nan
+
     def slope_area(self, verbose=False):
         self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                          / self.dx_ext_2cell )

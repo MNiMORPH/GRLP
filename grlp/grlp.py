@@ -280,7 +280,7 @@ class LongProfile(object):
         """
         self.Q_s_0 = Q_s_0
         # Q[0] is centerpoint of S?
-        self.S0 = - np.sign(self.Q) * self.sinuosity * \
+        self.S0 = - np.sign(self.Q[0]) * self.sinuosity * \
                       ( np.abs(Q_s_0) / 
                         ( self.k_Qs * self.intermittency 
                               * np.abs(self.Q[0])) )**(6/7.)

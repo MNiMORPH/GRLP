@@ -18,6 +18,9 @@ class LongProfile(object):
         self.A = None
         self.Q = None
         self.B = None
+        self.D = None # Grain size; needed only to resolve width and depth
+        self.b = None # Width and depth need not be resoloved to compute
+        self.h = None # long-profile evolution
         self.S0 = None # S0 for Q_s_0 where there is a defined boundary input
         self.dx_ext = None
         self.dx_2cell = None
@@ -523,14 +526,14 @@ class LongProfile(object):
                               * ((self.rho_s - self.rho)/self.rho)**(5/3.)
                               * (1+self.epsilon)**(5/3.)
                               * (self.tau_star_c**(5/3.)) ) \
-                            * self.Q * self.S**(7/6.) * self.D**1.5
+                            * self.Q * self.S**(7/6.) / self.D**1.5
         else:
             raise ValueError('Set grain size to compute channel width.')
             
     def compute_flow_depth(self):
         if self.D is not None:
-            h = (self.rho_s - self.rho)/self.rho * (1+self.epsilon) \
-                * self.tau_star_c * self.D / self.S
+            self.h = (self.rho_s - self.rho)/self.rho * (1+self.epsilon) \
+                        * self.tau_star_c * self.D / self.S
         else:
             raise ValueError('Set grain size to compute channel depth.')
 

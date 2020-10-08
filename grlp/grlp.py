@@ -211,7 +211,7 @@ class LongProfile(object):
             if self.Q_s_0:
                 self.set_Qs_input_upstream(self.Q_s_0)
 
-    def set_B(self, B=None, B_ext=None, k_xB=None, P_xB=None):
+    def set_B(self, B=None, k_xB=None, P_xB=None):
         """
         Set B directly or calculate it: B = k_xB * x**P_xB
         """
@@ -222,12 +222,8 @@ class LongProfile(object):
             else:
                 # Assuming "x" is known already
                 self.B = B * np.ones(self.x.shape)
-            B_ext = np.hstack((2*self.B[0]-self.B[1], self.B, 2*self.B[-1]-self.B[-2]))
-        elif B_ext is not None:
-            self.B = B_ext[1:-1]
         elif k_xB and self.x.any() and self.x_ext.any():
             self.B = k_xB * self.x**P_xB
-            B_ext = k_xB * self.x_ext**P_xB
             self.k_xB = k_xB
             self.P_xB = P_xB
 

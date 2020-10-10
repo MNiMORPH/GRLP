@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="GRLP",
-    version="1.4.0",
+    version="1.4.1",
     author="Andrew D. Wickert",
     author_email="awickert@umn.edu",
     description="Evolves gravel-bed river long profiles",

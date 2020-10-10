@@ -1,3 +1,3 @@
 #! /bin/sh
 twine upload dist/*
-https://pypi.org/project/GRLP/
+firefox https://pypi.org/project/GRLP/

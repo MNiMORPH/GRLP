@@ -246,14 +246,16 @@ def set_up_network_object(nx_list, nx_max, dx, upstream_segment_list, downstream
 
     return net
 
-def build_standardised_network(nx_max, nx_seg):
-
+def build_standardised_network(nx_max, nx_seg, nx_trib=None):
     """
     Builds lists of segment length, upstream and downstream segment IDs.
 
     For specified total length and segment length. 
-
     """
+
+    # ---- If tributary length not specified, set to trunk segment length
+    if not nx_trib:
+        nx_trib = nx_seg
 
     # ---- Initialise lists
     nx_list = [nx_seg+1]
@@ -266,10 +268,11 @@ def build_standardised_network(nx_max, nx_seg):
     while (nx_max - sum(trunk_nx_list)) > 0:
 
         nx = min(nx_seg, nx_max-sum(trunk_nx_list))
+        nx_tr = min(nx_trib, nx_max-sum(trunk_nx_list))
 
         # add trunk and tributary segment
         nx_list, downstream_segment_list, upstream_segment_list, trunk_ID, trunk_nx_list = add_segment(nx_list, downstream_segment_list, upstream_segment_list, down_trunk_ID, nx, trunk_nx_ls=trunk_nx_list)
-        nx_list, downstream_segment_list, upstream_segment_list, trib_ID = add_segment(nx_list, downstream_segment_list, upstream_segment_list, down_trunk_ID, nx)
+        nx_list, downstream_segment_list, upstream_segment_list, trib_ID = add_segment(nx_list, downstream_segment_list, upstream_segment_list, down_trunk_ID, nx_tr)
         if sum(trunk_nx_list) == nx_max:
             break
 
@@ -289,7 +292,7 @@ if __name__ == "__main__":
     Q_max = 16.
     Qs_max = 0.001163
     # nx_list, up_list, down_list = build_randomised_network(nx_max)
-    nx_list, up_list, down_list = build_standardised_network(nx_max, 5)
+    nx_list, up_list, down_list = build_standardised_network(nx_max, 20, 2)
     net = set_up_network_object(nx_list, nx_max, dx, up_list, down_list, Q_max, Qs_max)
 
     visualisation = plot_network(net, 0)

@@ -258,7 +258,10 @@ def build_standardised_network(nx_max, nx_seg, nx_trib=None):
         nx_trib = nx_seg
 
     # ---- Initialise lists
-    nx_list = [nx_seg+1]
+    if nx_seg % 2 == 0:
+        nx_list = [nx_seg+1]
+    else:
+        nx_list = [nx_seg+2]
     trunk_nx_list = [nx_list[0]]
     downstream_segment_list = [[]]
     upstream_segment_list = [[]]

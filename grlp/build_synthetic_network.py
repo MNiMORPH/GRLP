@@ -70,7 +70,7 @@ def network_upstream_IDs(net, i):
     _upstream_IDs(net, i)
     return IDs
 
-def plot_network(net, mouth):
+def plot_network(net, mouth, show=True):
 
     """
     Create schematic representation of network planfrom.
@@ -111,7 +111,10 @@ def plot_network(net, mouth):
     plot_all_upstream(net, 0, 0)
 
     # ---- Show
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close()
 
     return DICT
 
@@ -228,7 +231,7 @@ def set_up_network_object(nx_list, nx_max, dx, upstream_segment_list, downstream
         if i in heads:
             lp.set_Qs_input_upstream(Qs_in)
 
-        # if lp.downstream_segment_IDs:
+        if lp.downstream_segment_IDs:
             lp.z += segments[lp.downstream_segment_IDs[0]].z_ext[0]
             lp.z_ext += segments[lp.downstream_segment_IDs[0]].z_ext[0]
 

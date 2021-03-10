@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/159710833.svg)](https://zenodo.org/badge/latestdoi/159710833)
+
 # gravel-river-long-profile
 Long-profile evolution of gravel-bed rivers
 

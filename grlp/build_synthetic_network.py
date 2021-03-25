@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import numpy as np
 import random
 from grlp import *
@@ -291,3 +289,77 @@ def build_standardised_network(nx_max, nx_seg, nx_trib=None):
         down_trunk_ID = trunk_ID
 
     return nx_list, upstream_segment_list, downstream_segment_list
+
+
+class Simple_Network:
+    """
+    Set up simple network with specified total length and segment length.
+    Single-segment tributaries added between each trunk segment.
+    Optionally specify different length for tributaries.
+    """
+
+
+    def __init__(self, nx_total, nx_trunk_seg, nx_trib_seg=None):
+        self.nx_total = nx_total
+        self.nx_trunk_seg = nx_trunk_seg
+        if nx_trib_seg:
+            self.nx_trib_seg = nx_trib_seg
+        else:
+            self.nx_trib_seg = nx_trunk_seg
+
+        self.upstream_segment_IDs = None
+        self.downstream_segment_IDs = None
+        self.nxs = None
+
+        self.build_network()
+
+    def add_segment(self, down_ID, trunk=False):
+        """
+        Add segment to network.
+        """
+
+        # ID number for new segment
+        ID = len(self.nxs)
+
+        # Check whether trunk or tributary, assign length
+        if trunk:
+            nx = self.nx_trunk_seg
+        else:
+            nx = self.nx_trib_seg
+
+        # Make sure length won't leave floating point at end
+        # Can't make a segment with only one point...
+        # Instead add one to final segment
+        if self.nx_total - sum(self.trunk_nxs) <= nx + 1:
+            nx = self.nx_total - sum(self.trunk_nxs)
+
+        # Update nx lists
+        self.nxs.append(nx)
+        if trunk:
+            self.trunk_nxs.append(nx)
+
+        # Update topology lists
+        self.downstream_segment_IDs.append([down_ID])
+        self.upstream_segment_IDs[down_ID].append(ID)
+        self.upstream_segment_IDs.append([])
+
+        # Return ID for future use
+        return ID
+
+    def build_network(self):
+        """
+        Generate network topology.
+        """
+
+        # initialise lists
+        self.upstream_segment_IDs = [[]]
+        self.downstream_segment_IDs = [[]]
+        self.nxs = [self.nx_trunk_seg]
+        self.trunk_nxs = []
+        trunk_ID = 0
+
+        # add segments until total length is reached
+        while self.nx_total - sum(self.trunk_nxs) > 0:
+            __ = self.add_segment(trunk_ID)
+            trunk_ID = self.add_segment(trunk_ID, trunk=True)
+

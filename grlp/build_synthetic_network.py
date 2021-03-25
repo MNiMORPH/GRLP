@@ -94,7 +94,7 @@ def plot_network(net, mouth, show=True):
     def plot_all_upstream(net, mouth, y_init):
         scl = [-1, 1]
         for i,seg in enumerate(net.list_of_LongProfile_objects[mouth].upstream_segment_IDs):
-            up_segs = network_upstream_IDs(net, seg)
+            up_segs = net.find_upstream_IDs(seg)
             up_heads = [j for j in up_segs if not net.list_of_LongProfile_objects[j].upstream_segment_IDs]
             if len(up_heads) == 0:
                 y = y_init + scl[i]
@@ -194,7 +194,6 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
         lp.set_hydrologic_constants()
         lp.set_niter()
         lp.set_uplift_rate(0)
-        lp.set_B(150.)
 
         # Set up x domain
         down_IDs = downstream_IDs(downstream_segment_list, i)[1:]
@@ -204,6 +203,9 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
         x = np.arange( (x0-1)*dx, (x1+1)*dx, dx )
         x_min = min(x_min, min(x)+dx)
         lp.set_x(x_ext=x)
+
+        # set width
+        lp.set_B(150.)
 
         # Set initial z
         S0 = (Qs_max / (lp.k_Qs * Q_max))**(6./7.)

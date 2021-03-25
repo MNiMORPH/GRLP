@@ -247,50 +247,6 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
 
     return net
 
-
-def build_standardised_network(nx_max, nx_seg, nx_trib=None):
-    """
-    Builds lists of segment length, upstream and downstream segment IDs.
-
-    For specified total length and segment length. 
-    """
-
-    # ---- If tributary length not specified, set to trunk segment length
-    if not nx_trib:
-        nx_trib = nx_seg
-
-    # ---- Initialise lists
-    if nx_seg % 2 == 0:
-        nx_list = [nx_seg+1]
-    else:
-        nx_list = [nx_seg+2]
-    trunk_nx_list = [nx_list[0]]
-    downstream_segment_list = [[]]
-    upstream_segment_list = [[]]
-    down_trunk_ID = 0
-
-    # ---- Generate network
-    while (nx_max - sum(trunk_nx_list)) > 0:
-
-        nx = min(nx_seg, nx_max-sum(trunk_nx_list))
-        nx_tr = min(nx_trib, nx_max-sum(trunk_nx_list))
-
-        # add trunk and tributary segment
-        nx_list, downstream_segment_list, upstream_segment_list, trunk_ID, trunk_nx_list = add_segment(nx_list, downstream_segment_list, upstream_segment_list, down_trunk_ID, nx, trunk_nx_ls=trunk_nx_list)
-        nx_list, downstream_segment_list, upstream_segment_list, trib_ID = add_segment(nx_list, downstream_segment_list, upstream_segment_list, down_trunk_ID, nx_tr)
-        if sum(trunk_nx_list) == nx_max:
-            break
-
-        # # add branches to tributary
-        # if random.randint(0,1):
-        #     add_branch(nx_list, downstream_segment_list, upstream_segment_list, trib_ID, nx_max)
-
-        # update trunk ID
-        down_trunk_ID = trunk_ID
-
-    return nx_list, upstream_segment_list, downstream_segment_list
-
-
 class Simple_Network:
     """
     Set up simple network with specified total length and segment length.

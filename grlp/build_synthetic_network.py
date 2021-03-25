@@ -70,7 +70,7 @@ def add_branch(nx_ls, down_ls, up_ls, down_ID, nx_max):
             add_branch(nx_ls, down_ls, up_ls, ID2, nx_max)
 
 
-def plot_network(net, mouth, show=True):
+def plot_network(net, show=True):
 
     """
     Create schematic representation of network planfrom.
@@ -91,9 +91,9 @@ def plot_network(net, mouth, show=True):
         DICT[i]['x'] = x
         DICT[i]['y'] = y
 
-    def plot_all_upstream(net, mouth, y_init):
+    def plot_all_upstream(net, i, y_init):
         scl = [-1, 1]
-        for i,seg in enumerate(net.list_of_LongProfile_objects[mouth].upstream_segment_IDs):
+        for i,seg in enumerate(net.list_of_LongProfile_objects[i].upstream_segment_IDs):
             up_segs = net.find_upstream_IDs(seg)
             up_heads = [j for j in up_segs if not net.list_of_LongProfile_objects[j].upstream_segment_IDs]
             if len(up_heads) == 0:
@@ -103,6 +103,9 @@ def plot_network(net, mouth, show=True):
                 y = y_init + len(up_heads)*scl[i]
                 plot_segment(net, seg, y, y_init)
                 plot_all_upstream(net, seg, y)
+
+    # ---- Find mouth
+    mouth = [seg.ID for seg in net.list_of_LongProfile_objects if not seg.downstream_segment_IDs][0]
 
     # ---- Plot mouth
     plot_segment(net, mouth, 0)
@@ -248,6 +251,7 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
         net.evolve_threshold_width_river_network(nt=1000, dt=3.15e10)
 
     return net
+
 
 class Simple_Network:
     """

@@ -4,6 +4,7 @@ import numpy as np
 import random
 from grlp import *
 
+
 def add_segment(nx_ls, down_ls, up_ls, down_ID, nx, trunk_nx_ls=None):
 
     ID = len(nx_ls)
@@ -19,6 +20,7 @@ def add_segment(nx_ls, down_ls, up_ls, down_ID, nx, trunk_nx_ls=None):
         return nx_ls, down_ls, up_ls, ID, trunk_nx_ls
     else:
         return nx_ls, down_ls, up_ls, ID
+
 
 def downstream_IDs(down_ls, i):
     """
@@ -36,6 +38,7 @@ def downstream_IDs(down_ls, i):
     _downstream_IDs(down_ls, i)
     return IDs
 
+
 def upstream_IDs(up_ls, i):
     """
     Search list of upstrean IDs, return all segments upstream of
@@ -52,6 +55,7 @@ def upstream_IDs(up_ls, i):
     _upstream_IDs(up_ls, i)
     return IDs
 
+
 def add_branch(nx_ls, down_ls, up_ls, down_ID, nx_max):
     seg_nx_max = nx_max - sum([nx_ls[i] for i in downstream_IDs(down_ls, down_ID)])
     poss_nx = np.arange(2,seg_nx_max-2)
@@ -66,6 +70,7 @@ def add_branch(nx_ls, down_ls, up_ls, down_ID, nx_max):
         if random.choice([0,1]):
             add_branch(nx_ls, down_ls, up_ls, ID1, nx_max)
             add_branch(nx_ls, down_ls, up_ls, ID2, nx_max)
+
 
 def plot_network(net, mouth, show=True):
 
@@ -160,34 +165,27 @@ def build_randomised_network(nx_max):
 
     return nx_list, upstream_segment_list, downstream_segment_list
 
-def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment_list, Q_max, Qs_max, evolve=False):
 
+def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment_list, Q_max, Qs_max, evolve=False):
     """
     Uses lists of segment length, upstream and downstream segment IDs to build
     instance of grlp.Network.
-
-    As wells as configuration lists requires network total discharge and
+    As well as configuration lists requires network total discharge and
     sediment supply.
-
     Optionally evolve for a while (aiming for steady-state).
-
     """
 
-    # ---- Set up segment LongProfile objects
+    # ---- Some parameters for use during set up
     segments = []
-    heads = [i for i in range(len(nx_list)) if not upstream_segment_list[i]]
-    Q_in = Q_max / len(heads)
-    Qs_in = Qs_max / len(heads)
+    sources = [i for i in range(len(nx_list)) if not upstream_segment_list[i]]
+    Q_in = Q_max / len(sources)
+    Qs_in = Qs_max / len(sources)
     x_min = 0
+
+    # ---- Loop over segments setting up LongProfile objects
     for i,nx in enumerate(nx_list):
 
-        down_IDs = downstream_IDs(downstream_segment_list, i)[1:]
-        down_nx = sum([nx_list[i] for i in down_IDs])
-        x0 = - down_nx - nx_list[i]
-        x1 = x0 + nx_list[i]
-        x = np.arange( (x0-1)*dx, (x1+1)*dx, dx )
-        x_min = min(x_min, min(x)+dx)
-
+        # Some basic set up
         lp = LongProfile()
         lp.set_ID(i)
         lp.set_upstream_segment_IDs(upstream_segment_list[i])
@@ -196,44 +194,61 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
         lp.basic_constants()
         lp.bedload_lumped_constants()
         lp.set_hydrologic_constants()
-        lp.set_x(x_ext=x)
-
-        S0 = (Qs_max / (lp.k_Qs * Q_max))**(6./7.)
-        lp.set_z(S0=-S0, z1=0.)
         lp.set_niter()
         lp.set_uplift_rate(0)
         lp.set_B(150.)
 
-        if i in heads:
-            lp.set_Q(Q=Q_in)
-        else:
-            up_IDs = upstream_IDs(upstream_segment_list, i)
-            up_heads = [j for j in up_IDs if not upstream_segment_list[j]]
-            lp.set_Q(Q=Q_in*len(up_heads))
+        # Set up x domain
+        down_IDs = downstream_IDs(downstream_segment_list, i)[1:]
+        down_nx = sum([nx_list[i] for i in down_IDs])
+        x0 = - down_nx - nx_list[i]
+        x1 = x0 + nx_list[i]
+        x = np.arange( (x0-1)*dx, (x1+1)*dx, dx )
+        x_min = min(x_min, min(x)+dx)
+        lp.set_x(x_ext=x)
 
-        if i in heads:
+        # Set initial z
+        S0 = (Qs_max / (lp.k_Qs * Q_max))**(6./7.)
+        lp.set_z(S0=-S0, z1=0.)
+
+        if i in sources:
+            # if segment is a source, set Q and Qs to input values
+            lp.set_Q(Q=Q_in)
             lp.set_Qs_input_upstream(Qs_in)
+        else:
+            # otherwise set Q based on number of upstream sources
+            # Qs will be set by input from upstream segments
+            up_IDs = upstream_IDs(upstream_segment_list, i)
+            num_sources = len([j for j in up_IDs if not upstream_segment_list[j]])
+            lp.set_Q(Q=Q_in*num_sources)
 
         if lp.downstream_segment_IDs:
+            # if not mouth, reset downstream elevation to that of downstream segment
             lp.z += segments[lp.downstream_segment_IDs[0]].z_ext[0]
             lp.z_ext += segments[lp.downstream_segment_IDs[0]].z_ext[0]
-
-        if not lp.downstream_segment_IDs:
+        else:
+            # otherwise set network base level to zero
             lp.set_z_bl(0.)
 
+        # add LongProfile object to segment list
         segments.append(lp)
-
+ 
+    # ---- Update x coordinates to run from 0 at furthest upstream point
     for i,seg in enumerate(segments):
         segments[i].set_x(x_ext=segments[i].x_ext-x_min)
 
+    # ---- Initialise and set up network object with list of LongProfile objects
     net = Network(segments)
     net.get_z_lengths()
     net.set_niter()
     net.build_ID_list()
+
+    # ---- If requested evolve network, aiming for steady state
     if evolve:
         net.evolve_threshold_width_river_network(nt=1000, dt=3.15e10)
 
     return net
+
 
 def build_standardised_network(nx_max, nx_seg, nx_trib=None):
     """

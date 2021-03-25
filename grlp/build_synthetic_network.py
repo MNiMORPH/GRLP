@@ -67,15 +67,6 @@ def add_branch(nx_ls, down_ls, up_ls, down_ID, nx_max):
             add_branch(nx_ls, down_ls, up_ls, ID1, nx_max)
             add_branch(nx_ls, down_ls, up_ls, ID2, nx_max)
 
-def network_upstream_IDs(net, i):
-    IDs = []
-    def _upstream_IDs(net, i):
-        for j in net.list_of_LongProfile_objects[i].upstream_segment_IDs:
-            IDs.append(j)
-            _upstream_IDs(net, j)
-    _upstream_IDs(net, i)
-    return IDs
-
 def plot_network(net, mouth, show=True):
 
     """
@@ -124,22 +115,6 @@ def plot_network(net, mouth, show=True):
 
     return DICT
 
-
-def strahler_order(net):
-
-    check = np.full( len(net.IDs), 0 )
-    strahler = np.full( len(net.IDs), 1 )
-    O = 1
-    while not np.array_equal(strahler, check):
-        check = strahler.copy()
-        for i in net.IDs:
-            up_IDs = network_upstream_IDs(net, i)
-            of_order = [j for j in up_IDs if strahler[j] == O]
-            if len(of_order) > 1:
-                strahler[i] += 1
-        O += 1
-
-    return strahler
 
 def build_randomised_network(nx_max):
 

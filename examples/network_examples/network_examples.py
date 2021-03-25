@@ -34,3 +34,28 @@ net = set_up_network_object(
 # Doesn't work every time!
 # OK for simple networks
 __ = plot_network(net)
+
+
+# ---- Build a topologically random network: algorithm from Shreve (1974, NRR).
+
+# First instantiate class to generate lists describing topology
+# Topology and link (segment) lengths assigned random based on specified limits
+# Specify:
+#	- network magnitude (i.e. number of sources)
+#	- minimum link (segment) length
+#	- maximum link (segment) length
+net_topo = Shreve_Random_Network(
+	magnitude=20,
+	min_link_length=4,
+	max_link_length=8)
+
+# Proceed as before
+net = set_up_network_object(
+    nx_list=net_topo.nxs,
+    dx=dx, 
+    upstream_segment_list=net_topo.upstream_segment_IDs, 
+    downstream_segment_list=net_topo.downstream_segment_IDs,
+    Q_max=Q_max, 
+    Qs_max=Qs_max,
+    evolve=False)
+__ = plot_network(net)

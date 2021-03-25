@@ -325,3 +325,105 @@ class Simple_Network:
             __ = self.add_segment(trunk_ID)
             trunk_ID = self.add_segment(trunk_ID, trunk=True)
 
+
+class Shreve_Random_Network:
+    """
+    Create random network of specified magnitude.
+    Follows algorithm described in Shreve (1974, Water Resource Res.).
+    Creates lists of upstream/downstream segment IDs for us in GRLP.
+    """
+
+    def __init__(self, magnitude, min_link_length=4, max_link_length=8):
+        self.magnitude = magnitude
+        self.min_link_length = min_link_length
+        self.max_link_length = max_link_length
+        self.links = None
+        self.upstream_segment_IDs = None
+        self.downstream_segment_IDs = None
+        self.nxs = None
+        self.build_network_topology()
+        self.build_lists()
+
+    @property
+    def probability_external(self):
+        """
+        Calculate liklihood that next link is external.
+        """
+        try:
+            p = (self.N_internal - self.N_external)
+            p *= (self.magnitude - self.N_external)
+            p /= (self.N_internal - self.N_external + 1.)
+            p /= (2.*self.magnitude - 2. - self.N_internal - self.N_external)
+        except ZeroDivisionError:
+            p = np.inf
+        return p
+
+    @property
+    def N_external(self):
+        """
+        Number of external (i.e. source) links.
+        """
+        return sum(self.links)
+
+    @property
+    def N_internal(self):
+        """
+        Number of internal links.
+        """
+        return len(self.links) - sum(self.links)
+
+    def build_network_topology(self):
+        """
+        Build network topology as binary string.
+        Ones represent external links, zeros internal links.
+        Algorithm from Shreve (1974, Water Resource Res.).
+        """
+
+        self.links = []
+        k = 1
+        last = 1
+
+        while True:
+
+            if random.random() > self.probability_external:
+                self.links.append(0)
+                if last:
+                    k += 1
+                else:
+                    last = 0
+
+            else:
+                self.links.append(1)
+                if not last:
+                    last = 1
+                if last:
+                    if k > 1:
+                        k -= 1
+                    else:
+                        break
+
+    def build_lists(self):
+        """
+        Build lists for use in GRLP.
+        """
+
+        self.upstream_segment_IDs = [[]]
+        self.downstream_segment_IDs = [[]]
+        self.nxs = [random.randint(self.min_link_length,self.max_link_length)]
+
+        down_segs = []
+        down_seg = 0
+        seg = 1
+
+        for i,l in enumerate(self.links):
+            self.upstream_segment_IDs[down_seg].append(seg)
+            self.upstream_segment_IDs.append([])
+            self.downstream_segment_IDs.append([down_seg])
+            self.nxs.append(random.randint(self.min_link_length,self.max_link_length))
+            if not l:
+                down_segs.append(down_seg)
+                down_seg = seg
+            else:
+                while len(self.upstream_segment_IDs[down_seg]) > 1:
+                    down_seg = down_segs.pop(-1)
+            seg += 1

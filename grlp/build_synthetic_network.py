@@ -54,10 +54,16 @@ def upstream_IDs(up_ls, i):
 
 def add_branch(nx_ls, down_ls, up_ls, down_ID, nx_max):
     seg_nx_max = nx_max - sum([nx_ls[i] for i in downstream_IDs(down_ls, down_ID)])
+    poss_nx = np.arange(2,seg_nx_max-2)
+    if len(poss_nx) > 1:
+        nx = (random.choice(poss_nx), random.choice(poss_nx))
+    else:
+        nx = (seg_nx_max, seg_nx_max)
+
     if seg_nx_max > 0:
-        nx_ls, down_ls, up_ls, ID1 = add_segment(nx_ls, down_ls, up_ls, down_ID, seg_nx_max)
-        nx_ls, down_ls, up_ls, ID2 = add_segment(nx_ls, down_ls, up_ls, down_ID, seg_nx_max)
-        if random.randint(0,1):
+        nx_ls, down_ls, up_ls, ID1 = add_segment(nx_ls, down_ls, up_ls, down_ID, nx[0])
+        nx_ls, down_ls, up_ls, ID2 = add_segment(nx_ls, down_ls, up_ls, down_ID, nx[1])
+        if random.choice([0,1]):
             add_branch(nx_ls, down_ls, up_ls, ID1, nx_max)
             add_branch(nx_ls, down_ls, up_ls, ID2, nx_max)
 
@@ -146,7 +152,7 @@ def build_randomised_network(nx_max):
     """
 
     # ---- Initialise lists
-    nx_list = [random.choice(np.arange(10,nx_max-2))]
+    nx_list = [random.choice(np.arange(2,nx_max-2))]
     trunk_nx_list = [nx_list[0]]
     downstream_segment_list = [[]]
     upstream_segment_list = [[]]
@@ -179,7 +185,7 @@ def build_randomised_network(nx_max):
 
     return nx_list, upstream_segment_list, downstream_segment_list
 
-def set_up_network_object(nx_list, nx_max, dx, upstream_segment_list, downstream_segment_list, Q_max, Qs_max, evolve=False):
+def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment_list, Q_max, Qs_max, evolve=False):
 
     """
     Uses lists of segment length, upstream and downstream segment IDs to build
@@ -197,13 +203,15 @@ def set_up_network_object(nx_list, nx_max, dx, upstream_segment_list, downstream
     heads = [i for i in range(len(nx_list)) if not upstream_segment_list[i]]
     Q_in = Q_max / len(heads)
     Qs_in = Qs_max / len(heads)
+    x_min = 0
     for i,nx in enumerate(nx_list):
 
         down_IDs = downstream_IDs(downstream_segment_list, i)[1:]
         down_nx = sum([nx_list[i] for i in down_IDs])
-        x0 = nx_max - down_nx - nx_list[i]
+        x0 = - down_nx - nx_list[i]
         x1 = x0 + nx_list[i]
         x = np.arange( (x0-1)*dx, (x1+1)*dx, dx )
+        x_min = min(x_min, min(x)+dx)
 
         lp = LongProfile()
         lp.set_ID(i)
@@ -239,6 +247,9 @@ def set_up_network_object(nx_list, nx_max, dx, upstream_segment_list, downstream
             lp.set_z_bl(0.)
 
         segments.append(lp)
+
+    for i,seg in enumerate(segments):
+        segments[i].set_x(x_ext=segments[i].x_ext-x_min)
 
     net = Network(segments)
     net.get_z_lengths()
@@ -290,16 +301,3 @@ def build_standardised_network(nx_max, nx_seg, nx_trib=None):
         down_trunk_ID = trunk_ID
 
     return nx_list, upstream_segment_list, downstream_segment_list
-
-if __name__ == "__main__":
-
-    nx_max = 101
-    dx = 1.e3
-    Q_max = 16.
-    Qs_max = 0.001163
-    # nx_list, up_list, down_list = build_randomised_network(nx_max)
-    nx_list, up_list, down_list = build_standardised_network(nx_max, 20, 2)
-    net = set_up_network_object(nx_list, nx_max, dx, up_list, down_list, Q_max, Qs_max)
-
-    visualisation = plot_network(net, 0)
-    print("Strahler order is: %d" % (strahler_order(net).max()))

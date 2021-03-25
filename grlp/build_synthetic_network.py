@@ -1,4 +1,3 @@
-import numpy as np
 import random
 from grlp import *
 
@@ -93,16 +92,19 @@ def plot_network(net, show=True):
 
     def plot_all_upstream(net, i, y_init):
         scl = [-1, 1]
-        for i,seg in enumerate(net.list_of_LongProfile_objects[i].upstream_segment_IDs):
-            up_segs = net.find_upstream_IDs(seg)
+        up_IDs = net.list_of_LongProfile_objects[i].upstream_segment_IDs
+        up_IDs_up_sources = [len(net.find_upstream_IDs(ID)) for ID in up_IDs]
+        up_IDs = np.array(up_IDs)[np.array(up_IDs_up_sources).argsort()][::-1]
+        for i,ID in enumerate(up_IDs):
+            up_segs = net.find_upstream_IDs(ID)
             up_heads = [j for j in up_segs if not net.list_of_LongProfile_objects[j].upstream_segment_IDs]
             if len(up_heads) == 0:
                 y = y_init + scl[i]
-                plot_segment(net, seg, y, y_init)
+                plot_segment(net, ID, y, y_init)
             else:
                 y = y_init + len(up_heads)*scl[i]
-                plot_segment(net, seg, y, y_init)
-                plot_all_upstream(net, seg, y)
+                plot_segment(net, ID, y, y_init)
+                plot_all_upstream(net, ID, y)
 
     # ---- Find mouth
     mouth = [seg.ID for seg in net.list_of_LongProfile_objects if not seg.downstream_segment_IDs][0]
@@ -115,6 +117,8 @@ def plot_network(net, show=True):
 
     # ---- Show
     if show:
+        plt.yticks(labels=[], ticks=[])
+        plt.xlabel("Downstream distance [km]")
         plt.show()
     else:
         plt.close()

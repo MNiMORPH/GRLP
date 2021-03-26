@@ -39,7 +39,7 @@ __ = plot_network(net)
 # ---- Build a topologically random network: algorithm from Shreve (1974, NRR).
 
 # First instantiate class to generate lists describing topology
-# Topology and link (segment) lengths assigned random based on specified limits
+# Topology and link (segment) lengths assigned randomly based on specified limits
 # Specify:
 #	- network magnitude (i.e. number of sources)
 #	- minimum link (segment) length

@@ -305,12 +305,16 @@ class Shreve_Random_Network:
         Algorithm from Shreve (1974, Water Resource Res.).
         """
 
+        # Initialise some properties
         self.links = []
         k = 1
         last = 1
 
+        # Start looping
         while True:
 
+            # Generate random number between 0 and 1.
+            # If greater than liklihood of external link, add internal link.
             if random.random() > self.probability_external:
                 self.links.append(0)
                 if last:
@@ -318,6 +322,7 @@ class Shreve_Random_Network:
                 else:
                     last = 0
 
+            # If less than liklihood of external link, add external link.
             else:
                 self.links.append(1)
                 if not last:
@@ -333,22 +338,31 @@ class Shreve_Random_Network:
         Build lists for use in GRLP.
         """
 
+        # Initialise topology lists
         self.upstream_segment_IDs = [[]]
         self.downstream_segment_IDs = [[]]
         self.nxs = [random.randint(self.min_link_length,self.max_link_length)]
 
+        # Initialise some other useful properties
         down_segs = []
         down_seg = 0
         seg = 1
 
+        # Loop through links
         for i,l in enumerate(self.links):
+
+            # Update lists
             self.upstream_segment_IDs[down_seg].append(seg)
             self.upstream_segment_IDs.append([])
             self.downstream_segment_IDs.append([down_seg])
             self.nxs.append(random.randint(self.min_link_length,self.max_link_length))
+            
+            # If internal link, continue upstream
             if not l:
                 down_segs.append(down_seg)
                 down_seg = seg
+
+            # If external link, work back downstream to last free internal link
             else:
                 while len(self.upstream_segment_IDs[down_seg]) > 1:
                     down_seg = down_segs.pop(-1)

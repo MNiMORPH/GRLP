@@ -2,23 +2,6 @@ import random
 from grlp import *
 
 
-def add_segment(nx_ls, down_ls, up_ls, down_ID, nx, trunk_nx_ls=None):
-
-    ID = len(nx_ls)
-
-    nx_ls.append( nx )
-
-    down_ls.append([down_ID])
-    up_ls[down_ID].append(ID)
-    up_ls.append([])
-
-    if trunk_nx_ls is not None:
-        trunk_nx_ls.append( nx )
-        return nx_ls, down_ls, up_ls, ID, trunk_nx_ls
-    else:
-        return nx_ls, down_ls, up_ls, ID
-
-
 def downstream_IDs(down_ls, i):
     """
     Search list of downstream IDs, return all segments downstream of
@@ -51,22 +34,6 @@ def upstream_IDs(up_ls, i):
             _upstream_IDs(up_ls, j)
     _upstream_IDs(up_ls, i)
     return IDs
-
-
-def add_branch(nx_ls, down_ls, up_ls, down_ID, nx_max):
-    seg_nx_max = nx_max - sum([nx_ls[i] for i in downstream_IDs(down_ls, down_ID)])
-    poss_nx = np.arange(2,seg_nx_max-2)
-    if len(poss_nx) > 1:
-        nx = (random.choice(poss_nx), random.choice(poss_nx))
-    else:
-        nx = (seg_nx_max, seg_nx_max)
-
-    if seg_nx_max > 0:
-        nx_ls, down_ls, up_ls, ID1 = add_segment(nx_ls, down_ls, up_ls, down_ID, nx[0])
-        nx_ls, down_ls, up_ls, ID2 = add_segment(nx_ls, down_ls, up_ls, down_ID, nx[1])
-        if random.choice([0,1]):
-            add_branch(nx_ls, down_ls, up_ls, ID1, nx_max)
-            add_branch(nx_ls, down_ls, up_ls, ID2, nx_max)
 
 
 def plot_network(net, show=True):
@@ -124,51 +91,6 @@ def plot_network(net, show=True):
         plt.close()
 
     return DICT
-
-
-def build_randomised_network(nx_max):
-
-    """
-    Builds lists of segment length, upstream and downstream segment IDs.
-
-    For specified total length and randomised segment length.
-    Also randomised tributary branching.
-
-    """
-
-    # ---- Initialise lists
-    nx_list = [random.choice(np.arange(2,nx_max-2))]
-    trunk_nx_list = [nx_list[0]]
-    downstream_segment_list = [[]]
-    upstream_segment_list = [[]]
-    down_trunk_ID = 0
-
-    # ---- Generate network
-    while (nx_max - sum(trunk_nx_list)) > 0:
-
-        seg_nx_max = nx_max-sum(trunk_nx_list)
-
-        poss_nx = np.arange(2, seg_nx_max-2)
-        if len(poss_nx) > 1:
-            # nx = poss_nx[random.randint(0,len(poss_nx)-1)]
-            nx = random.choice(poss_nx)
-        else:
-            nx = seg_nx_max
-
-        # add trunk and tributary segment
-        nx_list, downstream_segment_list, upstream_segment_list, trunk_ID, trunk_nx_list = add_segment(nx_list, downstream_segment_list, upstream_segment_list, down_trunk_ID, nx, trunk_nx_ls=trunk_nx_list)
-        nx_list, downstream_segment_list, upstream_segment_list, trib_ID = add_segment(nx_list, downstream_segment_list, upstream_segment_list, down_trunk_ID, nx)
-        if sum(trunk_nx_list) == nx_max:
-            break
-
-        # add branches to tributary
-        if random.randint(0,1):
-            add_branch(nx_list, downstream_segment_list, upstream_segment_list, trib_ID, nx_max)
-
-        # update trunk ID
-        down_trunk_ID = trunk_ID
-
-    return nx_list, upstream_segment_list, downstream_segment_list
 
 
 def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment_list, Q_max, Qs_max, evolve=False):

@@ -5,3 +5,4 @@
 # I will just expose all of them until I start to have too many
 # or want to restrict the UI
 from .grlp import *
+from .build_synthetic_network import *

@@ -735,3 +735,120 @@ class Network(object):
                 #                 + lp.Q_s_0
                 if lp.S0 is not None:
                     lp.update_z_ext_0()
+
+    def find_downstream_IDs(self, ID):
+        """
+        Search list of downstream IDs, return all segments downstream of
+        specified point.
+        Uses recursive call of _downstream_IDs function.
+        Added: FM, 03/2021.
+        """
+        IDs = []
+        def _downstream_IDs(i):
+            IDs.append(i)
+            down_IDs = self.list_of_LongProfile_objects[i].downstream_segment_IDs
+            if down_IDs:
+                _downstream_IDs(down_IDs[0])
+        _downstream_IDs(ID)
+        return IDs
+
+    def find_upstream_IDs(self, ID):
+        """
+        Search list of upstream IDs, return all segments upstream of
+        specified point.
+        Uses recursive call of _upstream_IDs function.
+        Added: FM, 03/2021.
+        """
+        IDs = []
+        def _upstream_IDs(i):
+            IDs.append(i)
+            up_IDs = self.list_of_LongProfile_objects[i].upstream_segment_IDs
+            for j in up_IDs:
+                _upstream_IDs(j)
+        _upstream_IDs(ID)
+        return IDs
+
+    def find_sources(self):
+        """
+        Find network sources (heads).
+        """
+        self.sources = [i for i in self.IDs if self.list_of_LongProfile_objects[i].Q_s_0]
+
+    def compute_mean_discharge(self):
+        """
+        Return mean discharge throughout network.
+        Calculated "pathwise", so trunk segments counted multiple times.
+        Interested in mean path from source to mouth.
+        Added: FM, 03/2021.
+        """
+        Q_arr = np.array([])
+        heads = [i for i in self.IDs if self.list_of_LongProfile_objects[i].Q_s_0]
+        for i in self.sources:
+            downstream_path = self.find_downstream_IDs(i)
+            for j in downstream_path:
+                Q_arr = np.hstack(( Q_arr, self.list_of_LongProfile_objects[j].Q))
+        self.mean_discharge =  Q_arr.mean()
+
+    def compute_mean_downstream_distance(self):
+        """
+        Return mean distance from source to mouth.
+        Added: FM, 03/2021.
+        """
+        x_max = [self.list_of_LongProfile_objects[i].x[-1] for i in self.IDs if not self.list_of_LongProfile_objects[i].downstream_segment_IDs][0]
+        x_arr = np.array([])
+        for i in self.sources:
+            x_arr = np.hstack(( x_arr, self.list_of_LongProfile_objects[i].x[0] ))
+        # self.mean_downstream_distance = np.sqrt(((x_max - x_arr)**2).mean())
+        self.mean_downstream_distance = (x_max - x_arr).mean()
+
+    def compute_network_properties(self):
+        """
+        Compute various network properties.
+        Added: FM, 03/2021.
+        """
+
+        self.find_sources()
+        self.compute_mean_downstream_distance()
+        self.compute_mean_discharge()
+
+        # recursive function to step through network
+        def _step_down(i):
+            self.topological_length += 1
+            up_orders = [self.segment_orders[j] for j in self.list_of_LongProfile_objects[i].upstream_segment_IDs]
+            if up_orders:
+                self.segment_orders[i] = max(up_orders)
+                if len(np.where(up_orders == max(up_orders))[0]) > 1:
+                    self.segment_orders[i] += 1
+            for j in self.list_of_LongProfile_objects[i].downstream_segment_IDs:
+                _step_down(j)
+
+        # compute strahler orders, working down from each source
+        self.segment_orders = np.zeros(len(self.IDs), dtype=int)
+        self.max_topological_length = False
+        for i in self.sources:
+            self.topological_length = -1
+            _step_down(i)
+            self.max_topological_length = max(self.max_topological_length, self.topological_length)
+        del self.topological_length
+
+        # count number of streams in each order
+        self.order_counts = np.zeros(max(self.segment_orders)+1)
+        lengths = np.zeros(len(self.order_counts))
+        for i,seg in enumerate(self.list_of_LongProfile_objects):
+            up_os = self.segment_orders[seg.upstream_segment_IDs]
+            if self.segment_orders[i] not in up_os:
+                self.order_counts[self.segment_orders[i]] += 1
+            lengths[self.segment_orders[i]] += seg.x.max() - seg.x.min()
+        self.order_lengths = lengths / self.order_counts
+
+        # compute bifurcation ratios
+        self.bifurcation_ratios = np.full(len(self.order_counts), np.nan)
+        for i in range(len(self.order_counts)-1):
+            self.bifurcation_ratios[i] = (self.order_counts[i] / 
+                                          self.order_counts[i+1])
+
+        # compute length ratios
+        self.length_ratios = np.full(len(self.order_counts), np.nan)
+        for i in range(1,len(self.order_counts)):
+            self.length_ratios[i] = (self.order_lengths[i] / 
+                                     self.order_lengths[i-1])

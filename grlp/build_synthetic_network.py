@@ -129,7 +129,8 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
         down_nx = sum([nx_list[i] for i in down_IDs])
         x0 = - down_nx - nx_list[i]
         x1 = x0 + nx_list[i]
-        x = np.arange( (x0-1)*dx, (x1+1)*dx, dx )
+        x = np.arange( (x0-1), (x1+1), 1. )
+        x *= dx
         x_min = min(x_min, min(x)+dx)
         lp.set_x(x_ext=x)
 

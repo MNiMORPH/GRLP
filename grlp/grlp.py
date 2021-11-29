@@ -154,10 +154,10 @@ class LongProfile(object):
         """
         Set A directly or calculate it
         """
-        if A:
+        if A is not None:
             self.A = A
             self.A_ext = np.hstack((2*A[0]-A[1], A, 2*A[-1]-A[-2]))
-        elif A_ext:
+        elif A_ext is not None:
             self.A_ext = A_ext
             self.A = self.A_ext[1:-1]
         elif self.x.any() and self.x_ext.any():

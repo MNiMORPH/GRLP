@@ -19,10 +19,13 @@ Releases will be sent to [PyPI](https://pypi.org/project/GRLP/).
 To download and install the release version within your python system, use:
 
 ```
-# Python 2 (or perhaps Python 3, depending on your setup)
+# Python 2
+pip2 install grlp # Python 2; deprecated :(
+
+# Python 3 (implicit, assuming your packages are updated)
 pip install grlp
 
-# Python 3
+# Python 3 (explicit)
 pip3 install grlp
 ```
 
@@ -35,8 +38,10 @@ To install the unreleased code from this repository and/or to make changes to it
 gh repo clone awickert/GRLP
 
 # Install it
-# First, navigate to the root grlp directory. Then:
-pip3 install -e .
+# First, navigate to the root grlp directory. Then do one or both of:
+pip2 install -e . # Python 2; deprecated :(
+pip install -e . # Python 3; recommended
+pip3 install -e . # Python 3; command to explicitly use this version
 ```
 
 Of course, you may always just download the `grlp` source from here and run it as a local (rather than system-wide installed) module. But this can be inconvenient when needing to manage the directory of `grlp.py` relative to that of the driver `*.py` file that you are building to create your model run.

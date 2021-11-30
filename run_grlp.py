@@ -1,10 +1,12 @@
 # run_grlp.py
 # ADW, commented 29 November 2018
 
-###################################
-# Quick example to set up GRLP    #
-# See Wickert and Schildgen, 2018 # 
-###################################
+####################################
+# Quick example to set up GRLP     #
+# See Wickert and Schildgen, 2018  # 
+# This example reproduces Figure 2 #
+# in Wickert and Schildgen, 2019   # 
+####################################
 
 # Import numerical and plotting libraries
 import numpy as np
@@ -28,14 +30,14 @@ lp = grlp.LongProfile()
 
 # S0 is the upstream-end slope that determines the sediment input to the 
 # catchment
-S0 = 1E-2
+S0 = 1.5E-2
 # Valley width: B = k_xB * x**P_xB (k_xB defined below)
-P_xB = 0.8
+P_xB = 0.2
 
 # Intermittency: What fraction of the total time is the river experiencing a
 # geomorphically-effective flood? This assumes a binary on--off state, common 
 # for gravel-bed rivers with floodplains (see Blom et al., 2017)
-lp.set_intermittency(0.01)
+lp.set_intermittency(0.8)
 
 # Utility functions to create constants defined in the W&S 2018 paper
 lp.basic_constants()
@@ -43,7 +45,7 @@ lp.bedload_lumped_constants()
 lp.set_hydrologic_constants()
 
 # Set up the x domain
-lp.set_x(dx=1000, nx=50, x0=20000)
+lp.set_x(dx=1000, nx=90, x0=10000)
 
 # Set up a starting set of channel-bed elevations (z) on a uniform slope (S0)
 lp.set_z(S0=-S0)
@@ -52,9 +54,9 @@ lp.set_z(S0=-S0)
 # valley width (B). Use help(lp.set_A), etc., to see the other options 
 # available for each of these functions.
 lp.set_A(k_xA=1.)
-lp.set_Q(q_R=0.01, A_R=1E5)
-k_xB = 10./np.max(lp.x**P_xB)
-lp.set_B(k_xB=k_xB, P_xB=P_xB)
+lp.set_Q(k_xQ = 1.43e-5, P_xQ = 49/40)
+# k_xB = 250./np.max(lp.x**P_xB)
+lp.set_B(k_xB=25, P_xB=P_xB)
 
 # Set the uplift rate [m/s]; positive upwards
 lp.set_uplift_rate(0)
@@ -65,7 +67,7 @@ lp.set_niter()
 # Input sediment discharge: this is set based on your defined S0, above.
 # (this ficticious boundary-condition slope is the transport slope for the
 #  amount of sediment being supplied)
-Qs0 = lp.k_Qs * lp.Q[0] * (10*S0)**(7/6.)
+Qs0 = lp.k_Qs * lp.Q[0] * (S0)**(7/6.)
 lp.set_Qs_input_upstream(Qs0)
 
 # Set the base level (the set_z function already assumes that z_bl starts at 0)

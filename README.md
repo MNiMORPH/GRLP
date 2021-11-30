@@ -10,6 +10,37 @@ When you use **grlp**, please cite:
 
 **Wickert, A. D. and T. F. Schildgen (2019), [Long-Profile Evolution of Transport-Limited Gravel-Bed Rivers](https://www.earth-surf-dynam.net/7/17/2019/esurf-7-17-2019.html), *Earth Surf. Dynam.*, *7*, 17–43, doi:10.5194/esurf-7-17-2019.**
 
+## Installation
+
+### Via pip and PyPI
+
+Releases will be sent to [PyPI](https://pypi.org/project/GRLP/).
+
+To download and install the release version within your python system, use:
+
+```
+# Python 2 (or perhaps Python 3, depending on your setup)
+pip install grlp
+
+# Python 3
+pip3 install grlp
+```
+
+### Locally with pip and incorporating ongoing code modifications
+
+To install the unreleased code from this repository and/or to make changes to it locally and have this reflected immediately in how GRLP runs:
+
+```
+# Download the repository
+gh repo clone awickert/GRLP
+
+# Install it
+# First, navigate to the root grlp directory. Then:
+pip3 install -e .
+```
+
+Of course, you may always just download the `grlp` source from here and run it as a local (rather than system-wide installed) module. But this can be inconvenient when needing to manage the directory of `grlp.py` relative to that of the driver `*.py` file that you are building to create your model run.
+
 ## Learning how to use GRLP
 
 ### 1-D river long profile

@@ -1,12 +1,17 @@
 import numpy as np
 from matplotlib import pyplot as plt
-import importlib
+import grlp
+
+# For on-the-fly retries, with Python 2/3/+?? support
+try:
+    from importlib import reload
+except ImportError:
+    pass
+reload(grlp)
+
+# Choose whether to draw plots interactively
 #plt.ion()
 plt.ioff()
-
-
-import grlp
-importlib.reload(grlp)
 
 S0 = 0.015
 P_xB = 0.2

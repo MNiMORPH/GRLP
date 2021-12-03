@@ -125,6 +125,7 @@ class LongProfile(object):
         else:
             sys.exit("Need x OR x_ext OR (dx, nx, x0)")
         self.nx = len(self.x)
+        self.L = self.x_ext[-1] - self.x_ext[0]
         if (nx is not None) and (nx != self.nx):
             warnings.warn("Choosing x length instead of supplied nx")
 
@@ -550,6 +551,96 @@ class LongProfile(object):
             print("Concavity = ", self.theta)
             print("k_s = ", self.ks)
             print("R2 = ", out.rvalue**2.)
+
+    def compute_diffusivity(self):
+        """
+        Compute diffusivity at each point along valley.
+        From linearized version of threshold width equation.
+        """
+        self.compute_Q_s()
+        self.diffusivity = (7./6.) * self.k_Qs * self.intermittency * self.Q * self.S**(1./6.) \
+            / self.sinuosity**(7./6.) / self.B / (1. - self.lambda_p)
+
+    def compute_equilibration_time(self):
+        """
+        Compute valley equilibration time (sensu Paola et al., 1992).
+        From scaling of linearized version of threshold width equation.
+        """
+        self.compute_diffusivity()
+        self.equilibration_time = self.L**2. / self.diffusivity.mean()
+
+    def compute_e_folding_time(self, n):
+        """
+        Compute valley e-folding times as function of wavenumber.
+        From solving linearized version of threshold width equation.
+        """
+        self.compute_equilibration_time()
+        return 1./self.diffusivity.mean()/self.wavenumber(n)**2.
+
+    def compute_wavenumber(self, n):
+        """
+        Compute wavenumber for series solutions to linearized version of
+        threshold width equation.
+        """
+        return (2*n + 1) * np.pi / 2. / self.L
+
+    def compute_series_coefficient(self, n, period):
+        """
+        Compute coefficient for series solutions to linearized version of
+        threshold width equation.
+        """
+        return 4 * np.pi * period / self.L / \
+            ((period**2.) * (self.diffusivity.mean()**2.) *
+                (self.compute_wavenumber(n)**4.) + (4.*np.pi**2.))
+
+    def compute_z_series_terms(self, period, nsum):
+        """
+        Compute amplitudes of cos(2*pi*t/P) and sin(2*pi*t/P) terms in
+        solutions to linearized version of threshold width equation.
+        """
+        cos_term = 0
+        sin_term = 0
+        for n in range(nsum):
+            coeff_cos = (np.cos(self.compute_wavenumber(n) * self.x) *
+                            self.compute_series_coefficient(n, period))
+            cos_term += coeff_cos*self.diffusivity.mean()
+            sin_term += coeff_cos*2.*np.pi/period/self.compute_wavenumber(n)**2.
+        return cos_term, sin_term
+
+    def compute_z_gain(self, period, nsum=100):
+        """
+        Compute gain (relative amplitude) between periodic forcing in sediment
+        or water supply and response in valley elevation.
+        From solving linearized version of threshold width equation.
+        """
+        self.compute_diffusivity()
+        cos_term, sin_term = self.compute_z_series_terms(period, nsum)
+        return np.sqrt( (sin_term - (self.L - self.x))**2. + cos_term**2. ) \
+                    / (self.L - self.x)
+
+    def compute_z_lag(self, period, nsum=100):
+        """
+        Compute lag time between periodic forcing in sediment or water supply
+        and response in valley elevation.
+        From solving linearized version of threshold width equation.
+        """
+
+        # Basic calculation
+        self.compute_diffusivity()
+        cos_term, sin_term = self.compute_z_series_terms(period, nsum)
+        lag = -(period/(2.*np.pi)) * \
+                np.arctan( cos_term / (sin_term - (self.L - self.x)) )
+
+        # Search for and correct any cycle skipping.
+        # Arctan function can only resolve -0.25 < lag/period < 0.25
+        for i in range(1,len(self.x)-1):
+            if lag[i] < lag[i-1] and lag[i-1] - lag[i] > period/4.:
+                lag[i:] += period/2.
+            if lag[i+1] > lag[i] and lag[i+1] - lag[i] > period/4.:
+                lag[:i+1] += period/2.
+
+        return lag
+
 
 class Network(object):
     """

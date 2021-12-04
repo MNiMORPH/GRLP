@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+message: "If you use this software, please cite Wickert & Schildgen (2019, ESurf). For software versions above v1.0.0, please also cite it as below."
 authors:
 - family-names: "Wickert"
   given-names: "Andrew D."

@@ -607,6 +607,20 @@ class LongProfile(object):
             sin_term += coeff_cos*2.*np.pi/period/self.compute_wavenumber(n)**2.
         return cos_term, sin_term
 
+    def compute_Qs_series_terms(self, period, nsum):
+        """
+        Compute amplitudes of cos(2*pi*t/P) and sin(2*pi*t/P) terms in
+        solutions to linearized version of threshold width equation.
+        """
+        cos_term = 0
+        sin_term = 0
+        for n in range(nsum):
+            coeff_sin = (np.sin(self.compute_wavenumber(n) * self.x) *
+                            self.compute_series_coefficient(n, period))
+            cos_term += coeff_sin*self.diffusivity.mean()*self.compute_wavenumber(n)
+            sin_term += coeff_sin*2.*np.pi/period/self.compute_wavenumber(n)
+        return cos_term, sin_term
+        
     def compute_z_gain(self, period, nsum=100):
         """
         Compute gain (relative amplitude) between periodic forcing in sediment
@@ -615,8 +629,19 @@ class LongProfile(object):
         """
         self.compute_diffusivity()
         cos_term, sin_term = self.compute_z_series_terms(period, nsum)
-        return np.sqrt( (sin_term - (self.L - self.x))**2. + cos_term**2. ) \
-                    / (self.L - self.x)
+        return np.sqrt( ( (self.L - self.x) - sin_term)**2. + cos_term**2. ) \
+            / (self.L - self.x)
+
+    def compute_Qs_gain(self, period, A_Qs=0., A_Q=0., nsum=100):
+        """
+        Compute gain (relative amplitude) between periodic forcing in sediment
+        or water supply and response in valley elevation.
+        From solving linearized version of threshold width equation.
+        """
+        self.compute_diffusivity()
+        cos_term, sin_term = self.compute_Qs_series_terms(period, nsum)
+        return np.sqrt( (A_Qs/(A_Qs - A_Q) - sin_term)**2. + cos_term**2. ) \
+
 
     def compute_z_lag(self, period, nsum=100):
         """
@@ -629,7 +654,30 @@ class LongProfile(object):
         self.compute_diffusivity()
         cos_term, sin_term = self.compute_z_series_terms(period, nsum)
         lag = -(period/(2.*np.pi)) * \
-                np.arctan( cos_term / (sin_term - (self.L - self.x)) )
+                np.arctan( -cos_term / ((self.L - self.x) - sin_term) )
+
+        # Search for and correct any cycle skipping.
+        # Arctan function can only resolve -0.25 < lag/period < 0.25
+        for i in range(1,len(self.x)-1):
+            if lag[i] < lag[i-1] and lag[i-1] - lag[i] > period/4.:
+                lag[i:] += period/2.
+            if lag[i+1] > lag[i] and lag[i+1] - lag[i] > period/4.:
+                lag[:i+1] += period/2.
+
+        return lag
+        
+    def compute_Qs_lag(self, period, A_Qs=0., A_Q=0., nsum=1000):
+        """
+        Compute lag time between periodic forcing in sediment or water supply
+        and response in bedload sediment discharge.
+        From solving linearized version of threshold width equation.
+        """
+
+        # Basic calculation
+        self.compute_diffusivity()
+        cos_term, sin_term = self.compute_Qs_series_terms(period, nsum)
+        lag = -(period/(2.*np.pi)) * \
+                np.arctan( -cos_term / ((A_Qs/(A_Qs - A_Q) - sin_term))  )
 
         # Search for and correct any cycle skipping.
         # Arctan function can only resolve -0.25 < lag/period < 0.25

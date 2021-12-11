@@ -11,7 +11,7 @@ authors:
   given-names: "Eric"
   orcid: "https://orcid.org/0000-0001-5770-2116"
 title: "GRLP"
-version: 1.5.0
+version: 1.6.0
 doi: 10.5281/zenodo.5745000
 date-released: 2021-11-30
 url: "https://github.com/umn-earth-surface/GRLP"

@@ -4,7 +4,7 @@ from matplotlib.colors import LinearSegmentedColormap
 
 # ------------------------------------------------------------------------------
 
-
+# Figure x in McNab et al.
 
 # ------------------------------------------------------------------------------
 
@@ -17,7 +17,6 @@ dx = 1.e3
 Qs0 = 0.001163080432007373
 
 # ---- Set up long profile object
-lp = LongProfile()
 lp = LongProfile()
 lp.basic_constants()
 lp.bedload_lumped_constants()
@@ -32,7 +31,7 @@ lp.set_uplift_rate(0.)
 lp.set_niter()
 lp.evolve_threshold_width_river(nt=1000, dt=3.15e10)
 lp.compute_Q_s()
-
+lp.compute_equilibration_time()
 
 # ---- Record properties
 lin_periods = np.logspace(-2., 2., 81) * 3.15e12
@@ -144,3 +143,72 @@ cbar.set_label(r"Lag, $\varphi~/~P$")
 
 plt.tight_layout()
 plt.show()
+
+
+
+# # ---- Save data for GMT
+# # Various files used to make a nice version of the figure in GMT. 
+#
+# z_out = "../../../periodic_output_1D/sweeps/"
+# Qs_out = "../../../periodic_output_1D/Qs_sweeps/"
+# 
+# with open(z_out + "linear.pdg", "wb") as f:
+#     for i,p in enumerate(lin_periods):
+#         arr = np.column_stack((
+#             np.full(len(lp.x), p/lp.equilibration_time),
+#             lp.x/1000.,
+#             lin_gain[i,:]
+#             ))
+#         np.savetxt(f, arr)
+# 
+# with open(z_out + "linear.pdl", "wb") as f:
+#     for i,p in enumerate(lin_periods):
+#         arr = np.column_stack((
+#             np.full(len(lp.x), p/lp.equilibration_time),
+#             lp.x/1000.,
+#             lin_lag[i,:]
+#             ))
+#         np.savetxt(f, arr)
+# 
+# with open(Qs_out + "linear_Qs.pdg", "wb") as f:
+#     for i,p in enumerate(lin_periods):
+#         arr = np.column_stack((
+#             np.full(len(lp.x), p/lp.equilibration_time),
+#             lp.x/1000.,
+#             lin_gain_Qs[i,:]
+#             ))
+#         np.savetxt(f, arr)
+# 
+# with open(Qs_out + "linear_Qs.pdl", "wb") as f:
+#     for i,p in enumerate(lin_periods):
+#         arr = np.column_stack((
+#             np.full(len(lp.x), p/lp.equilibration_time),
+#             lp.x/1000.,
+#             lin_lag_Qs[i,:]
+#             ))
+#         np.savetxt(f, arr)
+# 
+# 
+# with open(Qs_out + "linear_Qw.pdg", "wb") as f:
+#     for i,p in enumerate(lin_periods):
+#         arr = np.column_stack((
+#             np.full(len(lp.x), p/lp.equilibration_time),
+#             lp.x/1000.,
+#             lin_gain_Qs_Qw[i,:]
+#             ))
+#         np.savetxt(f, arr)
+# 
+# with open(Qs_out + "linear_Qw.pdl", "wb") as f:
+#     for i,p in enumerate(lin_periods):
+#         arr = np.column_stack((
+#             np.full(len(lp.x), p/lp.equilibration_time),
+#             lp.x/1000.,
+#             lin_lag_Qs_Qw[i,:]
+#             ))
+#         np.savetxt(f, arr)
+# 
+# with open(Qs_out + "L_dash_contour.pd", "wb") as f:
+#     arr = np.column_stack((
+#         lin_periods/lp.equilibration_time, 
+#         np.sqrt(lin_periods*lp.diffusivity.mean())/1000./100. ))
+#     np.savetxt(f, arr)

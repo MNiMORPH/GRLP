@@ -629,7 +629,8 @@ class LongProfile(object):
         """
         self.compute_diffusivity()
         cos_term, sin_term = self.compute_z_series_terms(period, nsum)
-        return np.sqrt( ( (self.L - self.x) - sin_term)**2. + cos_term**2. ) \
+        return (6./7.) * \
+            np.sqrt( ( (self.L - self.x) - sin_term)**2. + cos_term**2. ) \
             / (self.L - self.x)
 
     def compute_Qs_gain(self, period, A_Qs=0., A_Q=0., nsum=100):

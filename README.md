@@ -10,6 +10,11 @@ When you use **grlp**, please cite:
 
 **Wickert, A. D. and T. F. Schildgen (2019), [Long-Profile Evolution of Transport-Limited Gravel-Bed Rivers](https://www.earth-surf-dynam.net/7/17/2019/esurf-7-17-2019.html), *Earth Surf. Dynam.*, *7*, 17–43, doi:10.5194/esurf-7-17-2019.**
 
+Furthermore, if you use any of the features associated with the linearization or the plotting scripts noted in the folder [McNab_et_al_submitted_GRL](https://github.com/MNiMORPH/GRLP/tree/master/examples/McNab_et_al_submitted_GRL), please cite:
+
+**M<sup>c</sup>Nab, F., T. F. Schildgen, J. M. Turowski, and A. D. Wickert (2022, submitted), Diverse responses of alluvial rivers to periodic environmental change.**
+
+
 ## Installation
 
 ### Via pip and PyPI

@@ -629,7 +629,8 @@ class LongProfile(object):
         """
         self.compute_diffusivity()
         cos_term, sin_term = self.compute_z_series_terms(period, nsum)
-        return np.sqrt( ( (self.L - self.x) - sin_term)**2. + cos_term**2. ) \
+        return (6./7.) * \
+            np.sqrt( ( (self.L - self.x) - sin_term)**2. + cos_term**2. ) \
             / (self.L - self.x)
 
     def compute_Qs_gain(self, period, A_Qs=0., A_Q=0., nsum=100):
@@ -658,11 +659,12 @@ class LongProfile(object):
 
         # Search for and correct any cycle skipping.
         # Arctan function can only resolve -0.25 < lag/period < 0.25
-        for i in range(1,len(self.x)-1):
+        for i in range(1,len(self.x)):
             if lag[i] < lag[i-1] and lag[i-1] - lag[i] > period/4.:
                 lag[i:] += period/2.
-            if lag[i+1] > lag[i] and lag[i+1] - lag[i] > period/4.:
-                lag[:i+1] += period/2.
+            if i != len(self.x)-1:
+                if lag[i+1] > lag[i] and lag[i+1] - lag[i] > period/4.:
+                    lag[:i+1] += period/2.
 
         return lag
         
@@ -681,11 +683,12 @@ class LongProfile(object):
 
         # Search for and correct any cycle skipping.
         # Arctan function can only resolve -0.25 < lag/period < 0.25
-        for i in range(1,len(self.x)-1):
+        for i in range(1,len(self.x)):
             if lag[i] < lag[i-1] and lag[i-1] - lag[i] > period/4.:
                 lag[i:] += period/2.
-            if lag[i+1] > lag[i] and lag[i+1] - lag[i] > period/4.:
-                lag[:i+1] += period/2.
+            if i != len(self.x)-1:
+                if lag[i+1] > lag[i] and lag[i+1] - lag[i] > period/4.:
+                    lag[:i+1] += period/2.
 
         return lag
 

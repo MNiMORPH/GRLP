@@ -93,7 +93,8 @@ def plot_network(net, show=True):
     return DICT
 
 
-def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment_list, Q_max, Qs_max, evolve=False):
+def set_up_network_object(
+    nx_list, dx, upstream_segment_list, downstream_segment_list, Q_in, Qs_in, B, evolve=False):
     """
     Uses lists of segment length, upstream and downstream segment IDs to build
     instance of grlp.Network.
@@ -105,9 +106,6 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
     # ---- Some parameters for use during set up
     segments = []
     sources = [i for i in range(len(nx_list)) if not upstream_segment_list[i]]
-    Q_in = Q_max / len(sources)
-    Qs_in = Qs_max / len(sources)
-    x_min = 0
 
     # ---- Loop over segments setting up LongProfile objects
     for i,nx in enumerate(nx_list):
@@ -129,16 +127,14 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
         down_nx = sum([nx_list[i] for i in down_IDs])
         x0 = - down_nx - nx_list[i]
         x1 = x0 + nx_list[i]
-        x = np.arange( (x0-1), (x1+1), 1. )
-        x *= dx
-        x_min = min(x_min, min(x)+dx)
+        x = np.arange( (x0-1), (x1+1), 1. ) * dx
         lp.set_x(x_ext=x)
 
         # set width
-        lp.set_B(150.)
+        lp.set_B(B)
 
         # Set initial z
-        S0 = (Qs_max / (lp.k_Qs * Q_max))**(6./7.)
+        S0 = (Qs_in / (lp.k_Qs * Q_in))**(6./7.)
         lp.set_z(S0=-S0, z1=0.)
 
         if i in sources:
@@ -164,6 +160,7 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
         segments.append(lp)
  
     # ---- Update x coordinates to run from 0 at furthest upstream point
+    x_min = min([min(lp.x_ext)+dx for lp in segments])
     for i,seg in enumerate(segments):
         segments[i].set_x(x_ext=segments[i].x_ext-x_min)
 
@@ -172,10 +169,12 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
     net.get_z_lengths()
     net.set_niter()
     net.build_ID_list()
+    net.compute_network_properties()
 
     # ---- If requested evolve network, aiming for steady state
     if evolve:
         net.evolve_threshold_width_river_network(nt=1000, dt=3.15e10)
+        for seg in net.list_of_LongProfile_objects: seg.compute_Q_s()
 
     return net
 
@@ -260,14 +259,11 @@ class Shreve_Random_Network:
     Creates lists of upstream/downstream segment IDs for us in GRLP.
     """
 
-    def __init__(self, magnitude, min_link_length=4, max_link_length=8):
+    def __init__(self, magnitude):
         self.magnitude = magnitude
-        self.min_link_length = min_link_length
-        self.max_link_length = max_link_length
         self.links = None
         self.upstream_segment_IDs = None
         self.downstream_segment_IDs = None
-        self.nxs = None
         self.build_network_topology()
         self.build_lists()
 
@@ -333,6 +329,9 @@ class Shreve_Random_Network:
                         k -= 1
                     else:
                         break
+        
+        # Remove extra initial link
+        self.links.remove(0)
 
     def build_lists(self):
         """
@@ -342,7 +341,6 @@ class Shreve_Random_Network:
         # Initialise topology lists
         self.upstream_segment_IDs = [[]]
         self.downstream_segment_IDs = [[]]
-        self.nxs = [random.randint(self.min_link_length,self.max_link_length)]
 
         # Initialise some other useful properties
         down_segs = []
@@ -356,15 +354,17 @@ class Shreve_Random_Network:
             self.upstream_segment_IDs[down_seg].append(seg)
             self.upstream_segment_IDs.append([])
             self.downstream_segment_IDs.append([down_seg])
-            self.nxs.append(random.randint(self.min_link_length,self.max_link_length))
             
-            # If internal link, continue upstream
-            if not l:
-                down_segs.append(down_seg)
-                down_seg = seg
+            # If more to come, continue through network
+            if i < len(self.links)-1:
+            
+                # If internal link, continue upstream
+                if not l:
+                    down_segs.append(down_seg)
+                    down_seg = seg
 
-            # If external link, work back downstream to last free internal link
-            else:
-                while len(self.upstream_segment_IDs[down_seg]) > 1:
-                    down_seg = down_segs.pop(-1)
-            seg += 1
+                # If external link, work back downstream to last free internal link
+                else:
+                    while len(self.upstream_segment_IDs[down_seg]) > 1:
+                        down_seg = down_segs.pop(-1)
+                seg += 1

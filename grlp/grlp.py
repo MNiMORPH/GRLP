@@ -983,14 +983,24 @@ class Network(object):
             lengths[self.segment_orders[i]] += seg.x.max() - seg.x.min()
         self.order_lengths = lengths / self.order_counts
 
-        # compute bifurcation ratios
+        # compute bifurcation ratios directly and estimate with log-fit
         self.bifurcation_ratios = np.full(len(self.order_counts), np.nan)
         for i in range(len(self.order_counts)-1):
             self.bifurcation_ratios[i] = (self.order_counts[i] / 
                                           self.order_counts[i+1])
+        fit = np.polyfit(
+            np.arange(1,len(self.order_counts)+1,1),
+            np.log10(self.order_counts),
+            1)
+        self.bifurcation_ratio = 10.**(-fit[0])
 
         # compute length ratios
         self.length_ratios = np.full(len(self.order_counts), np.nan)
         for i in range(1,len(self.order_counts)):
             self.length_ratios[i] = (self.order_lengths[i] / 
                                      self.order_lengths[i-1])
+        fit = np.polyfit(
+            np.arange(1,len(self.order_lengths)+1,1),
+            np.log10(self.order_lengths),
+            1)
+        self.length_ratio = 10.**(fit[0])

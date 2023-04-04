@@ -234,7 +234,7 @@ def set_up_network_object(
 
     return net
 
-def generate_random_network(magnitude, length, width, mean_Q, mean_Qs):
+def generate_random_network(magnitude, length, width, mean_Q, mean_Qs, evolve=False):
     """
     Generate a random network with given magnitude, length, width, and mean
     discharges.
@@ -259,7 +259,8 @@ def generate_random_network(magnitude, length, width, mean_Q, mean_Qs):
         net_topo.downstream_segment_IDs,
         Q_in,
         Qs_in,
-        width)
+        width,
+        evolve)
         
     # Return
     return net

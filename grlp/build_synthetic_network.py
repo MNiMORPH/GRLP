@@ -1,4 +1,6 @@
 import random
+import copy
+from scipy.optimize import minimize
 from grlp import *
 
 
@@ -92,6 +94,60 @@ def plot_network_deprecated(net, show=True):
 
     return DICT
 
+def get_simple_network_setup_params(
+    upstream_segment_list,
+    downstream_segment_list,
+    L,
+    mean_Q,
+    mean_Qs,
+    min_nxs=5,
+    approx_dx=5.e2):
+    """
+    Find spatial discretisation and input discharges for given network
+    geometry and desired length, approximate discretisation, mean discharges.
+    """
+    
+    # ---- Spatial discretisation
+    
+    # Number of links
+    num_links = len(upstream_segment_list)
+    
+    # Find sources
+    sources = [
+        i for i,up_ids in enumerate(upstream_segment_list) if len(up_ids)==0]
+    
+    # Find maximum topological length,
+    # i.e. number of downstream segments to outlet
+    max_topo_length = max([
+        len(downstream_IDs(downstream_segment_list, i))
+        for i in range(num_links)])
+        
+    # Find length of each link so that total length equals L
+    link_length = L / max_topo_length
+    
+    # Find how many nodes for each link, set dx
+    link_n = max(min_nxs, int(link_length/approx_dx))
+    nxs = [link_n for i in range(num_links)]
+    dx = link_length / link_n
+    
+    # ---- Sediment & water discharge
+    
+    # Find number of sources upstream of each point
+    up_sources = []
+    for i in range(num_links):
+        count = 0
+        up_IDs = upstream_IDs(upstream_segment_list, i)
+        for ID in up_IDs:
+            if len(upstream_IDs(upstream_segment_list, ID)) == 1:
+                count += 1
+        up_sources.append(count)
+        
+    # Find input sediment and water discharge to give specified means
+    Q_in = mean_Q / np.mean(up_sources)
+    Qs_in = mean_Qs / np.mean(up_sources)
+    
+    # Return
+    return nxs, dx, Q_in, Qs_in
 
 def set_up_network_object(
     nx_list, dx, upstream_segment_list, downstream_segment_list, Q_in, Qs_in, B, evolve=False):
@@ -177,6 +233,38 @@ def set_up_network_object(
         for seg in net.list_of_LongProfile_objects: seg.compute_Q_s()
 
     return net
+
+def generate_random_network(magnitude, length, width, mean_Q, mean_Qs):
+    """
+    Generate a random network with given magnitude, length, width, and mean
+    discharges.
+    """
+    
+    # Get random network topology
+    net_topo = Shreve_Random_Network(magnitude=magnitude)
+    
+    # Get setup parameters
+    nxs, dx, Q_in, Qs_in = get_simple_network_setup_params(
+        net_topo.upstream_segment_IDs,
+        net_topo.downstream_segment_IDs,
+        length,
+        mean_Q,
+        mean_Qs)
+        
+    # Set up the object
+    net = set_up_network_object(
+        nxs,
+        dx,
+        net_topo.upstream_segment_IDs,
+        net_topo.downstream_segment_IDs,
+        Q_in,
+        Qs_in,
+        width)
+        
+    # Return
+    return net
+
+
 
 def plot_network(net, show=True):
     """

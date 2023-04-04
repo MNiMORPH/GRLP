@@ -503,3 +503,59 @@ class Shreve_Random_Network:
                     while len(self.upstream_segment_IDs[down_seg]) > 1:
                         down_seg = down_segs.pop(-1)
                 seg += 1
+
+def power_law(x, k, p):
+    """
+    Simple power law: y = k*(x^p).
+    """
+    return k * (x**p)
+
+def power_law_misfit(pars, x, y):
+    """
+    Compute misfit between some data x,y and power law with given parameters.
+    
+    k = pars[0]
+    p = pars[1]
+    x = data x
+    y = data y
+    """
+    k = pars[0]
+    p = pars[1]
+    modely = power_law(x, k, p)
+    misfit = np.mean( np.sqrt( (modely - y)**2. ) )
+    return misfit
+    
+def optimize_power_law(x, y):
+    """
+    Find optimal power law parameters for data x, y.
+    """
+    x_scale = x / max(x)
+    y_scale = y / max(y)
+    fit = minimize(
+        power_law_misfit, 
+        [1.,1.], 
+        args=(x_scale,y_scale), 
+        bounds=[[0,None],[0,None]])
+    k_scale = fit.x[0]
+    p = fit.x[1]
+    k = k_scale / (max(x)**p) * max(y)
+    return k, p
+    
+def find_network_hack_parameters(net):
+    """
+    Find optimal Hack parameters for a given network object.
+    
+    First get distances downstream from source for each network segment. Then
+    optimise power law describing increasing discharge downstream.
+    """
+    d = []
+    Q = []
+    for lp in net.list_of_LongProfile_objects:
+        upstream_IDs = net.find_upstream_IDs(lp.ID)
+        ds = []
+        for up_id in upstream_IDs:
+            ds.append(min(net.list_of_LongProfile_objects[up_id].x))
+        d.append(np.mean(lp.x) - min(ds))
+        Q.append(np.mean(lp.Q))
+    k, p = optimize_power_law(d, Q)
+    return {'k': k, 'p': p, 'd': d, 'Q': Q}

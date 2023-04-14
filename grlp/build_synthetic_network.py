@@ -263,7 +263,7 @@ def generate_random_network(magnitude, length, width, mean_Q, mean_Qs, evolve=Fa
         evolve)
         
     # Return
-    return net
+    return net, net_topo
 
 
 

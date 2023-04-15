@@ -234,14 +234,14 @@ def set_up_network_object(
 
     return net
 
-def generate_random_network(magnitude, length, width, mean_Q, mean_Qs, evolve=False):
+def generate_random_network(magnitude, length, width, mean_Q, mean_Qs, evolve=False, topology=None):
     """
     Generate a random network with given magnitude, length, width, and mean
     discharges.
     """
     
     # Get random network topology
-    net_topo = Shreve_Random_Network(magnitude=magnitude)
+    net_topo = Shreve_Random_Network(magnitude=magnitude, topology=topology)
     
     # Get setup parameters
     nxs, dx, Q_in, Qs_in = get_simple_network_setup_params(
@@ -483,12 +483,13 @@ class Shreve_Random_Network:
     Creates lists of upstream/downstream segment IDs for us in GRLP.
     """
 
-    def __init__(self, magnitude):
+    def __init__(self, magnitude, topology=None):
         self.magnitude = magnitude
-        self.links = None
+        self.links = topology
         self.upstream_segment_IDs = None
         self.downstream_segment_IDs = None
-        self.build_network_topology()
+        if not self.links:
+            self.build_network_topology()
         self.build_lists()
 
     @property

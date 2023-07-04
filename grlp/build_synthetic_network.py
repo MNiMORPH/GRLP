@@ -1,4 +1,6 @@
 import random
+import copy
+from scipy.optimize import minimize
 from grlp import *
 
 
@@ -36,7 +38,7 @@ def upstream_IDs(up_ls, i):
     return IDs
 
 
-def plot_network(net, show=True):
+def plot_network_deprecated(net, show=True):
 
     """
     Create schematic representation of network planfrom.
@@ -92,8 +94,63 @@ def plot_network(net, show=True):
 
     return DICT
 
+def get_simple_network_setup_params(
+    upstream_segment_list,
+    downstream_segment_list,
+    L,
+    mean_Q,
+    mean_Qs,
+    min_nxs=5,
+    approx_dx=5.e2):
+    """
+    Find spatial discretisation and input discharges for given network
+    geometry and desired length, approximate discretisation, mean discharges.
+    """
+    
+    # ---- Spatial discretisation
+    
+    # Number of links
+    num_links = len(upstream_segment_list)
+    
+    # Find sources
+    sources = [
+        i for i,up_ids in enumerate(upstream_segment_list) if len(up_ids)==0]
+    
+    # Find maximum topological length,
+    # i.e. number of downstream segments to outlet
+    max_topo_length = max([
+        len(downstream_IDs(downstream_segment_list, i))
+        for i in range(num_links)])
+        
+    # Find length of each link so that total length equals L
+    link_length = L / max_topo_length
+    
+    # Find how many nodes for each link, set dx
+    link_n = max(min_nxs, int(link_length/approx_dx))
+    nxs = [link_n for i in range(num_links)]
+    dx = link_length / link_n
+    
+    # ---- Sediment & water discharge
+    
+    # Find number of sources upstream of each point
+    up_sources = []
+    for i in range(num_links):
+        count = 0
+        up_IDs = upstream_IDs(upstream_segment_list, i)
+        for ID in up_IDs:
+            if len(upstream_IDs(upstream_segment_list, ID)) == 1:
+                count += 1
+        up_sources.append(count)
+        
+    # Find input sediment and water discharge to give specified means
+    Q_in = mean_Q / np.mean(up_sources)
+    Qs_in = mean_Qs / np.mean(up_sources)
+    
+    # Return
+    return nxs, dx, Q_in, Qs_in
 
-def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment_list, Q_max, Qs_max, evolve=False):
+def set_up_network_object(
+    nx_list, dx, upstream_segment_list, downstream_segment_list, Q_in, Qs_in, B, evolve=False):
     """
     Uses lists of segment length, upstream and downstream segment IDs to build
     instance of grlp.Network.
@@ -105,9 +162,6 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
     # ---- Some parameters for use during set up
     segments = []
     sources = [i for i in range(len(nx_list)) if not upstream_segment_list[i]]
-    Q_in = Q_max / len(sources)
-    Qs_in = Qs_max / len(sources)
-    x_min = 0
 
     # ---- Loop over segments setting up LongProfile objects
     for i,nx in enumerate(nx_list):
@@ -129,15 +183,14 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
         down_nx = sum([nx_list[i] for i in down_IDs])
         x0 = - down_nx - nx_list[i]
         x1 = x0 + nx_list[i]
-        x = np.arange( (x0-1)*dx, (x1+1)*dx, dx )
-        x_min = min(x_min, min(x)+dx)
+        x = np.arange( (x0-1), (x1+1), 1. ) * dx
         lp.set_x(x_ext=x)
 
         # set width
-        lp.set_B(150.)
+        lp.set_B(B)
 
         # Set initial z
-        S0 = (Qs_max / (lp.k_Qs * Q_max))**(6./7.)
+        S0 = (Qs_in / (lp.k_Qs * Q_in))**(6./7.)
         lp.set_z(S0=-S0, z1=0.)
 
         if i in sources:
@@ -163,6 +216,7 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
         segments.append(lp)
  
     # ---- Update x coordinates to run from 0 at furthest upstream point
+    x_min = min([min(lp.x_ext)+dx for lp in segments])
     for i,seg in enumerate(segments):
         segments[i].set_x(x_ext=segments[i].x_ext-x_min)
 
@@ -171,13 +225,181 @@ def set_up_network_object(nx_list, dx, upstream_segment_list, downstream_segment
     net.get_z_lengths()
     net.set_niter()
     net.build_ID_list()
+    net.compute_network_properties()
 
     # ---- If requested evolve network, aiming for steady state
     if evolve:
         net.evolve_threshold_width_river_network(nt=1000, dt=3.15e10)
+        for seg in net.list_of_LongProfile_objects: seg.compute_Q_s()
 
     return net
 
+def generate_random_network(magnitude, length, width, mean_Q, mean_Qs, evolve=False, topology=None):
+    """
+    Generate a random network with given magnitude, length, width, and mean
+    discharges.
+    """
+    
+    # Get random network topology
+    net_topo = Shreve_Random_Network(magnitude=magnitude, topology=topology)
+    
+    # Get setup parameters
+    nxs, dx, Q_in, Qs_in = get_simple_network_setup_params(
+        net_topo.upstream_segment_IDs,
+        net_topo.downstream_segment_IDs,
+        length,
+        mean_Q,
+        mean_Qs)
+        
+    # Set up the object
+    net = set_up_network_object(
+        nxs,
+        dx,
+        net_topo.upstream_segment_IDs,
+        net_topo.downstream_segment_IDs,
+        Q_in,
+        Qs_in,
+        width,
+        evolve)
+        
+    # Return
+    return net, net_topo
+
+def plot_network(net, show=True):
+    """
+    Generate a plotable network planform from a network object.
+    """
+
+    def check_for_segment_conflicts(ID, segs_by_topo_length, net, ys):
+        """
+        Check for segments that overlap with the given segment.
+        """
+        
+        topo_length = len(net.find_downstream_IDs(ID))
+        
+        for nearby_ID in segs_by_topo_length[topo_length]:
+            if nearby_ID != ID:
+                if ys[ID] == ys[nearby_ID]:
+                    return nearby_ID
+                                
+        for nearby_ID in segs_by_topo_length[topo_length+1]:
+            if (
+                nearby_ID != ID and
+                net.list_of_LongProfile_objects[nearby_ID]. \
+                downstream_segment_IDs):
+                down_ID = (
+                    net.list_of_LongProfile_objects[nearby_ID]. \
+                    downstream_segment_IDs[0])
+                if (
+                    ys[ID] >= min(ys[nearby_ID], ys[down_ID]) and 
+                    ys[ID] <= max(ys[nearby_ID], ys[down_ID])
+                    ):
+                    return nearby_ID
+                    
+        for nearby_ID in segs_by_topo_length[topo_length-1]:
+            if nearby_ID != ID:
+                if ys[ID] == ys[nearby_ID]:
+                    return nearby_ID
+                    
+        return False
+
+    def create_planform(net, ys):
+        """
+        Generate the final x and y coordinates to plot.
+        """
+        
+        planform = {}
+        for i,seg in enumerate(net.list_of_LongProfile_objects):
+            if not seg.downstream_segment_IDs:
+                x = np.hstack(( seg.x, seg.x_ext[-1], seg.x_ext[-1] ))/1000.
+                y = np.hstack(( np.full(len(seg.x),ys[i]), ys[i], ys[i] ))
+            else:
+                x = np.hstack(( seg.x, seg.x_ext[-1], seg.x_ext[-1] ))/1000.
+                y = np.hstack(( 
+                    np.full(len(seg.x),ys[i]), 
+                    ys[i], 
+                    ys[seg.downstream_segment_IDs[0]]
+                    ))
+            planform[i] = {'x': x, 'y': y}
+        return planform
+        
+    def plot_planform(planform):
+        """
+        Plot the planform.
+        """
+        
+        for i in planform:
+            plt.plot(planform[i]['x'], planform[i]['y'])
+        plt.show()
+            
+    # ---- Organise segments by distance upstream (topological length)
+    # Used later to check for conflicts between segments.
+    segs_by_topo_length = {0: [], net.max_topological_length+2: []}
+    for i in range(1,net.max_topological_length+2):
+        segs_by_topo_length[i] = []
+    for i,seg in enumerate(net.list_of_LongProfile_objects):
+        topo_length = len(net.find_downstream_IDs(seg.ID))
+        segs_by_topo_length[topo_length].append(seg.ID)
+    
+    # ---- Set up arrays to fill
+    ys = np.full( len(net.list_of_LongProfile_objects), np.nan )
+    sides = np.full( len(net.list_of_LongProfile_objects), 0)
+    up_sides = np.full( len(net.list_of_LongProfile_objects), -1)
+    connections = [
+        [np.nan,np.nan] for i in range(len(net.list_of_LongProfile_objects))
+        ]
+    
+    # ---- Loop over segments building planform
+    for i,seg in enumerate(net.list_of_LongProfile_objects):
+        
+        # ---- Check if outlet
+        if not seg.downstream_segment_IDs:
+            ys[i] = 0.
+            connections[i][1] = copy.copy(ys[i])
+        
+        # ---- Otherwise, add segment on to downstream one
+        else:
+            
+            # Some info about the segment
+            down_ID = seg.downstream_segment_IDs[0]
+            topo_length = len(net.find_downstream_IDs(seg.ID))
+
+            # Add segment based on relationship to downstream segment
+            # Record what side of downstream segment the segment is on
+            # Update "up_sides" so that next segment goes on the other side
+            ys[i] = ys[down_ID] + up_sides[down_ID]
+            sides[i] = copy.copy(up_sides[down_ID])
+            up_sides[down_ID] *= -1
+            
+            # Check for conflict
+            conflicting_id = check_for_segment_conflicts(
+                seg.ID, segs_by_topo_length, net, ys)
+            
+            # If there is a conflict, move downstream until reaching a segment
+            # with the right direction to fix the conflict
+            if conflicting_id:
+                seg_to_adjust = seg.ID
+                while sides[conflicting_id] != sides[seg_to_adjust]:
+                    seg_to_adjust = (
+                        net.list_of_LongProfile_objects[seg_to_adjust]. \
+                        downstream_segment_IDs[0])
+            
+            # Move everything upstream of that segment out the way until the
+            # conflict is addressed
+            while check_for_segment_conflicts(
+                seg.ID, segs_by_topo_length, net, ys):
+                up_IDs_down_ID = net.find_upstream_IDs(seg_to_adjust)
+                ys[up_IDs_down_ID] += sides[seg_to_adjust]
+
+    # ---- Get everything starting from zero and positive
+    ys -= ys.min() - 1.
+
+    # ---- Create final planform
+    planform = create_planform(net, ys)
+    if show:
+        plot_planform(planform)
+
+    return planform
 
 class Simple_Network:
     """
@@ -259,15 +481,13 @@ class Shreve_Random_Network:
     Creates lists of upstream/downstream segment IDs for us in GRLP.
     """
 
-    def __init__(self, magnitude, min_link_length=4, max_link_length=8):
+    def __init__(self, magnitude, topology=None):
         self.magnitude = magnitude
-        self.min_link_length = min_link_length
-        self.max_link_length = max_link_length
-        self.links = None
+        self.links = topology
         self.upstream_segment_IDs = None
         self.downstream_segment_IDs = None
-        self.nxs = None
-        self.build_network_topology()
+        if not self.links:
+            self.build_network_topology()
         self.build_lists()
 
     @property
@@ -332,6 +552,9 @@ class Shreve_Random_Network:
                         k -= 1
                     else:
                         break
+        
+        # Remove extra initial link
+        self.links.remove(0)
 
     def build_lists(self):
         """
@@ -341,7 +564,6 @@ class Shreve_Random_Network:
         # Initialise topology lists
         self.upstream_segment_IDs = [[]]
         self.downstream_segment_IDs = [[]]
-        self.nxs = [random.randint(self.min_link_length,self.max_link_length)]
 
         # Initialise some other useful properties
         down_segs = []
@@ -355,15 +577,73 @@ class Shreve_Random_Network:
             self.upstream_segment_IDs[down_seg].append(seg)
             self.upstream_segment_IDs.append([])
             self.downstream_segment_IDs.append([down_seg])
-            self.nxs.append(random.randint(self.min_link_length,self.max_link_length))
             
-            # If internal link, continue upstream
-            if not l:
-                down_segs.append(down_seg)
-                down_seg = seg
+            # If more to come, continue through network
+            if i < len(self.links)-1:
+            
+                # If internal link, continue upstream
+                if not l:
+                    down_segs.append(down_seg)
+                    down_seg = seg
 
-            # If external link, work back downstream to last free internal link
-            else:
-                while len(self.upstream_segment_IDs[down_seg]) > 1:
-                    down_seg = down_segs.pop(-1)
-            seg += 1
+                # If external link, work back downstream to last free internal link
+                else:
+                    while len(self.upstream_segment_IDs[down_seg]) > 1:
+                        down_seg = down_segs.pop(-1)
+                seg += 1
+
+def power_law(x, k, p):
+    """
+    Simple power law: y = k*(x^p).
+    """
+    return k * (x**p)
+
+def power_law_misfit(pars, x, y):
+    """
+    Compute misfit between some data x,y and power law with given parameters.
+    
+    k = pars[0]
+    p = pars[1]
+    x = data x
+    y = data y
+    """
+    k = pars[0]
+    p = pars[1]
+    modely = power_law(x, k, p)
+    misfit = np.mean( np.sqrt( (modely - y)**2. ) )
+    return misfit
+    
+def optimize_power_law(x, y):
+    """
+    Find optimal power law parameters for data x, y.
+    """
+    x_scale = x / max(x)
+    y_scale = y / max(y)
+    fit = minimize(
+        power_law_misfit, 
+        [1.,1.], 
+        args=(x_scale,y_scale), 
+        bounds=[[0,None],[0,None]])
+    k_scale = fit.x[0]
+    p = fit.x[1]
+    k = k_scale / (max(x)**p) * max(y)
+    return k, p
+    
+def find_network_hack_parameters(net):
+    """
+    Find optimal Hack parameters for a given network object.
+    
+    First get distances downstream from source for each network segment. Then
+    optimise power law describing increasing discharge downstream.
+    """
+    d = []
+    Q = []
+    for lp in net.list_of_LongProfile_objects:
+        upstream_IDs = net.find_upstream_IDs(lp.ID)
+        ds = []
+        for up_id in upstream_IDs:
+            ds.append(min(net.list_of_LongProfile_objects[up_id].x))
+        d.append(np.mean(lp.x) - min(ds))
+        Q.append(np.mean(lp.Q))
+    k, p = optimize_power_law(d, Q)
+    return {'k': k, 'p': p, 'd': d, 'Q': Q}

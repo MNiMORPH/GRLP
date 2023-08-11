@@ -9,6 +9,9 @@ except ImportError:
     pass
 reload(grlp)
 
+# Draw plots?
+_plot = True
+
 # Choose whether to draw plots interactively
 #plt.ion()
 plt.ioff()
@@ -49,6 +52,12 @@ for lp in segments:
     _x = np.arange(x0, x0+dx*nx, dx)
     #_x[-3] += 1E-6
     x_ext = np.hstack((_x[0]-dx, _x, _x[-1]+dx))
+    """
+    if i > 0:
+        x_ext = np.hstack((_x[0]-dx, _x, _x[-1]+dx))
+    else:
+        x_ext = np.hstack((_x[0]-dx, _x, _x[-1]+dx/2)) # for 1000 to 500
+    """
     lp.set_x(x_ext=x_ext)
     lp.set_z(S0=-S0, z1=z1)
     lp.set_niter()
@@ -125,79 +134,95 @@ net.build_ID_list()
 #segments[1].dQ[-1] = 10
 net.evolve_threshold_width_river_network(nt=100, dt=dt)
 
+
 _imovie = 0
-plt.figure()
+if _plot:
+    plt.figure()
 for lp in segments:
     for _id in lp.downstream_segment_IDs:
         dsseg = net.list_of_LongProfile_objects[_id]
         _xjoin = [lp.x[-1], dsseg.x[0]]
         _zjoin = [lp.z[-1], dsseg.z[0]]
-        plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)
+        if _plot:
+            plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)
     if len(lp.downstream_segment_IDs) == 0:
-        plt.plot(lp.x_ext[1:], lp.z_ext[1:], '-', linewidth=4, alpha=.5)#, label=lp.)
+        if _plot:
+            plt.plot(lp.x_ext[1:], lp.z_ext[1:], '-', linewidth=4, alpha=.5)#, label=lp.)
     else:
-        plt.plot(lp.x, lp.z, '-', linewidth=4, alpha=.5)#, label=lp.)
-plt.ylim(-25,200)
-plt.xlim(0,11000)
-plt.tight_layout()
-plt.text(4000, 150, "Start.", fontsize=26, fontweight='bold')
-plt.draw()
-#plt.savefig('/home/awickert/Downloads/RiverNetMovie/RiverNet4seg' + '%03d' %_imovie + '.png')
-_imovie += 1
-plt.pause(0.5)
-#plt.legend()
+        if _plot:
+            plt.plot(lp.x, lp.z, '-', linewidth=4, alpha=.5)#, label=lp.)
+if _plot:
+    plt.ylim(-25,200)
+    plt.xlim(0,11000)
+    plt.tight_layout()
+    plt.text(4000, 150, "Start.", fontsize=26, fontweight='bold')
+    plt.draw()
+    #plt.savefig('/home/awickert/Downloads/RiverNetMovie/RiverNet4seg' + '%03d' %_imovie + '.png')
+    _imovie += 1
+    plt.pause(0.5)
+    #plt.legend()
 
 net.list_of_LongProfile_objects[0].set_Qs_input_upstream(
                                  2 * net.list_of_LongProfile_objects[0].Q_s_0)
 
 for ti in range(10):
     net.evolve_threshold_width_river_network(nt=10, dt=dt)
-    #plt.figure()
-    plt.cla()
+    if _plot:
+        #plt.figure()
+        plt.cla()
     for lp in segments:
         for _id in lp.downstream_segment_IDs:
             dsseg = net.list_of_LongProfile_objects[_id]
             _xjoin = [lp.x[-1], dsseg.x[0]]
             _zjoin = [lp.z[-1], dsseg.z[0]]
-            plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)
+            if _plot:
+                plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)
         if len(lp.downstream_segment_IDs) == 0:
-            plt.plot(lp.x_ext[1:], lp.z_ext[1:], '-', linewidth=4, alpha=.5)#, label=lp.)
+            if _plot:
+                plt.plot(lp.x_ext[1:], lp.z_ext[1:], '-', linewidth=4, alpha=.5)#, label=lp.)
         else:
-            plt.plot(lp.x, lp.z, '-', linewidth=4, alpha=.5)#, label=lp.)
-    plt.ylim(-25,200)
-    plt.xlim(0,11000)
-    plt.tight_layout()
-    plt.text(4000, 150, "Doubling sediment supply:\nblue branch\n$\Delta t =$ 10 years", fontsize=16, fontweight='bold')
-    plt.draw()
-    #plt.savefig('/home/awickert/Downloads/RiverNetMovie/RiverNet4seg' + '%03d' %_imovie + '.png')
-    _imovie += 1
-    plt.pause(0.5)
-    #plt.legend()
+            if _plot:
+                plt.plot(lp.x, lp.z, '-', linewidth=4, alpha=.5)#, label=lp.)
+    if _plot:
+        plt.ylim(-25,200)
+        plt.xlim(0,11000)
+        plt.tight_layout()
+        plt.text(4000, 150, "Doubling sediment supply:\nblue branch\n$\Delta t =$ 10 years", fontsize=16, fontweight='bold')
+        plt.draw()
+        #plt.savefig('/home/awickert/Downloads/RiverNetMovie/RiverNet4seg' + '%03d' %_imovie + '.png')
+        _imovie += 1
+        plt.pause(0.5)
+        #plt.legend()
 
 net.list_of_LongProfile_objects[-1].set_z_bl(-20)
 for ti in range(10):
     net.evolve_threshold_width_river_network(nt=2, dt=dt)
-    #plt.figure()
-    plt.cla()
+    if _plot:
+        #plt.figure()
+        plt.cla()
     for lp in segments:
         for _id in lp.downstream_segment_IDs:
             dsseg = net.list_of_LongProfile_objects[_id]
             _xjoin = [lp.x[-1], dsseg.x[0]]
             _zjoin = [lp.z[-1], dsseg.z[0]]
-            plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)
+            if _plot:
+                plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)
         if len(lp.downstream_segment_IDs) == 0:
-            plt.plot(lp.x_ext[1:], lp.z_ext[1:], '-', linewidth=4, alpha=.5)#, label=lp.)
+            if _plot:
+                plt.plot(lp.x_ext[1:], lp.z_ext[1:], '-', linewidth=4, alpha=.5)#, label=lp.)
         else:
-            plt.plot(lp.x, lp.z, '-', linewidth=4, alpha=.5)#, label=lp.)
-    plt.ylim(-25,200)
-    plt.xlim(0,11000)
-    plt.text(4000, 150, "Base-level fall: 20 m\nBlue branch still 2x sed\n$\Delta t =$ 2 years", fontsize=16, fontweight='bold')
-    plt.tight_layout()
-    plt.draw()
-    #plt.savefig('/home/awickert/Downloads/RiverNetMovie/RiverNet4seg' + '%03d' %_imovie + '.png')
-    _imovie += 1
-    plt.pause(0.5)
-    #plt.legend()
+            if _plot:
+                plt.plot(lp.x, lp.z, '-', linewidth=4, alpha=.5)#, label=lp.)
+    if _plot:
+        plt.ylim(-25,200)
+        plt.xlim(0,11000)
+        plt.text(4000, 150, "Base-level fall: 20 m\nBlue branch still 2x sed\n$\Delta t =$ 2 years", fontsize=16, fontweight='bold')
+        plt.tight_layout()
+        plt.draw()
+        #plt.savefig('/home/awickert/Downloads/RiverNetMovie/RiverNet4seg' + '%03d' %_imovie + '.png')
+        _imovie += 1
+        plt.pause(0.5)
+        #plt.legend()
 
 
 for lp in segments:

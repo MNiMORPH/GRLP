@@ -811,6 +811,19 @@ class Network(object):
                                 [self.IDs == ID][0]
                 lp.z_ext[0] = lp_upstream.z_ext[-2]
 
+    # Newly added
+    def update_xext(self):
+        # Should just do this less ad-hoc
+        for lp in self.list_of_LongProfile_objects:
+            for ID in lp.downstream_segment_IDs:
+                lp_downstream = np.array(self.list_of_LongProfile_objects) \
+                                [self.IDs == ID][0]
+                lp.x_ext[-1] = lp_downstream.x_ext[1]
+            for ID in lp.upstream_segment_IDs:
+                lp_upstream = np.array(self.list_of_LongProfile_objects) \
+                                [self.IDs == ID][0]
+                lp.x_ext[0] = lp_upstream.x_ext[-2]
+
 
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
         """
@@ -820,6 +833,8 @@ class Network(object):
         # self.dt is decided earlier
         self.nt = nt
         self.dt = dt
+        self.update_xext()
+        self.update_zext()
         for ti in range(int(self.nt)):
             for lp in self.list_of_LongProfile_objects:
                 lp.zold = lp.z.copy()

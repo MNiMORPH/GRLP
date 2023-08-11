@@ -823,6 +823,9 @@ class Network(object):
                 lp_upstream = np.array(self.list_of_LongProfile_objects) \
                                 [self.IDs == ID][0]
                 lp.x_ext[0] = lp_upstream.x_ext[-2]
+            # Update derived dx values 
+            lp.dx_ext = np.diff(lp.x_ext)
+            lp.dx_ext_2cell = lp.x_ext[2:] - lp.x_ext[:-2]
 
 
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):

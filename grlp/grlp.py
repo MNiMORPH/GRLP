@@ -315,6 +315,9 @@ class LongProfile(object):
     def compute_coefficient_time_varying(self):
         if self.S0 is not None:
             self.update_z_ext_0()
+        # !!!C0!!!
+        # NOT YET UPDATED
+        # KEEPING self.dx_ext_2cell INSTEAD OF USING MORE PRECISE OPTION
         self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                          / self.dx_ext_2cell )**(1/6.)
         self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
@@ -324,14 +327,20 @@ class LongProfile(object):
         # Looks right when both are 0! Any accidental inclusion of its own
         # ghost-node Qs,in?
         if len(self.downstream_segment_IDs) > 0:
-            self.C1[-1] = self.C0[-1] \
+            # !!!C0!!!
+            # LEAVING AS-IS.
+            # ADDRESSING CHANGES TO C0 IN LATER INSTANCES, NOT HERE
+            self.C1[-1] = self.C0 \
                           * (np.abs(self.z_ext[-2] - self.z_ext[-1]) \
                                    /self.dx[-1])**(1/6.) \
                           * self.Q[-1] / self.B[-1]
-        # This one matters! The above doesn't!!!! (Maybe.)
+        # This compute_coefficient_timeone matters! The above doesn't!!!! (Maybe.)
         # WORK HERE. If turns to 0, fixed. But why? Stays at initial profile?
         if len(self.upstream_segment_IDs) > 0:
-            self.C1[0] = self.C0[0] \
+            # !!!C0!!!
+            # LEAVING AS-IS.
+            # ADDRESSING CHANGES TO C0 IN LATER INSTANCES, NOT HERE
+            self.C1[0] = self.C0 \
                           * (np.abs(self.z_ext[1] - self.z_ext[0]) \
                                    /self.dx[0])**(1/6.) \
                           * self.Q[0] / self.B[0]
@@ -345,7 +354,10 @@ class LongProfile(object):
         self.z_ext[-1] = self.z_bl
 
     def set_bcr_Dirichlet(self):
-        self.bcr = self.z_bl * ( self.C1[-1] * 7/3. \
+        # !!!C0!!!
+        # UPDATED BUT JUST USING dx_ext_2cell
+        #self.bcr = self.z_bl * ( self.C1[-1] * 7/3. \
+        self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[-1] * 7/3. \
                        * (1/self.dx_ext[-2] + 1/self.dx_ext[-1])/2. \
                        + self.dQ[-1]/self.Q[-1] )
 
@@ -364,8 +376,17 @@ class LongProfile(object):
         """
         # Give upstream cell the same width as the first cell in domain
         # 2*dx * S_0 * left_coefficients
+        # !!!C0!!!
+        # UPDATED BUT JUST USING dx_ext_2cell
+        #self.bcl = self.dx_ext_2cell[0] * self.S0 * \
+        #                    -self.C1[0] * ( 7/3./self.dx_ext[0]
+        #                    - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] )
+        # !!!C0!!!
+        # Probably not so easy to update as just updating C1
+        # BECAUSE IT IS CHANGING THE RHS
         self.bcl = self.dx_ext_2cell[0] * self.S0 * \
-                            - self.C1[0] * ( 7/3./self.dx_ext[0]
+                            -self.C1[0] / self.dx_ext_2cell[0] \
+                            * ( 7/3./self.dx_ext[0]
                             - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] )
 
     def set_bcl_Neumann_LHS(self):
@@ -380,7 +401,10 @@ class LongProfile(object):
         LHS = coeff_right at 0 + coeff_left at 0, with appropriate dx
               for boundary (already supplied)
         """
-        self.right[0] = -self.C1[0] * 7/3. \
+        # !!!C0!!!
+        # UPDATED BUT JUST USING dx_ext_2cell
+        #self.right[0] = -self.C1[0] * 7/3. \
+        self.right[0] = -self.C1[0] / self.dx_ext_2cell[0] * 7/3. \
                          * (1/self.dx_ext[0] + 1/self.dx_ext[1])
 
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
@@ -427,21 +451,26 @@ class LongProfile(object):
         self.dt = dt # Needed to build C0, C1
         self.C0 = self.k_Qs * self.intermittency \
                     / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \
-                    * self.dt / self.dx_ext_2cell
+                    * self.dt
 
     def build_matrices(self):
         """
         Build the tridiagonal matrix (LHS) and the RHS matrix for the solution
         """
         self.compute_coefficient_time_varying()
-        self.left = -self.C1 * ( (7/3.)/self.dx_ext[:-1]
+        # !!!C0!!!
+        # UPDATED WITH STRAIGHT self.dx_ext_2cell
+        self.left = -self.C1 / self.dx_ext_2cell \
+                        * ( (7/3.)/self.dx_ext[:-1]
                         - self.dQ/self.Q/self.dx_ext_2cell )
-        self.center = -self.C1 * ( (7/3.) \
-                              * (-1/self.dx_ext[:-1] \
+        self.center = -self.C1 / self.dx_ext_2cell \
+                              * ( (7/3.)
+                              * (-1/self.dx_ext[:-1]
                                  -1/self.dx_ext[1:]) ) \
                                  + 1.
-        self.right = -self.C1 * ( (7/3.)/self.dx_ext[1:] # REALLY?
-                        + self.dQ/self.Q/self.dx_ext_2cell )
+        self.right = -self.C1 / self.dx_ext_2cell \
+                              * ( (7/3.)/self.dx_ext[1:] # REALLY?
+                                  + self.dQ/self.Q/self.dx_ext_2cell )
         # Apply boundary conditions if the segment is at the edges of the
         # network (both if there is only one segment!)
         if len(self.upstream_segment_IDs) == 0:

@@ -27,7 +27,12 @@ lp.basic_constants()
 lp.bedload_lumped_constants()
 lp.set_hydrologic_constants()
 
-lp.set_x(dx=1000, nx=251, x0=0)
+_x1 = np.linspace(0, 5000, 101)
+_x2 = np.arange(_x1[-1]+1000, 250001, 10000)
+_x = np.hstack( [_x1, _x2] )
+
+#lp.set_x(dx=1000, nx=251, x0=0) # Uniform
+lp.set_x(_x)
 lp.set_z(S0=-S0, z1=z1)
 lp.set_Q(Q)
 lp.set_B(B)
@@ -43,10 +48,6 @@ ax1 = fig.add_subplot(1,1,1)
 plt.xlabel('Downstream distance [km]', fontsize=14, fontweight='bold')
 plt.ylabel('Elevation [m]', fontsize=14, fontweight='bold')
 plt.tight_layout()
-
-# Evolve for 1 year
-lp.set_uplift_rate(U/3.15E7)
-lp.evolve_threshold_width_river(1, 1*3.15E7)
 
 # Let's try just comparing starting points
 #"""

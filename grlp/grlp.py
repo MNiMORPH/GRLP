@@ -792,9 +792,17 @@ class Network(object):
                 row = self.block_start_absolute[self.IDs == lp.ID][0]
                 # Matrix entry, assuming net aligns with ids
                 upseg = self.list_of_LongProfile_objects[ID]
+                # OLD
+                #C0 = upseg.k_Qs * upseg.intermittency \
+                #        / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
+                #        * self.dt / (2 * lp.dx_ext[0])
+                # !!!C0!!!
+                # I've updated dx_ext_2cell to acknowledge boundaries
+                # This should therefore be used here.
                 C0 = upseg.k_Qs * upseg.intermittency \
                         / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
-                        * self.dt / (2 * lp.dx_ext[0])
+                        * self.dt / lp.dx_ext_2cell[0]
+                # From earlier
                 #C0 = upseg.C0[-1] # Should be consistent
                 dzdx_0_16 = ( np.abs(lp.z_ext[1] - lp.z_ext[0])
                               / (lp.dx_ext[0]))**(1/6.)
@@ -810,9 +818,16 @@ class Network(object):
                 row = self.block_end_absolute[self.IDs == lp.ID][0]
                 # Matrix entry, assuming net aligns with ids
                 downseg = self.list_of_LongProfile_objects[ID]
+                # OLD
+                #C0 = downseg.k_Qs * downseg.intermittency \
+                #        / ((1-downseg.lambda_p) * downseg.sinuosity**(7/6.)) \
+                #        * self.dt / (2 * lp.dx_ext[-1])
+                # !!!C0!!!
+                # I've updated dx_ext_2cell to acknowledge boundaries
+                # This should therefore be used here.
                 C0 = downseg.k_Qs * downseg.intermittency \
                         / ((1-downseg.lambda_p) * downseg.sinuosity**(7/6.)) \
-                        * self.dt / (2 * lp.dx_ext[-1])
+                        * self.dt / lp.dx_ext_2cell[-1]
                 dzdx_0_16 = ( np.abs(lp.z_ext[-2] - lp.z_ext[-1])
                               / (lp.dx_ext[0]))**(1/6.)
                 C1 = C0 * dzdx_0_16 * lp.Q[-1] / downseg.B[0]

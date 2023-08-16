@@ -108,6 +108,11 @@ class LongProfile(object):
             self.x = np.array(x)
             self.dx = np.diff(self.x)
             self.dx_2cell = self.x[2:] - self.x[:-2]
+            self.x_ext = np.hstack( [ [self.x[0] - self.dx[0]],
+                                      self.x,
+                                      [self.x[-1] + self.dx[-1]] ] )
+            self.dx_ext = np.diff(self.x_ext)
+            self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
         elif x_ext is not None:
             self.x_ext = np.array(x_ext)
             self.x = x_ext[1:-1]

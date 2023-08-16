@@ -113,6 +113,10 @@ class LongProfile(object):
                                       [self.x[-1] + self.dx[-1]] ] )
             self.dx_ext = np.diff(self.x_ext)
             self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
+            # LCR
+            self.dx_ext_2cell__left = self.dx_ext[:-1] - self.dx_ext_2cell
+            self.dx_ext_2cell__cent = self.dx_ext[:-1] - self.dx_ext[1:]
+            self.dx_ext_2cell__right = self.dx_ext[1:] - self.dx_ext_2cell
         elif x_ext is not None:
             self.x_ext = np.array(x_ext)
             self.x = x_ext[1:-1]
@@ -120,6 +124,10 @@ class LongProfile(object):
             self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
             self.dx_2cell = self.x[2:] - self.x[:-2]
             self.dx = np.diff(self.x)
+            # LCR
+            self.dx_ext_2cell__left = self.dx_ext[:-1] - self.dx_ext_2cell
+            self.dx_ext_2cell__cent = self.dx_ext[:-1] - self.dx_ext[1:]
+            self.dx_ext_2cell__right = self.dx_ext[1:] - self.dx_ext_2cell
         elif (dx is not None) and (nx is not None) and (x0 is not None):
             self.x = np.arange(x0, x0+dx*nx, dx)
             self.x_ext = np.arange(x0-dx, x0+dx*(nx+1), dx)
@@ -127,6 +135,10 @@ class LongProfile(object):
             self.dx_ext = dx * np.ones(len(self.x) + 1)
             self.dx_2cell = np.ones(len(self.x) - 1)
             self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
+            # LCR. Though could go to a simpler grid with dx here, really
+            self.dx_ext_2cell__left = self.dx_ext[:-1] - self.dx_ext_2cell
+            self.dx_ext_2cell__cent = self.dx_ext[:-1] - self.dx_ext[1:]
+            self.dx_ext_2cell__right = self.dx_ext[1:] - self.dx_ext_2cell
         else:
             sys.exit("Need x OR x_ext OR (dx, nx, x0)")
         self.nx = len(self.x)

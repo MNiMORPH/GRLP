@@ -44,6 +44,12 @@ plt.xlabel('Downstream distance [km]', fontsize=14, fontweight='bold')
 plt.ylabel('Elevation [m]', fontsize=14, fontweight='bold')
 plt.tight_layout()
 
+# Evolve for 1 year
+lp.set_uplift_rate(U/3.15E7)
+lp.evolve_threshold_width_river(1, 1*3.15E7)
+
+# Let's try just comparing starting points
+#"""
 # Starting steady state
 lp.set_uplift_rate(U/3.15E7)
 lp.evolve_threshold_width_river(10, 1E14)
@@ -52,7 +58,7 @@ ax1.plot(lp.x/1000., lp.z, color='k', alpha=1, linewidth=3)
 # Transient -- double sediment supply
 ts = 1000 # years
 nts = 50
-lp.set_Qs_input_upstream(Qs0*2)
+lp.set_Qs_input_upstream(Qs0*4)
 for i in range(nts):
     lp.evolve_threshold_width_river(1, ts * 3.15E7)
     #ax1.plot(lp.x/1000., lp.z, color='r', alpha=1-0.75/nts*i, linewidth=1)
@@ -68,4 +74,5 @@ for i in range(nts):
 ax1.plot(lp.x/1000., lp.z, color='r', alpha=1, linewidth=3)
 
 plt.show()
+#"""
 

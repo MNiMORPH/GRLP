@@ -945,18 +945,37 @@ class Network(object):
         for lp in self.list_of_LongProfile_objects:
             print (lp.x_ext)
 
-    def update_xext_external_upstream(self, S0, Q_s_0):
+    def update_xext_external_upstream(self):
         """
         Update x_ext at external upstream boundaries.
         
-        This provides sediment inputs as these locations
+        This, together with z, provides sediment inputs as these locations.
+        
+        By default, this is set to be the same as the dx between the
+        first and the second cells: The upstream boundary condition is
+        set by the slope, and so z_ext[0] can be used with a fixed x_ext[0]
+        to set this -- and then, there are fewer moving parts / places
+        with possible error.
+        
+        In fact, I am writing this function to make sure that z_ext[0] is
+        *always* just at the same spacing as that between x[0] and x[1].
+        Let's keep this simple!
+        
+        But nonetheless keeping this in its own function to highlight the
+        conceptual difference and in case we want to change this functionality
+        later.
         """
 
         # SET UPSTREAM BOUNDARIES: EXTERNAL
-        print ("Upstream Boundaries")
-        warnings.warn("Add set S0 or Qs0 component here, or in Driver file?")
+        for ID in self.list_of_channel_head_segment_IDs:
+            lp = self.list_of_LongProfile_objects[ID]
+            for x_ext_array in lp.x_ext:
+                dx0 = lp.x[1] - lp.x[0]
+                x_ext_array[0] = lp.x[0] - dx0
+                
         
-    def update_xext_external_downstream(self, z0):
+        
+    def update_xext_external_downstream(self, x_base_level):
         # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
         print ("Downstream Boundary")
         warnings.warn("Add base level component here, or in Driver file?")
@@ -967,14 +986,15 @@ class Network(object):
 
     def update_z_ext_external_upstream(self, S0, Q_s_0):
         """
-        Update x_ext at external upstream boundaries.
+        Update z_ext at external upstream boundaries.
         
-        This provides sediment inputs as these locations
+        This provides sediment inputs as these locations.
         """
 
         # SET UPSTREAM BOUNDARIES: EXTERNAL
         print ("Upstream Boundaries")
         warnings.warn("Add set S0 or Qs0 component here, or in Driver file?")
+
         
     def update_z_ext_external_downstream(self, z0):
         # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL

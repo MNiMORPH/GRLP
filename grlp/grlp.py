@@ -25,6 +25,7 @@ class LongProfile(object):
         self.dx_ext = None
         self.dx_2cell = None
         self.dx_ext_2cell = None
+        self.z_ext = None
         self.Q_s_0 = None
         self.z_bl = None
         self.ssd = 0. # distributed sources or sinks
@@ -976,6 +977,23 @@ class Network(object):
         # We should have some code to account for changes in both x and z
         # with base-level change, and remeshes the downstream-most segment,
         # as needed
+
+    def create_z_ext_lists(self):
+        """
+        ##########################################################
+        # GENERATE LISTS OF z_ext: 1 FOR EACH INCOMING TRIBUTARY #
+        ##########################################################
+
+        Set up "network" lists of "_ext" variables: one per upstream-linked
+        segment and a minimum of 1 if no links are present 
+        Currently building this for convergent networks only
+        """
+        # Pad x_ext with nans
+        _nan1 = np.array([np.nan])
+        # Loop through long profiles (segments) in network
+        for lp in self.list_of_LongProfile_objects:
+            lp.z_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
+                [ np.concatenate( [_nan1, lp.z, _nan1] ) ]
 
     def update_z_ext_external_upstream(self, S0, Q_s_0):
         """

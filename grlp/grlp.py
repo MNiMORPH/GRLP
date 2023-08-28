@@ -905,7 +905,7 @@ class Network(object):
                 lp.z_ext[0] = lp_upstream.z_ext[-2]
 
     # Newly added
-    def update_xext(self):
+    def update_xext_internal(self):
         # 
 
         ##########################################################
@@ -945,18 +945,6 @@ class Network(object):
         for lp in self.list_of_LongProfile_objects:
             print (lp.x_ext)
 
-        # SET UPSTREAM BOUNDARIES: EXTERNAL
-        print ("Upstream Boundaries")
-        warnings.warn("Add set S0 or Qs0 component here, or in Driver file?")
-        
-        # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
-        print ("Downstream Boundary")
-        warnings.warn("Add base level component here, or in Driver file?")
-
-        # We should have some code to account for changes in both x and z
-        # with base-level change, and remeshes the downstream-most segment,
-        # as needed
-
 
         """
             # Problem! There could be multiple of these.
@@ -989,6 +977,43 @@ class Network(object):
                                           lp.x_ext[_relative_id][:-2]
                     _relative_id += 1
         """
+
+    def update_xext_external_upstream(self, S0, Q_s_0):
+        """
+        Update x_ext at external upstream boundaries.
+        
+        This provides sediment inputs as these locations
+        """
+
+        # SET UPSTREAM BOUNDARIES: EXTERNAL
+        print ("Upstream Boundaries")
+        warnings.warn("Add set S0 or Qs0 component here, or in Driver file?")
+        
+    def update_xext_external_downstream(self, z0):
+        # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
+        print ("Downstream Boundary")
+        warnings.warn("Add base level component here, or in Driver file?")
+
+        # We should have some code to account for changes in both x and z
+        # with base-level change, and remeshes the downstream-most segment,
+        # as needed
+
+    def create_list_of_channel_head_segments(self):
+        pass
+    
+    def create_list_of_channel_mouth_segments(self):
+        """
+        Create a list of segments that are channel mouths.
+        
+        The length of this list should be 1 (convergent network), but it is
+        remaining a list in case of future work including distributary networks.
+        
+        Though in principle possible, GRLP need not be run with multiple
+        tributary networks (and therefore mutliple mouths).
+        It seems cleaner (to me, Wickert) to run each tributary network
+        as a separate instance of GRLP.  
+        """
+        pass
 
     def initialize(self):
         """

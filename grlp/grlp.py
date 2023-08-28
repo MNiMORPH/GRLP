@@ -965,6 +965,26 @@ class Network(object):
         # with base-level change, and remeshes the downstream-most segment,
         # as needed
 
+    def update_z_ext_external_upstream(self, S0, Q_s_0):
+        """
+        Update x_ext at external upstream boundaries.
+        
+        This provides sediment inputs as these locations
+        """
+
+        # SET UPSTREAM BOUNDARIES: EXTERNAL
+        print ("Upstream Boundaries")
+        warnings.warn("Add set S0 or Qs0 component here, or in Driver file?")
+        
+    def update_z_ext_external_downstream(self, z0):
+        # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
+        print ("Downstream Boundary")
+        warnings.warn("Add base level component here, or in Driver file?")
+
+        # We should have some code to account for changes in both x and z
+        # with base-level change, and remeshes the downstream-most segment,
+        # as needed
+
     def create_list_of_channel_head_segment_IDs(self):
         """
         Finds all segments that do not have any upstream tributary segments.

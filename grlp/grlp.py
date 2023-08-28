@@ -965,8 +965,19 @@ class Network(object):
         # with base-level change, and remeshes the downstream-most segment,
         # as needed
 
-    def create_list_of_channel_head_segments(self):
-        pass
+    def create_list_of_channel_head_segment_IDs(self):
+        """
+        Finds all segments that do not have any upstream tributary segments.
+        
+        This is similar to "find_sources", but does not assume that Q_s_0
+        has been set.
+        
+        Therefore, it is set by topology rather than boundary conditions.
+        """
+        self.list_of_channel_head_segment_IDs = []
+        for lp in self.list_of_LongProfile_objects:
+            if not lp.upstream_segment_IDs:
+                self.list_of_channel_head_segment_IDs.append(lp.ID)
     
     def create_list_of_channel_mouth_segments(self):
         """

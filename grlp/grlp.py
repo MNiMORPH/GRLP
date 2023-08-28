@@ -1077,7 +1077,25 @@ class Network(object):
         """
         Run only once, at beginning of program.
         """
-        warnings.warn("Populate fcn once array-setting functions are complete.")
+        
+        # Identify channel head and mouth segments
+        self.create_list_of_channel_head_segment_IDs()
+        self.create_list_of_channel_mouth_segment_IDs()
+        
+        # Generate arrays of x, including networked links
+        self.create_x_ext_lists()
+        self.update_x_ext_internal()
+        self.update_x_ext_external_upstream()
+        self.update_x_ext_external_downstream() # UNFINISHED!
+        
+        # From these, generate arrays of dx
+        self.update_dx_ext()
+        self.update_dx_2cell()
+        self.update_dx_ext_2cell()
+        
+        # Generate arrays of z?
+        # Perhaps create them, but then have external driver set the values.
+        
     
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
         """

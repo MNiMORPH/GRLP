@@ -926,10 +926,14 @@ class Network(object):
         ###################################################
         
         x_ext[0] of downstream segment set to x[-1] of upstream segment.
+        
+        The upstream-most segments have x_ext set by another function, and 
+        to default to a spacing that is the same as that between x[0] and x[1].
+        
+        x_ext[-1] of upstream segment set to x[0] of downstream segment.
 
-        The final downstream segment has x_ext[-1] set as base level, so
-        effectively, this simulates the "internal base level" communicated
-        among tributaries in the network.
+        The final downstream segment has x_ext[-1] for the lateral position
+        of the base-level cell.
         """
         for lp in self.list_of_LongProfile_objects:
             _idx = 0 # needed?
@@ -1007,10 +1011,10 @@ class Network(object):
         boundary conditions, rather than being set here.
         
         z_ext[-1] of upstream segment set to z[0] of downstream segment.
-
-        The final downstream segment has x_ext[-1] set as base level, so
-        effectively, this simulates the "internal base level" communicated
+        This simulates the "internal base level" communicated
         among tributaries in the network.
+
+        The final downstream segment has z_ext[-1] set as base level.
         """
         for lp in self.list_of_LongProfile_objects:
             # SET UPSTREAM BOUNDARIES: INTERNAL

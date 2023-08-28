@@ -11,7 +11,6 @@ class LongProfile(object):
     """
     Gravel-bed river long-profile solution builder and solver
     """
-
     def __init__(self):
         self.z = None
         self.x = None
@@ -698,7 +697,6 @@ class LongProfile(object):
         and response in valley elevation.
         From solving linearized version of threshold width equation.
         """
-
         # Basic calculation
         self.compute_diffusivity()
         cos_term, sin_term = self.compute_z_series_terms(period, nsum)
@@ -722,7 +720,6 @@ class LongProfile(object):
         and response in bedload sediment discharge.
         From solving linearized version of threshold width equation.
         """
-
         # Basic calculation
         self.compute_diffusivity()
         cos_term, sin_term = self.compute_Qs_series_terms(period, nsum)
@@ -922,17 +919,17 @@ class Network(object):
                 [ np.concatenate( [_nan1, lp.x, _nan1] ) ]
 
     def update_x_ext_internal(self):
-
+        """
         ###################################################
         # POPULATE x_ext LISTS WITH VALUES FROM NEIGHBORS #
         ###################################################
         
-        # x_ext[0] of downstream segment set to x[-1] of upstream segment.
+        x_ext[0] of downstream segment set to x[-1] of upstream segment.
 
-        # The final downstream segment has x_ext[-1] set as base level, so
-        # effectively, this simulates the "internal base level" communicated
-        # among tributaries in the network.
-
+        The final downstream segment has x_ext[-1] set as base level, so
+        effectively, this simulates the "internal base level" communicated
+        among tributaries in the network.
+        """
         for lp in self.list_of_LongProfile_objects:
             _idx = 0 # needed?
             # SET UPSTREAM BOUNDARIES: INTERNAL
@@ -944,7 +941,7 @@ class Network(object):
                 downseg = self.list_of_LongProfile_objects[downseg_ID]
                 lp.x_ext[_idx][-1] = downseg.x[0]
 
-    def update_x_Fext_external_upstream(self):
+    def update_x_ext_external_upstream(self):
         """
         Update x_ext at external upstream boundaries.
         
@@ -964,15 +961,12 @@ class Network(object):
         conceptual difference and in case we want to change this functionality
         later.
         """
-
         # SET UPSTREAM BOUNDARIES: EXTERNAL
         for ID in self.list_of_channel_head_segment_IDs:
             lp = self.list_of_LongProfile_objects[ID]
             for x_ext_array in lp.x_ext:
                 dx0 = lp.x[1] - lp.x[0]
                 x_ext_array[0] = lp.x[0] - dx0
-                
-        
         
     def update_x_ext_external_downstream(self, x_base_level):
         # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
@@ -989,7 +983,6 @@ class Network(object):
         
         This provides sediment inputs as these locations.
         """
-
         # SET UPSTREAM BOUNDARIES: EXTERNAL
         print ("Upstream Boundaries")
         warnings.warn("Add set S0 or Qs0 component here, or in Driver file?")
@@ -1082,7 +1075,7 @@ class Network(object):
 
     def initialize(self):
         """
-        Run only once.
+        Run only once, at beginning of program.
         """
         warnings.warn("Populate fcn once array-setting functions are complete.")
     
@@ -1223,7 +1216,6 @@ class Network(object):
         Compute various network properties.
         Added: FM, 03/2021.
         """
-
         self.find_sources()
         self.compute_mean_downstream_distance()
         self.compute_mean_discharge()

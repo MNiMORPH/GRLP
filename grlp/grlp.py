@@ -1006,8 +1006,20 @@ class Network(object):
             lp.dx_2cell = lp.x[2:] - lp.x[:-2]
     
     def update_dx_ext_2cell(self):
-        pass
-
+        """
+        Create dx_ext arrays -- one for each upstream link -- from x_ext.
+        
+        This function assumes that distance increases from left to right.
+        
+        Look here in case sign errors are encountered, but it also feels
+        safer to keep this as such to make sure that we don't miss such errors.
+        It is also possible that GRLP will run anyway because of the abs()
+        involved with the slope calculation.
+        """
+        for lp in self.list_of_LongProfile_objects:
+            lp.dx_ext_2cell = []
+            for x_ext in lp.x_ext:
+                lp.dx_ext_2cell.append( x_ext[2:] - x_ext[:-2] )
 
 
         """

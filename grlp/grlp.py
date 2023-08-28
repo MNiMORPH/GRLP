@@ -979,7 +979,7 @@ class Network(object):
             if not lp.upstream_segment_IDs:
                 self.list_of_channel_head_segment_IDs.append(lp.ID)
     
-    def create_list_of_channel_mouth_segments(self):
+    def create_list_of_channel_mouth_segment_IDs(self):
         """
         Create a list of segments that are channel mouths.
         
@@ -991,7 +991,16 @@ class Network(object):
         It seems cleaner (to me, Wickert) to run each tributary network
         as a separate instance of GRLP.  
         """
-        pass
+        self.list_of_channel_mouth_segment_IDs = []
+        for lp in self.list_of_LongProfile_objects:
+            if not lp.downstream_segment_IDs:
+                self.list_of_channel_mouth_segment_IDs.append(lp.ID)
+                
+        if len(self.list_of_channel_mouth_segment_IDs) == 1:
+            self.channel_mouth_segment_ID = \
+                self.list_of_channel_mouth_segment_IDs[0]
+        else:
+            sys.exit("Ahmm... why are there multiple river mouths?")
 
     def update_dx_ext(self):
         """

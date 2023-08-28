@@ -995,6 +995,33 @@ class Network(object):
             lp.z_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
                 [ np.concatenate( [_nan1, lp.z, _nan1] ) ]
 
+    def update_z_ext_internal(self):
+        """
+        ###################################################
+        # POPULATE x_ext LISTS WITH VALUES FROM NEIGHBORS #
+        ###################################################
+
+        z_ext[0] of downstream segment set to z[-1] of upstream segment.
+        
+        The upstream-most segments have z_ext set based on sediment-supply
+        boundary conditions, rather than being set here.
+        
+        z_ext[-1] of upstream segment set to z[0] of downstream segment.
+
+        The final downstream segment has x_ext[-1] set as base level, so
+        effectively, this simulates the "internal base level" communicated
+        among tributaries in the network.
+        """
+        for lp in self.list_of_LongProfile_objects:
+            # SET UPSTREAM BOUNDARIES: INTERNAL
+            for upseg_ID in lp.upstream_segment_IDs:
+                upseg = self.list_of_LongProfile_objects[upseg_ID]
+                lp.z_ext[_idx][0] = upseg.z[-1]
+            # SET DOWNSTREAM BOUNDARIES: INTERNAL
+            for downseg_ID in lp.downstream_segment_IDs:
+                downseg = self.list_of_LongProfile_objects[downseg_ID]
+                lp.z_ext[_idx][-1] = downseg.z[0]
+
     def update_z_ext_external_upstream(self, S0, Q_s_0):
         """
         Update z_ext at external upstream boundaries.

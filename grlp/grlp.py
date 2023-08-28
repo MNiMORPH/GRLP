@@ -891,6 +891,10 @@ class Network(object):
         self.niter = niter
 
     def update_zext(self):
+        warn( 'This function will become deprecated.\n'+
+              'Use `create_z_ext_lists` and `update_z_ext_internal` instead.'
+              'LIKELY TO FAIL anyway: z_ext is now a list of arrays.',
+              DeprecationWarning, stacklevel=2)
         # Should just do this less ad-hoc
         for lp in self.list_of_LongProfile_objects:
             for ID in lp.downstream_segment_IDs:

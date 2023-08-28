@@ -904,22 +904,26 @@ class Network(object):
                                 [self.IDs == ID][0]
                 lp.z_ext[0] = lp_upstream.z_ext[-2]
 
-    # Newly added
-    def update_xext_internal(self):
-        # 
-
+    def create_xext_lists(self):
+        """
         ##########################################################
         # GENERATE LISTS OF x_ext: 1 FOR EACH INCOMING TRIBUTARY #
         ##########################################################
 
-        # Set up "network" lists of "_ext" variables: one per upstream-linked
-        # segment and a minimum of 1 if no links are present 
-        # Currently building this for convergent networks only
+        Set up "network" lists of "_ext" variables: one per upstream-linked
+        segment and a minimum of 1 if no links are present 
+        Currently building this for convergent networks only
+        """
         # Pad x_ext with nans
         _nan1 = np.array([np.nan])
+        # Loop through long profiles (segments) in network
         for lp in self.list_of_LongProfile_objects:
             lp.x_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
                 [ np.concatenate( [_nan1, lp.x, _nan1] ) ]
+
+
+
+    def update_xext_internal(self):
 
         ###################################################
         # POPULATE x_ext LISTS WITH VALUES FROM NEIGHBORS #

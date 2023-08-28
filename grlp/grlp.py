@@ -936,15 +936,18 @@ class Network(object):
         of the base-level cell.
         """
         for lp in self.list_of_LongProfile_objects:
-            _idx = 0 # needed?
+            _idx = 0
             # SET UPSTREAM BOUNDARIES: INTERNAL
             for upseg_ID in lp.upstream_segment_IDs:
                 upseg = self.list_of_LongProfile_objects[upseg_ID]
                 lp.x_ext[_idx][0] = upseg.x[-1]
+                _idx += 1
             # SET DOWNSTREAM BOUNDARIES: INTERNAL
+            _idx = 0
             for downseg_ID in lp.downstream_segment_IDs:
                 downseg = self.list_of_LongProfile_objects[downseg_ID]
                 lp.x_ext[_idx][-1] = downseg.x[0]
+                _idx += 1
 
     def update_x_ext_external_upstream(self):
         """
@@ -1018,13 +1021,17 @@ class Network(object):
         """
         for lp in self.list_of_LongProfile_objects:
             # SET UPSTREAM BOUNDARIES: INTERNAL
+            _idx = 0
             for upseg_ID in lp.upstream_segment_IDs:
                 upseg = self.list_of_LongProfile_objects[upseg_ID]
                 lp.z_ext[_idx][0] = upseg.z[-1]
+                _idx += 1
             # SET DOWNSTREAM BOUNDARIES: INTERNAL
+            _idx = 0
             for downseg_ID in lp.downstream_segment_IDs:
                 downseg = self.list_of_LongProfile_objects[downseg_ID]
                 lp.z_ext[_idx][-1] = downseg.z[0]
+                _idx += 1
 
     def update_z_ext_external_upstream(self, S0, Q_s_0):
         """

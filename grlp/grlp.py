@@ -904,7 +904,7 @@ class Network(object):
                                 [self.IDs == ID][0]
                 lp.z_ext[0] = lp_upstream.z_ext[-2]
 
-    def create_xext_lists(self):
+    def create_x_ext_lists(self):
         """
         ##########################################################
         # GENERATE LISTS OF x_ext: 1 FOR EACH INCOMING TRIBUTARY #
@@ -921,9 +921,7 @@ class Network(object):
             lp.x_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
                 [ np.concatenate( [_nan1, lp.x, _nan1] ) ]
 
-
-
-    def update_xext_internal(self):
+    def update_x_ext_internal(self):
 
         ###################################################
         # POPULATE x_ext LISTS WITH VALUES FROM NEIGHBORS #
@@ -946,7 +944,7 @@ class Network(object):
                 downseg = self.list_of_LongProfile_objects[downseg_ID]
                 lp.x_ext[_idx][-1] = downseg.x[0]
 
-    def update_xext_external_upstream(self):
+    def update_x_Fext_external_upstream(self):
         """
         Update x_ext at external upstream boundaries.
         
@@ -976,7 +974,7 @@ class Network(object):
                 
         
         
-    def update_xext_external_downstream(self, x_base_level):
+    def update_x_ext_external_downstream(self, x_base_level):
         # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
         print ("Downstream Boundary")
         warnings.warn("Add base level component here, or in Driver file?")

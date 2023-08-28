@@ -1021,12 +1021,11 @@ class Network(object):
             for x_ext in lp.x_ext:
                 lp.dx_ext_2cell.append( x_ext[2:] - x_ext[:-2] )
 
-
     def initialize(self):
         """
         Run only once.
         """
-        self.update_xext()
+        warnings.warn("Populate fcn once array-setting functions are complete.")
     
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
         """

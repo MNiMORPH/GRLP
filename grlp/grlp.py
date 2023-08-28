@@ -945,39 +945,6 @@ class Network(object):
         for lp in self.list_of_LongProfile_objects:
             print (lp.x_ext)
 
-
-        """
-            # Problem! There could be multiple of these.
-            # No single value here will work unless both upstream dx
-            # values are equal.
-            if len(lp.upstream_segment_IDs) == 0:
-                # Unnecessary. Here for clarity.
-                pass
-            elif len(lp.upstream_segment_IDs) == 1:
-                lp_upstream = np.array(self.list_of_LongProfile_objects) \
-                                [self.IDs == ID][0]
-                lp.x_ext[0] = lp_upstream.x_ext[-2]
-            # Update derived dx values
-            lp.dx_ext = np.diff(lp.x_ext)
-            lp.dx_ext_2cell = lp.x_ext[2:] - lp.x_ext[:-2]
-            if len(lp.upstream_segment_IDs) > 1:
-                lp.x_ext = len(lp.upstream_segment_IDs)*[lp.x_ext]
-                lp.dx_ext = len(lp.upstream_segment_IDs)*[lp.dx_ext]
-                lp.dx_ext_2cell = len(lp.upstream_segment_IDs)*[lp.dx_ext_2cell]
-                # These IDs should be listed in ascending order
-                _relative_id = 0
-                for ID in lp.upstream_segment_IDs:
-                    lp_upstream = np.array(self.list_of_LongProfile_objects) \
-                                    [self.IDs == ID][0]
-                    lp.x_ext[_relative_id][0] = lp_upstream.x_ext[-2]
-                    # Update derived dx values 
-                    lp.dx_ext[_relative_id] = np.diff(lp.x_ext[_relative_id])
-                    lp.dx_ext_2cell[_relative_id] = \
-                                          lp.x_ext[_relative_id][2:] - \
-                                          lp.x_ext[_relative_id][:-2]
-                    _relative_id += 1
-        """
-
     def update_xext_external_upstream(self, S0, Q_s_0):
         """
         Update x_ext at external upstream boundaries.
@@ -1014,6 +981,49 @@ class Network(object):
         as a separate instance of GRLP.  
         """
         pass
+
+    def update_dx_ext(self):
+        pass
+    
+    def update_dx_2cell(self):
+        pass
+    
+    def update_dx_ext_2cell(self):
+        pass
+
+
+
+        """
+            # Problem! There could be multiple of these.
+            # No single value here will work unless both upstream dx
+            # values are equal.
+            if len(lp.upstream_segment_IDs) == 0:
+                # Unnecessary. Here for clarity.
+                pass
+            elif len(lp.upstream_segment_IDs) == 1:
+                lp_upstream = np.array(self.list_of_LongProfile_objects) \
+                                [self.IDs == ID][0]
+                lp.x_ext[0] = lp_upstream.x_ext[-2]
+            # Update derived dx values
+            lp.dx_ext = np.diff(lp.x_ext)
+            lp.dx_ext_2cell = lp.x_ext[2:] - lp.x_ext[:-2]
+            if len(lp.upstream_segment_IDs) > 1:
+                lp.x_ext = len(lp.upstream_segment_IDs)*[lp.x_ext]
+                lp.dx_ext = len(lp.upstream_segment_IDs)*[lp.dx_ext]
+                lp.dx_ext_2cell = len(lp.upstream_segment_IDs)*[lp.dx_ext_2cell]
+                # These IDs should be listed in ascending order
+                _relative_id = 0
+                for ID in lp.upstream_segment_IDs:
+                    lp_upstream = np.array(self.list_of_LongProfile_objects) \
+                                    [self.IDs == ID][0]
+                    lp.x_ext[_relative_id][0] = lp_upstream.x_ext[-2]
+                    # Update derived dx values 
+                    lp.dx_ext[_relative_id] = np.diff(lp.x_ext[_relative_id])
+                    lp.dx_ext_2cell[_relative_id] = \
+                                          lp.x_ext[_relative_id][2:] - \
+                                          lp.x_ext[_relative_id][:-2]
+                    _relative_id += 1
+        """
 
     def initialize(self):
         """

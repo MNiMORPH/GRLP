@@ -22,8 +22,10 @@ class LongProfile(object):
         self.b = None # Width and depth need not be resoloved to compute
         self.h = None # long-profile evolution
         self.S0 = None # S0 for Q_s_0 where there is a defined boundary input
+        self.x_ext = None
         self.dx_ext = None
         self.dx_2cell = None
+        self.dx_ext_2cell = None
         self.Q_s_0 = None
         self.z_bl = None
         self.ssd = 0. # distributed sources or sinks
@@ -786,29 +788,59 @@ class Network(object):
 
     def add_block_diagonal_matrix_upstream_boundary_conditions(self):
         for lp in self.list_of_LongProfile_objects:
-            for ID in lp.upstream_segment_IDs:
-                # Space to edit
-                col = self.block_end_absolute[self.IDs == ID][0]
-                row = self.block_start_absolute[self.IDs == lp.ID][0]
-                # Matrix entry, assuming net aligns with ids
-                upseg = self.list_of_LongProfile_objects[ID]
-                # OLD
-                #C0 = upseg.k_Qs * upseg.intermittency \
-                #        / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
-                #        * self.dt / (2 * lp.dx_ext[0])
-                # !!!C0!!!
-                # I've updated dx_ext_2cell to acknowledge boundaries
-                # This should therefore be used here.
-                C0 = upseg.k_Qs * upseg.intermittency \
-                        / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
-                        * self.dt / lp.dx_ext_2cell[0]
-                # From earlier
-                #C0 = upseg.C0[-1] # Should be consistent
-                dzdx_0_16 = ( np.abs(lp.z_ext[1] - lp.z_ext[0])
-                              / (lp.dx_ext[0]))**(1/6.)
-                C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
-                left_new = -C1 * 7/6. * 2 / lp.dx_ext[0]
-                self.LHSblock_matrix[row, col] = left_new
+            if len(lp.upstream_segment_IDs) == 0:
+                pass
+            elif len(lp.upstream_segment_IDs) == 1:
+                for ID in lp.upstream_segment_IDs:
+                    # Space to edit
+                    col = self.block_end_absolute[self.IDs == ID][0]
+                    row = self.block_start_absolute[self.IDs == lp.ID][0]
+                    # Matrix entry, assuming net aligns with ids
+                    upseg = self.list_of_LongProfile_objects[ID]
+                    # OLD
+                    #C0 = upseg.k_Qs * upseg.intermittency \
+                    #        / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
+                    #        * self.dt / (2 * lp.dx_ext[0])
+                    # !!!C0!!!
+                    # I've updated dx_ext_2cell to acknowledge boundaries
+                    # This should therefore be used here.
+                    C0 = upseg.k_Qs * upseg.intermittency \
+                            / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
+                            * self.dt / lp.dx_ext_2cell[0]
+                    # From earlier
+                    #C0 = upseg.C0[-1] # Should be consistent
+                    dzdx_0_16 = ( np.abs(lp.z_ext[1] - lp.z_ext[0])
+                                  / (lp.dx_ext[0]))**(1/6.)
+                    C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
+                    left_new = -C1 * 7/6. * 2 / lp.dx_ext[0]
+                    self.LHSblock_matrix[row, col] = left_new
+            elif len(lp.upstream_segment_IDs) > 1:
+                _relative_id = 0
+                for ID in lp.upstream_segment_IDs:
+                    # Space to edit
+                    col = self.block_end_absolute[self.IDs == ID][0]
+                    row = self.block_start_absolute[self.IDs == lp.ID][0]
+                    # Matrix entry, assuming net aligns with ids
+                    upseg = self.list_of_LongProfile_objects[ID]
+                    # OLD
+                    #C0 = upseg.k_Qs * upseg.intermittency \
+                    #        / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
+                    #        * self.dt / (2 * lp.dx_ext[0])
+                    # !!!C0!!!
+                    # I've updated dx_ext_2cell to acknowledge boundaries
+                    # This should therefore be used here.
+                    C0 = upseg.k_Qs * upseg.intermittency \
+                            / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
+                            * self.dt / lp.dx_ext_2cell[_relative_id][0]
+                    # From earlier
+                    #C0 = upseg.C0[-1] # Should be consistent
+                    dzdx_0_16 = ( np.abs(lp.z_ext[1] - lp.z_ext[0])
+                                  / (lp.dx_ext[_relative_id][0]))**(1/6.)
+                    C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
+                    left_new = -C1 * 7/6. * 2 / lp.dx_ext[_relative_id][0]
+                    self.LHSblock_matrix[row, col] = left_new
+                    _relative_id += 1
+
 
     def add_block_diagonal_matrix_downstream_boundary_conditions(self):
         for lp in self.list_of_LongProfile_objects:
@@ -874,31 +906,105 @@ class Network(object):
 
     # Newly added
     def update_xext(self):
-        # Should just do this less ad-hoc
+        # 
+
+        ##########################################################
+        # GENERATE LISTS OF x_ext: 1 FOR EACH INCOMING TRIBUTARY #
+        ##########################################################
+
+        # Set up "network" lists of "_ext" variables: one per upstream-linked
+        # segment and a minimum of 1 if no links are present 
+        # Currently building this for convergent networks only
+        # Pad x_ext with nans
+        _nan1 = np.array([np.nan])
         for lp in self.list_of_LongProfile_objects:
-            for ID in lp.downstream_segment_IDs:
-                lp_downstream = np.array(self.list_of_LongProfile_objects) \
-                                [self.IDs == ID][0]
-                lp.x_ext[-1] = lp_downstream.x_ext[1]
-            for ID in lp.upstream_segment_IDs:
+            lp.x_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
+                [ np.concatenate( [_nan1, lp.x, _nan1] ) ]
+
+        ###################################################
+        # POPULATE x_ext LISTS WITH VALUES FROM NEIGHBORS #
+        ###################################################
+        
+        # x_ext[0] of downstream segment set to x[-1] of upstream segment.
+
+        # The final downstream segment has x_ext[-1] set as base level, so
+        # effectively, this simulates the "internal base level" communicated
+        # among tributaries in the network.
+
+        for lp in self.list_of_LongProfile_objects:
+            _idx = 0 # needed?
+            # SET UPSTREAM BOUNDARIES: INTERNAL
+            for upseg_ID in lp.upstream_segment_IDs:
+                upseg = self.list_of_LongProfile_objects[upseg_ID]
+                lp.x_ext[_idx][0] = upseg.x[-1]
+            # SET DOWNSTREAM BOUNDARIES: INTERNAL
+            for downseg_ID in lp.downstream_segment_IDs:
+                downseg = self.list_of_LongProfile_objects[downseg_ID]
+                lp.x_ext[_idx][-1] = downseg.x[0]
+
+        for lp in self.list_of_LongProfile_objects:
+            print (lp.x_ext)
+
+        # SET UPSTREAM BOUNDARIES: EXTERNAL
+        print ("Upstream Boundaries")
+        warnings.warn("Add set S0 or Qs0 component here, or in Driver file?")
+        
+        # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
+        print ("Downstream Boundary")
+        warnings.warn("Add base level component here, or in Driver file?")
+
+        # We should have some code to account for changes in both x and z
+        # with base-level change, and remeshes the downstream-most segment,
+        # as needed
+
+
+        """
+            # Problem! There could be multiple of these.
+            # No single value here will work unless both upstream dx
+            # values are equal.
+            if len(lp.upstream_segment_IDs) == 0:
+                # Unnecessary. Here for clarity.
+                pass
+            elif len(lp.upstream_segment_IDs) == 1:
                 lp_upstream = np.array(self.list_of_LongProfile_objects) \
                                 [self.IDs == ID][0]
                 lp.x_ext[0] = lp_upstream.x_ext[-2]
-            # Update derived dx values 
+            # Update derived dx values
             lp.dx_ext = np.diff(lp.x_ext)
             lp.dx_ext_2cell = lp.x_ext[2:] - lp.x_ext[:-2]
+            if len(lp.upstream_segment_IDs) > 1:
+                lp.x_ext = len(lp.upstream_segment_IDs)*[lp.x_ext]
+                lp.dx_ext = len(lp.upstream_segment_IDs)*[lp.dx_ext]
+                lp.dx_ext_2cell = len(lp.upstream_segment_IDs)*[lp.dx_ext_2cell]
+                # These IDs should be listed in ascending order
+                _relative_id = 0
+                for ID in lp.upstream_segment_IDs:
+                    lp_upstream = np.array(self.list_of_LongProfile_objects) \
+                                    [self.IDs == ID][0]
+                    lp.x_ext[_relative_id][0] = lp_upstream.x_ext[-2]
+                    # Update derived dx values 
+                    lp.dx_ext[_relative_id] = np.diff(lp.x_ext[_relative_id])
+                    lp.dx_ext_2cell[_relative_id] = \
+                                          lp.x_ext[_relative_id][2:] - \
+                                          lp.x_ext[_relative_id][:-2]
+                    _relative_id += 1
+        """
 
-
+    def initialize(self):
+        """
+        Run only once.
+        """
+        self.update_xext()
+    
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
         """
         Solve the triadiagonal matrix through time, with a given
         number of time steps (nt) and time-step length (dt)
         """
-        # self.dt is decided earlier
         self.nt = nt
         self.dt = dt
-        self.update_xext()
         self.update_zext()
+        # self.dt is decided earlier
         for ti in range(int(self.nt)):
             for lp in self.list_of_LongProfile_objects:
                 lp.zold = lp.z.copy()

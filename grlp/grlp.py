@@ -992,7 +992,18 @@ class Network(object):
                 lp.dx_ext.append( np.diff(lp.x_ext) )
     
     def update_dx_2cell(self):
-        pass
+        """
+        Create dx_2cell arrays: One, internal to each segment.
+        
+        This function assumes that distance increases from left to right.
+        
+        Look here in case sign errors are encountered, but it also feels
+        safer to keep this as such to make sure that we don't miss such errors.
+        It is also possible that GRLP will run anyway because of the abs()
+        involved with the slope calculation.
+        """
+        for lp in self.list_of_LongProfile_objects:
+            lp.dx_2cell = lp.x[2:] - lp.x[:-2]
     
     def update_dx_ext_2cell(self):
         pass

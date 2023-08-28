@@ -1149,13 +1149,20 @@ class Network(object):
         self.update_x_ext_external_downstream() # UNFINISHED!
         
         # From these, generate arrays of dx
+        # WHAT IF NOT ALL Xs are set yet? (e.g., downstream-most)
+        # Let's choose when these should be assigned.... probably before
+        # the initialize?
         self.update_dx_ext()
         self.update_dx_2cell()
         self.update_dx_ext_2cell()
         
         # Generate arrays of z?
         # Perhaps create them, but then have external driver set the values.
-        
+        self.create_z_ext_lists()
+        self.update_z_ext_internal()
+        # Then also set up z values, if initialized
+        self.update_z_ext_external_upstream() # UNFINISHED!
+        self.update_z_ext_external_downstream() # UNFINISHED!
     
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
         """

@@ -989,7 +989,7 @@ class Network(object):
         for lp in self.list_of_LongProfile_objects:
             lp.dx_ext = []
             for x_ext in lp.x_ext:
-                lp.dx_ext.append( np.diff(lp.x_ext) )
+                lp.dx_ext.append( np.diff(x_ext) )
     
     def update_dx_2cell(self):
         """

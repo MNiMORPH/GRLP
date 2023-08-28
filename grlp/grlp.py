@@ -983,7 +983,13 @@ class Network(object):
         pass
 
     def update_dx_ext(self):
-        pass
+        """
+        Create dx_ext arrays -- one for each upstream link -- from x_ext.
+        """
+        for lp in self.list_of_LongProfile_objects:
+            lp.dx_ext = []
+            for x_ext in lp.x_ext:
+                lp.dx_ext.append( np.diff(lp.x_ext) )
     
     def update_dx_2cell(self):
         pass

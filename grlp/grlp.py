@@ -942,9 +942,6 @@ class Network(object):
                 downseg = self.list_of_LongProfile_objects[downseg_ID]
                 lp.x_ext[_idx][-1] = downseg.x[0]
 
-        for lp in self.list_of_LongProfile_objects:
-            print (lp.x_ext)
-
     def update_xext_external_upstream(self):
         """
         Update x_ext at external upstream boundaries.

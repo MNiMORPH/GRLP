@@ -1037,16 +1037,150 @@ class Network(object):
                 lp.z_ext[_idx][-1] = downseg.z[0]
                 _idx += 1
 
-    def update_z_ext_external_upstream(self, S0, Q_s_0):
+    def update_z_ext_external_upstream(self, S0=None, Q_s_0=None):
         """
         Update z_ext at external upstream boundaries.
         
         This provides sediment inputs as these locations.
+        
+        If the value is iterable, it will provide upstream boundary conditions
+        in the same order as that of the provided headwater segments.
+        
+        If it is a scalar, it will provide the same value for each segment.
+        
+        If self.S0 and/or self.Q_s_0 have already been set, you can run this
+        function without passing any variables.
+        
+        Anything that you do pass here will overwrite previously-set values
+        for these variables.
+        
+        Note: This overlaps somewhat with lp.set_Qs_input_upstream(Q_s_0).
+        However, it is more flexible (S0 or Q_s_0) and expects z_ext to
+        be a single array within a list (as opposed to an array outside of a
+        list).
         """
-        # SET UPSTREAM BOUNDARIES: EXTERNAL
-        print ("Upstream Boundaries")
-        warnings.warn("Add set S0 or Qs0 component here, or in Driver file?")
+        
+        if S0 and Q_s_0:
+            sys.exit( "Choose only one of S0, Q_s_0.\n"+
+                      "(Q_s_0 is used to generate S0.)" )
+                      
+        if self.S0 and self.Q_s_0:
+            warnings.warn( "Unclear whether to update Q_s_0 and S0 based on "+
+                           "input S0 or input Q_s_0.\n"+
+                           "Leaving function without updating values." )
+            return
+        
+        # Before starting, set a bool as a scalar check.
+        _is_scalar = False
+        
+        # And a flag for using Q_s_0
+        _use_Q_s_0 = False
+        
+        #########################################
+        # IF Q_s_0 IS USED, FIRST CONVERT TO S0 #
+        #########################################
+        
+        # First, check on whether it exists already. Set or just use this
+        if Q_s_0 is not None:
+            # Set the flag
+            _use_Q_s_0 = True
+            # Set the internal variable
+            self.Q_s_0 = Q_s_0
+            # Scalar or array?
+            try:
+                iter(Q_s_0)
+                Q_s_0 = np.array(Q_s_0).squeeze() # Use a numpy array
+            except:
+                _is_scalar=True
 
+        elif self.Q_s_0 is not None:
+            # Set the flag
+            _use_Q_s_0 = True
+            Q_s_0 = self.Q_s_0 # set the local variable (ease of use here)
+            try:
+                iter(Q_s_0)
+                Q_s_0 = np.array(Q_s_0).squeeze() # Enforce numpy array
+                                                  # (should be one already)
+            except:
+                _is_scalar=True
+        
+        # Second, if array, check length
+        if not _is_scalar and _use_Q_s_0:
+            if len(Q_s_0) != len(self.list_of_channel_head_segment_IDs):
+                sys.exit( "Q_s_0 array length is "+str(len(Q_s_0))+'.\n'
+                          "Number of headwater segments is "+
+                            str(len(self.list_of_channel_head_segment_IDs))+
+                            '.\n'+
+                          "These should be equal or Q_s_0 should be "+
+                          "passed as a scalar\n"+
+                          "(same value everywhere)."
+                 )
+        
+        # Third, set self.Q_s_0 for all the segments
+        # This is done whether Q_s_0 be scalar or array type
+        _idx = 0
+        if _use_Q_s_0:
+            for ID in self.list_of_channel_head_segment_IDs:
+                lp = self.list_of_LongProfile_objects[ID]
+                # If Q_s_0 is a scalar value, apply it everywhere
+                if _is_scalar:
+                    lp.Q_s_0 = Q_s_0
+                # Otherwise, iterate over the supplied Q_s_0
+                lp.Q_s_0 = Q_s_0[_idx]
+                _idx += 1
+
+        # Fourth, compute the S0 values
+        if _use_Q_s_0:
+            _Q0 = []
+            _sinuosity = []
+            _intermittency = []
+            _k_Qs = []
+            for ID in self.list_of_channel_head_segment_IDs:
+                lp = self.list_of_LongProfile_objects[ID]
+                _Q0.append(lp.Q[0])
+                _sinuosity.append(lp.sinuosity)
+                _intermittency.append(lp.intermittency)
+                _k_Qs.append(lp.k_Qs)
+            _Q0 = np.array(_Q0)
+            _sinuosity = np.array(_sinuosity)
+            _intermittency = np.array(_intermittency)
+            _k_Qs = np.array(_k_Qs)
+            # Note: Negative S0 if sloping downstream.
+            # This is reverse to the usuaal (backwards) sign convention.
+            S0 = - np.sign(_Q0) * _sinuosity * \
+              ( np.abs(Q_s_0) / 
+                ( _k_Qs * _intermittency 
+                      * np.abs(_Q0)) )**(6/7.)
+
+        ################################################
+        #        IF S0 BE PROVIDED, JUST USE IT        #
+        # OTHERWISE, THIS USES THE ABOVE-CALCULATED S0 #
+        ################################################
+        
+        if S0 is not None:
+            self.S0 = S0
+        else:
+            S0 = self.S0
+
+        # S0 might be iterable even if Q_s_0 be not
+        try:
+            iter(S0)
+            S0 = np.array(Q_s_0).squeeze() # Enforce numpy array
+        except:
+            _is_scalar=True
+        
+        # FIFTH: Set S0 and z_ext[0]
+        _idx = 0
+        for ID in self.list_of_channel_head_segment_IDs:
+            lp = self.list_of_LongProfile_objects[ID]
+            if _is_scalar:
+                lp.S0 = S0
+            else:
+                lp.S0 = S0[_idx]
+            _idx += 1
+            # Hard-coding only one segment in list
+            lp.z_ext[0][0] = lp.z[0] - lp.S0 * lp.dx_ext[0][0]
+            
         
     def update_z_ext_external_downstream(self, z0):
         # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL

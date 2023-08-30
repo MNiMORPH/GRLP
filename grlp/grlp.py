@@ -1060,14 +1060,15 @@ class Network(object):
         list).
         """
         
-        if S0 and Q_s_0:
+        if S0 is not None and Q_s_0 is not None:
             sys.exit( "Choose only one of S0, Q_s_0.\n"+
                       "(Q_s_0 is used to generate S0.)" )
                       
-        if self.S0 and self.Q_s_0:
-            warnings.warn( "Unclear whether to update Q_s_0 and S0 based on "+
-                           "input S0 or input Q_s_0.\n"+
-                           "Leaving function without updating values." )
+        if S0 is None and Q_s_0 is None:
+            if self.S0 is not None and self.Q_s_0 is not None:
+                warnings.warn( "Unclear whether to update Q_s_0 and S0 "+
+                               "based on input S0 or input Q_s_0.\n"+
+                               "Leaving function without updating values." )
             return
         
         # Before starting, set a bool as a scalar check.

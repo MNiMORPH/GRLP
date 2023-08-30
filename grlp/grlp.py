@@ -980,10 +980,53 @@ class Network(object):
                 dx0 = lp.x[1] - lp.x[0]
                 x_ext_array[0] = lp.x[0] - dx0
         
-    def update_x_ext_external_downstream(self, x_base_level):
+    def update_x_ext_external_downstream(self, x_base_level=None):
+        """
+        Set downstream boundary (ultimate base level, singular): External
+        
+        This function will set only the downstream-most boundary condition.
+
+        It expects a list of length (1) for the class variable:
+        self.list_of_channel_mouth_segment_IDs.
+        This assumption will have to be relaxed if the code ever be updated
+        to allow multiple river mouths.
+        
+        Args:
+            x0 (float): Base-level downvalley position (mouth seg x_ext[-1])
+            
+        Returns:
+            None
+        """
+        if len(self.list_of_channel_mouth_segment_IDs) == 1:
+            ID = self.list_of_channel_mouth_segment_IDs[0]
+        else:
+            sys.exit( ">1 channel-mouth-segment ID listed.\n"+
+                      "Simulation not set up to manage >1 river mouth.\n"+
+                      "Exiting" )
+
         # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
-        print ("Downstream Boundary")
-        warnings.warn("Add base level component here, or in Driver file?")
+        
+        # Flag for whether x should be calculated internally
+        _calcx = False
+
+        # If provided, use x position
+        if x_base_level is not None:
+            _x_bl = x_base_level
+        # Otherwise, default to one dx beyond river-mouth position
+        else:
+            _calcx = True
+
+        lp = self.list_of_LongProfile_objects[ID]
+
+        # Loop over each 1D array within the list: each trib connection
+        for _x_ext in lp.x_ext:
+            # This should be the same each time, but nonetheless,
+            # calculating it locally for each array makes me more comfortable
+            # because I am not assuming that one equals they other.
+            # Though if they are unequal... potential big problems!
+            if _calcx:
+                _x_bl = lp.x[-1] + lp.dx[-1]
+            _x_ext[-1] = _x_bl
 
         # We should have some code to account for changes in both x and z
         # with base-level change, and remeshes the downstream-most segment,

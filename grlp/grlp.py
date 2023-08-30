@@ -1181,16 +1181,39 @@ class Network(object):
             # Hard-coding only one segment in list
             lp.z_ext[0][0] = lp.z[0] - lp.S0 * lp.dx_ext[0][0]
             
-        
     def update_z_ext_external_downstream(self, z0):
+        """
+        Set downstream boundary (ultimate base level, singular): External
+        
+        This function will set only the downstream-most boundary condition.
+
+        It expects a list of length (1) for the class variable:
+        self.list_of_channel_mouth_segment_IDs.
+        This assumption will have to be relaxed if the code ever be updated
+        to allow multiple river mouths.
+        
+        Args:
+            z0 (float): Base-level elevation. Sets z_ext[-1] for the mouth seg
+            
+        Returns:
+            None
+        """
+        if len(self.list_of_channel_mouth_segment_IDs) == 1:
+            ID = self.list_of_channel_mouth_segment_IDs[0]
+        else:
+            sys.exit( ">1 channel-mouth-segment ID listed.\n"+
+                      "Simulation not set up to manage >1 river mouth.\n"+
+                      "Exiting" )
         # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
-        print ("Downstream Boundary")
-        warnings.warn("Add base level component here, or in Driver file?")
+        lp = self.list_of_LongProfile_objects[ID]
+        # Loop over each 1D array within the list: each trib connection
+        for _z_ext in lp.z_ext:
+            _z_ext[-1] = z0
 
         # We should have some code to account for changes in both x and z
         # with base-level change, and remeshes the downstream-most segment,
         # as needed
-
+        
     def create_list_of_channel_head_segment_IDs(self):
         """
         Finds all segments that do not have any upstream tributary segments.
@@ -1575,3 +1598,12 @@ class Network(object):
         #     np.log10(self.order_discharges),
         #     1)
         # self.discharge_ratio = 10.**(fit[0])
+
+"""
+# Test whether the lists have populated
+for lp in self.list_of_LongProfile_objects: print(lp.z_ext)
+print("")
+for lp in self.list_of_LongProfile_objects: print(lp.x_ext)
+print("")
+"""
+

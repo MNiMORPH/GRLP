@@ -1174,17 +1174,13 @@ class Network(object):
         _idx = 0
         for ID in self.list_of_channel_head_segment_IDs:
             lp = self.list_of_LongProfile_objects[ID]
-            print(lp.z_ext)
             if _is_scalar:
                 lp.S0 = S0
             else:
                 lp.S0 = S0[_idx]
-            print(lp.S0)
             _idx += 1
             # Hard-coding: Expecting only one segment in list
-            print(lp.z_ext[0])
             lp.z_ext[0][0] = lp.z[0] - lp.S0 * lp.dx[0]
-            print(lp.z_ext[0])
             
     def update_z_ext_external_downstream(self, z0):
         """

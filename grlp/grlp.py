@@ -1066,7 +1066,7 @@ class Network(object):
                       
         if S0 is None and Q_s_0 is None:
             if self.S0 is not None and self.Q_s_0 is not None:
-                warnings.warn( "Unclear whether to update Q_s_0 and S0 "+
+                warnings.warn( "\nUnclear whether to update Q_s_0 and S0 "+
                                "based on input S0 or input Q_s_0.\n"+
                                "Leaving function without updating values." )
             return
@@ -1166,7 +1166,7 @@ class Network(object):
         # S0 might be iterable even if Q_s_0 be not
         try:
             iter(S0)
-            S0 = np.array(Q_s_0).squeeze() # Enforce numpy array
+            S0 = np.array(S0).squeeze() # Enforce numpy array
         except:
             _is_scalar=True
         
@@ -1174,13 +1174,17 @@ class Network(object):
         _idx = 0
         for ID in self.list_of_channel_head_segment_IDs:
             lp = self.list_of_LongProfile_objects[ID]
+            print(lp.z_ext)
             if _is_scalar:
                 lp.S0 = S0
             else:
                 lp.S0 = S0[_idx]
+            print(lp.S0)
             _idx += 1
-            # Hard-coding only one segment in list
-            lp.z_ext[0][0] = lp.z[0] - lp.S0 * lp.dx_ext[0][0]
+            # Hard-coding: Expecting only one segment in list
+            print(lp.z_ext[0])
+            lp.z_ext[0][0] = lp.z[0] - lp.S0 * lp.dx[0]
+            print(lp.z_ext[0])
             
     def update_z_ext_external_downstream(self, z0):
         """
@@ -1602,9 +1606,8 @@ class Network(object):
 
 """
 # Test whether the lists have populated
-for lp in self.list_of_LongProfile_objects: print(lp.z_ext)
-print("")
 for lp in self.list_of_LongProfile_objects: print(lp.x_ext)
 print("")
+for lp in self.list_of_LongProfile_objects: print(lp.z_ext)
 """
 

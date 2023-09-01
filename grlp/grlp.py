@@ -96,7 +96,8 @@ class LongProfile(object):
     def set_intermittency(self, I):
         self.intermittency = I
 
-    def set_x(self, x=None, x_ext=None, dx=None, nx=None, x0=None):
+    def set_x(self, x=None, x_ext=None, dx=None, nx=None, x0=None,
+              verbose=True):
         """
         Set x directly or calculate it.
         Pass one of three options:
@@ -105,14 +106,32 @@ class LongProfile(object):
         dx, nx, and x0
         """
         if x is not None:
-            # This doesn't have enough information to work consistently
-            # Needs ext
+            if verbose:
+                print("Passing x alone leaves boundary conditions undefined."+
+                      "\n"+
+                      "Be sure to define these in order to set:"+
+                      "\n"+
+                      "x_ext"+
+                      "\n"+
+                      "dx_ext"+
+                      "\n"+
+                      "dx_ext_2cell"+
+                      "\n"
+                      )
             self.x = np.array(x)
             self.dx = np.diff(self.x)
             self.dx_2cell = self.x[2:] - self.x[:-2]
-            self.x_ext = np.hstack( [ [self.x[0] - self.dx[0]],
+            # This doesn't have enough information to work consistently
+            # Needs ext
+            #self.x_ext = np.hstack( [ [self.x[0] - self.dx[0]],
+            #                          self.x,
+            #                          [self.x[-1] + self.dx[-1]] ] )
+            #self.dx_ext = np.diff(self.x_ext)
+            #self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
+            # Apply nan and expect that the user will 
+            self.x_ext = np.hstack( [ np.nan,
                                       self.x,
-                                      [self.x[-1] + self.dx[-1]] ] )
+                                      np.nan ] )
             self.dx_ext = np.diff(self.x_ext)
             self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
             # LCR
@@ -354,6 +373,10 @@ class LongProfile(object):
         """
         self.z_bl = z_bl
         self.z_ext[-1] = self.z_bl
+        
+    def set_x_bl(self, x_bl)
+        self.x_bl = x_bl
+        self.x_ext[-1] = self.x_bl
 
     def set_bcr_Dirichlet(self):
         # !!!C0!!!
@@ -744,7 +767,7 @@ class Network(object):
     Gravel-bed river long-profile solution builder and solver
     """
 
-    def __init__(self, list_of_LongProfile_objects):
+    def __init__(self, list_of_LongProfile_objects=None):
         """
         Instantiate the Network object with a list of Long Profile objects.
         Other funcitons will iterate over this network and its connectivity
@@ -980,6 +1003,14 @@ class Network(object):
                 dx0 = lp.x[1] - lp.x[0]
                 x_ext_array[0] = lp.x[0] - dx0
         
+    def set_x_bl(self, x_bl):
+        """
+        Alias for `update_x_ext_external_downstream`.
+        !!!!!
+        MAYBE I SHOULD CALL z0 --> z_bl
+        """
+        update_x_ext_external_downstream( x_bl )
+
     def update_x_ext_external_downstream(self, x_base_level=None):
         """
         Set downstream boundary (ultimate base level, singular): External
@@ -1225,6 +1256,14 @@ class Network(object):
             # Hard-coding: Expecting only one segment in list
             lp.z_ext[0][0] = lp.z[0] - lp.S0 * lp.dx[0]
             
+    def set_z_bl (self, z0):
+        """
+        Alias for `update_z_ext_external_downstream`.
+        !!!!!
+        MAYBE I SHOULD CALL z0 --> z_bl
+        """
+        update_z_ext_external_downstream( z0 )
+
     def update_z_ext_external_downstream(self, z0):
         """
         Set downstream boundary (ultimate base level, singular): External
@@ -1334,10 +1373,141 @@ class Network(object):
             for x_ext in lp.x_ext:
                 lp.dx_ext_2cell.append( x_ext[2:] - x_ext[:-2] )
 
-    def initialize(self):
+    def set_intermittency(self, intermittency):
+        """
+        Set the flow intermittency value within the channel network
+        """
+        _isscalar = False
+        try:
+            iter( intermittency )
+        except:
+            _isscalar = True
+        if _isscalar:
+            for lp in self.list_of_LongProfile_objects:
+                lp.set_intermittency = intermittency
+        else:
+            i = 0
+            for lp in self.list_of_LongProfile_objects:
+                lp.set_intermittency = intermittency[i]
+                i += 1
+
+    def initialize(self,
+                    config_file = None,
+                    x_bl = None,
+                    z_bl = None,
+                    S0 = None,
+                    Q_s_0 = None,
+                    upstream_segment_IDs = None,
+                    downstream_segment_IDs = None,
+                    x = None,
+                    z = None,
+                    Q = None,
+                    B = None,
+                    overwrite=False
+                    ):
+        print( locals.keys() )
         """
         Run only once, at beginning of program.
         """
+        
+        #########################################
+        # FIRST, CHECK IF A CONFIG FILE EXISTS. #
+        # ENSURE NO DUPLICITY WITH PASSED VARS. #
+        #########################################
+        
+        """
+        # SOME SKETCHUP OF LOOPING OVER INTERNAL FCN VARIABLES, BUT THESE
+        # UNFORTUNATELY DO NOT WORK WITHIN A CLASS.
+        # FIGURE IT OUT LATER.
+        
+        def print_args(i,j,k):
+            x = None
+            for x in locals():
+                print(locals()[x])
+
+        item = None # preallocate so it isn't later added to keys()
+        for item in locals():
+            print( locals()[item] )
+            
+        """
+
+        if config_file is not None:
+            sys.exit("Code not yet set to work with a config file.")
+
+        # FOR NOW, JUST LET CODE FAIL IF WE LEAVE TOO MANY THINGS AS NONE
+        
+        ############################################################
+        # SECOND, IF LONG-PROFILE OBJECTS PASSED IN __INIT__, NOTE #
+        ############################################################
+        
+        _build_segments = True
+        if self.list_of_LongProfile_objects is not None:
+            if overwrite:
+                print("Overwriting prior network segments.")        
+            else:
+                _build_segments = False
+        
+        ######################################
+        # THIRD, INPUT AND BUILD THE NETWORK #
+        ######################################
+        
+        # Required information:
+        # x
+        # z
+        # Q
+        # B
+        # upstream_segment_IDs
+        # downstream_segment_IDs
+        if _build_segments:
+            nseg = len(x)
+            segments = []
+            for i in range(nseg):
+                segments.append(grlp.LongProfile())
+                
+        i = 0
+        for lp in segments:
+            # IDs and network-ID connections
+            lp.set_ID(i)
+            lp.set_upstream_segment_IDs( upstream_segment_IDs[i] )
+            lp.set_downstream_segment_IDs( downstream_segment_IDs[i] )
+            # x, z, Q
+            lp.set_x( x = x[i])
+                # LET'S CHANGE THE SIGN CONVENTION FOR S0??
+                # !!!!!!!!!!!!
+                # NOTING HERE BUT IT IS SET IN MULTIPLE OTHER PLACES
+            lp.set_z( z = z[i] )
+            lp.set_Q( Q = Q[i] )
+            # The other GRLP-ey stuff
+            lp.set_intermittency( 1 )
+            lp.basic_constants()
+            lp.bedload_lumped_constants()
+            lp.set_hydrologic_constants()
+            lp.set_niter()
+            #lp.set_z_bl(z1)
+            lp.set_B( B = B )
+            # COULD WRITE A FUNCTION AROUND THIS
+            # BUT I REALLY WANT TO REWRITE MORE IN TERMS OF SOURCE/SINK
+            # DO SOMETHING HERE !!!!!
+            lp.set_uplift_rate( 0 )
+
+        ##########################################
+        # THIRD: IMPORT THE BOUNDARY CONDITIONS #
+        ##########################################
+        
+        # Both of these for downstream Dirichlet
+        # SHOULD I USE LONG FUNCTION NAMES INSTEAD OF ALIASES?
+        self.set_x_bl( x_bl )
+        self.set_z_bl( z_bl )
+        
+        # One of these for upstream sediment:water supply ratio (virtual slope)
+        if S0 is not None and Q_s_0 is not None:
+        self.set_S0()
+        self.set_Q_s_0()
+        
+        ####################################
+        #  FOURTH: SET UP THE NETWORK X,Z  #
+        # INTERIOR AND BOUNDARY CONDITIONS #
+        ####################################
         
         # Identify channel head and mouth segments
         self.create_list_of_channel_head_segment_IDs()
@@ -1346,8 +1516,8 @@ class Network(object):
         # Generate arrays of x, including networked links
         self.create_x_ext_lists()
         self.update_x_ext_internal()
-        self.update_x_ext_external_upstream()
-        self.update_x_ext_external_downstream() # UNFINISHED!
+        self.update_x_ext_external_upstream()                           # b.c.
+        self.update_x_ext_external_downstream( x_bl )                   # b.c.
         
         # From these, generate arrays of dx
         # WHAT IF NOT ALL Xs are set yet? (e.g., downstream-most)
@@ -1357,13 +1527,11 @@ class Network(object):
         self.update_dx_2cell()
         self.update_dx_ext_2cell()
         
-        # Generate arrays of z?
-        # Perhaps create them, but then have external driver set the values.
+        # Generate arrays of z based on external values
         self.create_z_ext_lists()
         self.update_z_ext_internal()
-        # Then also set up z values, if initialized
-        self.update_z_ext_external_upstream() # UNFINISHED!
-        self.update_z_ext_external_downstream() # UNFINISHED!
+        self.update_z_ext_external_upstream( S0 = S_0, Q_s_0 = Q_s_0 )  # b.c.
+        self.update_z_ext_external_downstream( z_bl )                   # b.c.
     
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
         """

@@ -322,16 +322,16 @@ class LongProfile(object):
         """
         self.Q_s_0 = Q_s_0
         # Q[0] is centerpoint of S?
-        self.S0 = - np.sign(self.Q[0]) * self.sinuosity * \
+        self.S0 = np.sign(self.Q[0]) * self.sinuosity * \
                       ( np.abs(Q_s_0) / 
                         ( self.k_Qs * self.intermittency 
                               * np.abs(self.Q[0])) )**(6/7.)
         # Give upstream cell the same width as the first cell in domain
-        self.z_ext[0] = self.z[0] - self.S0 * self.dx_ext[0]
+        self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
 
     def update_z_ext_0(self):
         # Give upstream cell the same width as the first cell in domain
-        self.z_ext[0] = self.z[0] - self.S0 * self.dx_ext[0]
+        self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
 
     def compute_coefficient_time_varying(self):
         if self.S0 is not None:
@@ -410,7 +410,7 @@ class LongProfile(object):
         # Probably not so easy to update as just updating C1
         # BECAUSE IT IS CHANGING THE RHS
         self.bcl = self.dx_ext_2cell[0] * self.S0 * \
-                            -self.C1[0] / self.dx_ext_2cell[0] \
+                            self.C1[0] / self.dx_ext_2cell[0] \
                             * ( 7/3./self.dx_ext[0]
                             - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] )
 
@@ -1256,7 +1256,7 @@ class Network(object):
                 lp.S0 = S0[_idx]
             _idx += 1
             # Hard-coding: Expecting only one segment in list
-            lp.z_ext[0][0] = lp.z[0] - lp.S0 * lp.dx[0]
+            lp.z_ext[0][0] = lp.z[0] + lp.S0 * lp.dx[0]
             
     def set_z_bl (self, z0):
         """

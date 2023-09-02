@@ -374,7 +374,7 @@ class LongProfile(object):
         self.z_bl = z_bl
         self.z_ext[-1] = self.z_bl
         
-    def set_x_bl(self, x_bl)
+    def set_x_bl(self, x_bl):
         self.x_bl = x_bl
         self.x_ext[-1] = self.x_bl
 
@@ -1489,25 +1489,18 @@ class Network(object):
             # BUT I REALLY WANT TO REWRITE MORE IN TERMS OF SOURCE/SINK
             # DO SOMETHING HERE !!!!!
             lp.set_uplift_rate( 0 )
-
-        ##########################################
-        # THIRD: IMPORT THE BOUNDARY CONDITIONS #
-        ##########################################
-        
-        # Both of these for downstream Dirichlet
-        # SHOULD I USE LONG FUNCTION NAMES INSTEAD OF ALIASES?
-        self.set_x_bl( x_bl )
-        self.set_z_bl( z_bl )
-        
-        # One of these for upstream sediment:water supply ratio (virtual slope)
-        if S0 is not None and Q_s_0 is not None:
-        self.set_S0()
-        self.set_Q_s_0()
         
         ####################################
-        #  FOURTH: SET UP THE NETWORK X,Z  #
+        #  THIRD: SET UP THE NETWORK X,Z   #
         # INTERIOR AND BOUNDARY CONDITIONS #
         ####################################
+        
+        # Required information:
+        # x_bl
+        # z_bl
+        # Only one among:
+        #   S0
+        #   Q_s_0
         
         # Identify channel head and mouth segments
         self.create_list_of_channel_head_segment_IDs()
@@ -1520,9 +1513,6 @@ class Network(object):
         self.update_x_ext_external_downstream( x_bl )                   # b.c.
         
         # From these, generate arrays of dx
-        # WHAT IF NOT ALL Xs are set yet? (e.g., downstream-most)
-        # Let's choose when these should be assigned.... probably before
-        # the initialize?
         self.update_dx_ext()
         self.update_dx_2cell()
         self.update_dx_ext_2cell()

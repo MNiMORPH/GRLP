@@ -915,22 +915,6 @@ class Network(object):
         # MAKE UNIFORM IN BASE CLASS
         self.niter = niter
 
-    def update_zext(self):
-        warn( 'This function will become deprecated.\n'+
-              'Use `create_z_ext_lists` and `update_z_ext_internal` instead.'
-              'LIKELY TO FAIL anyway: z_ext is now a list of arrays.',
-              DeprecationWarning, stacklevel=2)
-        # Should just do this less ad-hoc
-        for lp in self.list_of_LongProfile_objects:
-            for ID in lp.downstream_segment_IDs:
-                lp_downstream = np.array(self.list_of_LongProfile_objects) \
-                                [self.IDs == ID][0]
-                lp.z_ext[-1] = lp_downstream.z_ext[1]
-            for ID in lp.upstream_segment_IDs:
-                lp_upstream = np.array(self.list_of_LongProfile_objects) \
-                                [self.IDs == ID][0]
-                lp.z_ext[0] = lp_upstream.z_ext[-2]
-
     def create_x_ext_lists(self):
         """
         ##########################################################
@@ -1540,7 +1524,7 @@ class Network(object):
         """
         self.nt = nt
         self.dt = dt
-        self.update_zext()
+        self.update_z_ext_internal()
         # self.dt is decided earlier
         for ti in range(int(self.nt)):
             for lp in self.list_of_LongProfile_objects:
@@ -1565,7 +1549,7 @@ class Network(object):
             self.stack_RHS_vector()
 
             for i in range(self.niter):
-                self.update_zext()
+                self.update_z_ext_internal()
                 for lp in self.list_of_LongProfile_objects:
                     # Update coefficient for all: elements may call to others
                     # within the net
@@ -1585,7 +1569,7 @@ class Network(object):
                                     out[idx:idx+self.list_of_segment_lengths[i]]
                     idx += +self.list_of_segment_lengths[i]
                     i += 1
-            self.update_zext()
+            self.update_z_ext_internal()
             self.t += self.dt # Update each lp z? Should make a global class
                               # that these both inherit from
             for lp in self.list_of_LongProfile_objects:

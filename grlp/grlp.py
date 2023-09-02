@@ -1497,6 +1497,9 @@ class Network(object):
             lp.set_uplift_rate( 0 )
             i += 1
         
+        # Generate list of all segment IDs to store within this Network object
+        self.build_ID_list()
+        
         ####################################
         #  THIRD: SET UP THE NETWORK X,Z   #
         # INTERIOR AND BOUNDARY CONDITIONS #

@@ -775,6 +775,8 @@ class Network(object):
         """
         self.list_of_LongProfile_objects = list_of_LongProfile_objects
         self.t = 0
+        self.Q_s_0 = None
+        self.S0 = None
 
     def build_ID_list(self):
         self.IDs = []
@@ -1331,6 +1333,8 @@ class Network(object):
         if len(self.list_of_channel_mouth_segment_IDs) == 1:
             self.channel_mouth_segment_ID = \
                 self.list_of_channel_mouth_segment_IDs[0]
+        elif len(self.list_of_channel_mouth_segment_IDs) == 0:
+            sys.exit("Ahmm... why are there no river mouths?")
         else:
             sys.exit("Ahmm... why are there multiple river mouths?")
 
@@ -1405,7 +1409,7 @@ class Network(object):
                     B = None,
                     overwrite=False
                     ):
-        print( locals.keys() )
+        #print( locals.keys() )
         """
         Run only once, at beginning of program.
         """
@@ -1462,7 +1466,9 @@ class Network(object):
             nseg = len(x)
             segments = []
             for i in range(nseg):
-                segments.append(grlp.LongProfile())
+                segments.append( LongProfile() )
+        # Class var; clunkier name
+        self.list_of_LongProfile_objects = segments
                 
         i = 0
         for lp in segments:
@@ -1471,7 +1477,7 @@ class Network(object):
             lp.set_upstream_segment_IDs( upstream_segment_IDs[i] )
             lp.set_downstream_segment_IDs( downstream_segment_IDs[i] )
             # x, z, Q
-            lp.set_x( x = x[i])
+            lp.set_x( x = x[i], verbose=False )
                 # LET'S CHANGE THE SIGN CONVENTION FOR S0??
                 # !!!!!!!!!!!!
                 # NOTING HERE BUT IT IS SET IN MULTIPLE OTHER PLACES
@@ -1484,11 +1490,12 @@ class Network(object):
             lp.set_hydrologic_constants()
             lp.set_niter()
             #lp.set_z_bl(z1)
-            lp.set_B( B = B )
+            lp.set_B( B = B[i] )
             # COULD WRITE A FUNCTION AROUND THIS
             # BUT I REALLY WANT TO REWRITE MORE IN TERMS OF SOURCE/SINK
             # DO SOMETHING HERE !!!!!
             lp.set_uplift_rate( 0 )
+            i += 1
         
         ####################################
         #  THIRD: SET UP THE NETWORK X,Z   #
@@ -1520,7 +1527,7 @@ class Network(object):
         # Generate arrays of z based on external values
         self.create_z_ext_lists()
         self.update_z_ext_internal()
-        self.update_z_ext_external_upstream( S0 = S_0, Q_s_0 = Q_s_0 )  # b.c.
+        self.update_z_ext_external_upstream( S0 = S0, Q_s_0 = Q_s_0 )  # b.c.
         self.update_z_ext_external_downstream( z_bl )                   # b.c.
     
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):

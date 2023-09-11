@@ -11,7 +11,7 @@ setuptools.setup(
     description="Evolves gravel-bed river long profiles",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/awickert/GRLP",
+    url="https://github.com/MNiMORPH/GRLP",
     install_requires=[
         'numpy',
         'scipy',

@@ -1754,7 +1754,8 @@ class Network(object):
             # These all check out -- no problems with network.
             lp.basic_constants()
             lp.bedload_lumped_constants()
-            lp.set_hydrologic_constants()
+            # REMOVE??? PROBABLY. THIS SHOULD BE SET EXTERNALLY FOR A NETWORK.
+            # lp.set_hydrologic_constants()
             lp.set_niter()
             #lp.set_z_bl(z1)
             lp.set_B( B = B[i] )

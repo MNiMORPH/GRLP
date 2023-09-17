@@ -230,6 +230,7 @@ class LongProfile(object):
                 self.Q = Q * np.ones(self.x.shape)
             # Have to be able to pass Q_ext, created with adjacencies
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # COULD SKIP STRAIGHT TO DQ :)
             Q_ext = np.hstack( (2*self.Q[0]-self.Q[1],
                                 self.Q,
                                 2*self.Q[-1]-self.Q[-2]) )
@@ -1475,6 +1476,36 @@ class Network(object):
             lp.dx_ext_2cell = []
             for x_ext in lp.x_ext:
                 lp.dx_ext_2cell.append( x_ext[2:] - x_ext[:-2] )
+
+    def update_Q(self):
+        """
+        Set discharge within the network
+        """
+        pass
+        
+    def set_Q(self):
+        """
+        Set discharge within each segment
+        """
+        pass
+        
+    def set_dQ(self):
+        """
+        Use segment adjacencies to set changes in discharge down segments.
+        For a convergent network:
+        
+        Q_ext[-1] of the upstream segment should see a large-ish increase
+        because the discharge after the tributary junction will can be
+        significantly higher than that above.
+        
+        Q_ext[0] of the downstream segment should see only a modest difference
+        overall (i.e., when summing the upstream tributaries), but we in fact
+        require these to be separated into a dQ for each river-segment
+        combination (here, typically two tributaries joining into one 
+        downstream river segment). This is needed to properly weight
+        slopes for the C1 coefficient.
+        """
+        pass
 
     def set_intermittency(self, intermittency):
         """

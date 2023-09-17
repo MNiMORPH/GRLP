@@ -174,32 +174,19 @@ class LongProfile(object):
              unlike in the paper, this is a dz/dx value down the valley,
              so we account for sinuosity as well at the upstream boundary.
         z1 = elevation value at RHS
+        
+        Code works for single segments; the Network class manages z values
+        on its own.
         """
         if z is not None:
             self.z = z
-            #sys.exit(2)
-            # Good for 1 segment; doesn't work for many. !!!!
             if self.z_ext is None:
                 self.z_ext = np.hstack((2*z[0]-z[1], z, 2*z[-1]-z[-2]))
-            print ("")
-            print( "??????????????????????" )
-            print( "??????????????????????" )
-            print( "??????????????????????" )
-            print( self.z_ext )
-            print ("")
-            if (type(z_ext) is list) and (len(self.z_ext) > 2):
-                print( len(self.z_ext) )
-                print( self.z_ext )
-                sys.exit(3)
-            # Problem not caused here, though this is cruft for network
         elif z_ext is not None:
             self.z_ext = z_ext
-            # Hack??? !!!!
-            sys.exit(2)
             if self.z is not None:            
                 self.z = z_ext[1:-1]
         elif self.x.any() and self.x_ext.any() and (S0 is not None):
-            sys.exit(2)
             self.z = self.x * S0 + (z1 - self.x[-1] * S0)
             self.z_ext = self.x_ext * S0 + (z1 - self.x[-1] * S0)
             #print self.z_ext
@@ -1595,7 +1582,16 @@ class Network(object):
                 # LET'S CHANGE THE SIGN CONVENTION FOR S0??
                 # !!!!!!!!!!!!
                 # NOTING HERE BUT IT IS SET IN MULTIPLE OTHER PLACES
-            lp.set_z( z = z[i] )
+            # Setting variables directly.
+            # "Setter" functions also calculate derived products
+            # in a way that works for a single profile, but not for
+            # a network.
+            # STREAMLINE FUNCTIONS LATER -- UPDATE ONLY NAMED VAR?
+            # OTHER FCN TO DO THE REST?
+            lp.z = z[i]
+            # !!!!!!!!!!!!!!!!!!!
+            # Need to manage dQ in network
+            # TO DO HERE
             lp.set_Q( Q = Q[i] )
             # The other GRLP-ey stuff
             lp.set_intermittency( 1 ) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

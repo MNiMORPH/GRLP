@@ -177,11 +177,29 @@ class LongProfile(object):
         """
         if z is not None:
             self.z = z
-            self.z_ext = np.hstack((2*z[0]-z[1], z, 2*z[-1]-z[-2]))
+            #sys.exit(2)
+            # Good for 1 segment; doesn't work for many. !!!!
+            if self.z_ext is None:
+                self.z_ext = np.hstack((2*z[0]-z[1], z, 2*z[-1]-z[-2]))
+            print ("")
+            print( "??????????????????????" )
+            print( "??????????????????????" )
+            print( "??????????????????????" )
+            print( self.z_ext )
+            print ("")
+            if (type(z_ext) is list) and (len(self.z_ext) > 2):
+                print( len(self.z_ext) )
+                print( self.z_ext )
+                sys.exit(3)
+            # Problem not caused here, though this is cruft for network
         elif z_ext is not None:
             self.z_ext = z_ext
-            self.z = z_ext[1:-1]
+            # Hack??? !!!!
+            sys.exit(2)
+            if self.z is not None:            
+                self.z = z_ext[1:-1]
         elif self.x.any() and self.x_ext.any() and (S0 is not None):
+            sys.exit(2)
             self.z = self.x * S0 + (z1 - self.x[-1] * S0)
             self.z_ext = self.x_ext * S0 + (z1 - self.x[-1] * S0)
             #print self.z_ext
@@ -328,19 +346,101 @@ class LongProfile(object):
                               * np.abs(self.Q[0])) )**(6/7.)
         # Give upstream cell the same width as the first cell in domain
         self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
+        sys.exit(4)
 
     def update_z_ext_0(self):
         # Give upstream cell the same width as the first cell in domain
-        self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
-
+        # UPDATE TO WORK WITH LIST OF ARRAYS
+        # Before fixing, think about what z_ext and C1 are really doing
+        # and how best to set them
+        # Does z_ext set up the boundary conditions in networked mode?
+        
+        # Q1: z_ext and boundary conditions
+        
+        # Q2: z_ext and C1
+        #     self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
+        # And C0 has all local variables.
+        # So what we really need is the channel slope at the local site
+        # How do we weight it? Equally? By the discharge from each river?
+        # Yes! Q_s = k_Qs * Q * S^(7/6), and we are differentiating
+        # d Q_s / d x
+        # Therefore, S for the coefficient will be set via:
+        # Qs = k_Qs * Q * S^{7/6}
+        # START HERE!!!!!!!!!!!!
+        if type( self.z_ext ) is np.ndarray:
+            # Only one segment: towards applying boundary condition upstream
+            self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
+        elif type( self.z_ext ) is list:
+            for connected_array in self.z_ext:
+            # Wait a minute! We don't necessarily want the upstream boundary
+            # conditions to be enforced everywhere; we have internal segments.
+                if len(self.upstream_segment_IDs) == 0:
+                    # WHY ARE WE DOING THIS?
+                    # ALREADY ADDRESSED WITHIN NETWORK?
+                    # I GUESS IT DOESN'T HURT, BUT REVISIT AND STREAMLINE
+                    # WHEN THERE ARE FEWER MOVING PARTS
+                    # If upstream-most, then apply boundary condition
+                    # This should run just once in the loop and then exit
+                    # DX_EXT SHOULD BE LIST OF ARRAYS, SO NEED [0][0]
+                    # TO GET FIRST (ONLY) ARRAY, AND THEN ITS FIRST ELEMENT
+                    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    connected_array[0] = self.z[0] + self.S0 * self.dx_ext[0][0]
+                else:
+                    # Otherwise, obtain upstream neighbors' elevations
+                    # PERHAPS NEED TO GET INFO FROM NETWORK!
+                    # We can't, buuuut: This is already wrapped in:
+                    # "if lp.S0 is not None"
+                    # So: Let's throw an error here.
+                    print("S0 was specified for a non-headwaters segment. Exiting.")
+                    sys.exit(1)
+    
     def compute_coefficient_time_varying(self):
+        i=0
+        print( ((self.z_ext[i][2:] - self.z_ext[i][:-2]) \
+                         / self.dx_ext_2cell[i] )**(1/6.)
+             )
+        print("FCN YO!")
         if self.S0 is not None:
-            self.update_z_ext_0()
+            self.update_z_ext_0() # <-- Ursprüngliche Quelle
+        # DEBUG
+        i=0
+        #print( ((self.z_ext[i][2:] - self.z_ext[i][:-2]) \
+        #                 / self.dx_ext_2cell[i] )**(1/6.)
+        #     )
+        #print("FCN Whoooooa!")
         # !!!C0!!!
         # NOT YET UPDATED
         # KEEPING self.dx_ext_2cell INSTEAD OF USING MORE PRECISE OPTION
-        self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
-                         / self.dx_ext_2cell )**(1/6.)
+        # But this is fine so long as all gradients may be approximated
+        # to be linear.
+        # TRY: not network
+        # EXCEPT: has a network
+        # PROBABLY NOT THE BEST WAY TO DO THIS
+        try:
+            self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
+                             / self.dx_ext_2cell )**(1/6.)
+        except:
+            # Inefficient: repeats whole segment calc when just the b.c.
+            # change is needed
+            dzdx_0_16_list = []
+            for i in range(len( self.z_ext) ):
+                # ADD FUNCTIONALITY TO LOOP OVER Q AND WEIGHT BY IT
+                dzdx_0_16_list.append( 
+                          np.abs( (self.z_ext[i][2:] - self.z_ext[i][:-2]) \
+                         / self.dx_ext_2cell[i] )**(1/6.)
+                )
+                # UMMMMM WE NEED WEIGHTING BY Q
+                # I GUESS I WILL WRITE A NEW FUNC TO PASS IT
+            # PLACEHOLDER TO SEE IF THINGS JUST WORK, THOUGH
+            # INSTEAD OF STRAIGHT MEAN, GIVE DISCHARGE WEIGHTING
+            self.dzdx_0_16 = np.mean(dzdx_0_16_list)
+                
+                
+        # UPDATE THIS TO INCLUDE THE DIV BY self.dx_ext_2cell THAT USED
+        # TO BE IN C0?
+        # OR JUST RETURN CODE TO HOW IT USED TO BE, SO self.dx_ext_2cell
+        # ONCE MORE BE PART OF C0?
+        # CURRENTLY, THE self.dx_ext_2cell IS APPLIED EXTERNALLY TO C1
         self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
         # Handling C1 for networked rivers
         # Need to link the two segments without skipping the channel head
@@ -351,8 +451,13 @@ class LongProfile(object):
             # !!!C0!!!
             # LEAVING AS-IS.
             # ADDRESSING CHANGES TO C0 IN LATER INSTANCES, NOT HERE
+            # but now need things to work with lists of arrays]
+            # LIKELY AGAIN NEED DISCHARGE WEIGHTING HERE; HACKING TO 
+            # SEE IF I CAN GET IT TO WORK
+            # JUST SETTING EVERYTHING TO PICK THE FIRST ARRAY IN THE LIST
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             self.C1[-1] = self.C0 \
-                          * (np.abs(self.z_ext[-2] - self.z_ext[-1]) \
+                          * (np.abs(self.z_ext[0][-2] - self.z_ext[0][-1]) \
                                    /self.dx[-1])**(1/6.) \
                           * self.Q[-1] / self.B[-1]
         # This compute_coefficient_timeone matters! The above doesn't!!!! (Maybe.)
@@ -361,8 +466,12 @@ class LongProfile(object):
             # !!!C0!!!
             # LEAVING AS-IS.
             # ADDRESSING CHANGES TO C0 IN LATER INSTANCES, NOT HERE
+            # NEED DISCHARGE WEIGHTING HERE, BUT HACKING TO SEE IF I CAN
+            # MAKE IT WORK
+            # JUST SETTING EVERYTHING TO PICK THE FIRST ARRAY IN THE LIST 
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             self.C1[0] = self.C0 \
-                          * (np.abs(self.z_ext[1] - self.z_ext[0]) \
+                          * (np.abs(self.z_ext[0][1] - self.z_ext[0][0]) \
                                    /self.dx[0])**(1/6.) \
                           * self.Q[0] / self.B[0]
 
@@ -372,7 +481,9 @@ class LongProfile(object):
         given in the variable "z_bl" (elevation, base level)
         """
         self.z_bl = z_bl
-        self.z_ext[-1] = self.z_bl
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # UPDATE
+        self.z_ext[0][-1] = self.z_bl
         
     def set_x_bl(self, x_bl):
         self.x_bl = x_bl
@@ -382,8 +493,13 @@ class LongProfile(object):
         # !!!C0!!!
         # UPDATED BUT JUST USING dx_ext_2cell
         #self.bcr = self.z_bl * ( self.C1[-1] * 7/3. \
-        self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[-1] * 7/3. \
-                       * (1/self.dx_ext[-2] + 1/self.dx_ext[-1])/2. \
+        # z_bl not set. Hm.
+        # Possibly because it is midway through the network
+        # Maybe I really do need to update how I pass things here...
+        # !!!!!!!!!!!!!!!! JUST MAKE SOMETHING RUN
+        self.z_bl = 0
+        self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[0][-1] * 7/3. \
+                       * (1/self.dx_ext[0][-2] + 1/self.dx_ext[0][-1])/2. \
                        + self.dQ[-1]/self.Q[-1] )
 
     def set_bcl_Neumann_RHS(self):
@@ -409,10 +525,10 @@ class LongProfile(object):
         # !!!C0!!!
         # Probably not so easy to update as just updating C1
         # BECAUSE IT IS CHANGING THE RHS
-        self.bcl = self.dx_ext_2cell[0] * self.S0 * \
-                            self.C1[0] / self.dx_ext_2cell[0] \
-                            * ( 7/3./self.dx_ext[0]
-                            - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] )
+        self.bcl = self.dx_ext_2cell[0][0] * self.S0 * \
+                            self.C1[0] / self.dx_ext_2cell[0][0] \
+                            * ( 7/3./self.dx_ext[0][0]
+                            - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0][0] )
 
     def set_bcl_Neumann_LHS(self):
         """
@@ -429,8 +545,8 @@ class LongProfile(object):
         # !!!C0!!!
         # UPDATED BUT JUST USING dx_ext_2cell
         #self.right[0] = -self.C1[0] * 7/3. \
-        self.right[0] = -self.C1[0] / self.dx_ext_2cell[0] * 7/3. \
-                         * (1/self.dx_ext[0] + 1/self.dx_ext[1])
+        self.right[0] = -self.C1[0] / self.dx_ext_2cell[0][0] * 7/3. \
+                         * (1/self.dx_ext[0][0] + 1/self.dx_ext[0][1])
 
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
         """
@@ -485,17 +601,17 @@ class LongProfile(object):
         self.compute_coefficient_time_varying()
         # !!!C0!!!
         # UPDATED WITH STRAIGHT self.dx_ext_2cell
-        self.left = -self.C1 / self.dx_ext_2cell \
-                        * ( (7/3.)/self.dx_ext[:-1]
-                        - self.dQ/self.Q/self.dx_ext_2cell )
-        self.center = -self.C1 / self.dx_ext_2cell \
+        self.left = -self.C1 / self.dx_ext_2cell[0] \
+                        * ( (7/3.)/self.dx_ext[0][:-1]
+                        - self.dQ/self.Q/self.dx_ext_2cell[0] )
+        self.center = -self.C1 / self.dx_ext_2cell[0] \
                               * ( (7/3.)
-                              * (-1/self.dx_ext[:-1]
-                                 -1/self.dx_ext[1:]) ) \
+                              * (-1/self.dx_ext[0][:-1]
+                                 -1/self.dx_ext[0][1:]) ) \
                                  + 1.
-        self.right = -self.C1 / self.dx_ext_2cell \
-                              * ( (7/3.)/self.dx_ext[1:] # REALLY?
-                                  + self.dQ/self.Q/self.dx_ext_2cell )
+        self.right = -self.C1 / self.dx_ext_2cell[0] \
+                              * ( (7/3.)/self.dx_ext[0][1:] # REALLY?
+                                  + self.dQ/self.Q/self.dx_ext_2cell[0] )
         # Apply boundary conditions if the segment is at the edges of the
         # network (both if there is only one segment!)
         if len(self.upstream_segment_IDs) == 0:
@@ -832,10 +948,11 @@ class Network(object):
                             * self.dt / lp.dx_ext_2cell[0]
                     # From earlier
                     #C0 = upseg.C0[-1] # Should be consistent
-                    dzdx_0_16 = ( np.abs(lp.z_ext[1] - lp.z_ext[0])
-                                  / (lp.dx_ext[0]))**(1/6.)
+                    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    dzdx_0_16 = ( np.abs(lp.z_ext[0][1] - lp.z_ext[0][0])
+                                  / (lp.dx_ext[0][0]))**(1/6.)
                     C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
-                    left_new = -C1 * 7/6. * 2 / lp.dx_ext[0]
+                    left_new = -C1 * 7/6. * 2 / lp.dx_ext[0][0]
                     self.LHSblock_matrix[row, col] = left_new
             elif len(lp.upstream_segment_IDs) > 1:
                 _relative_id = 0
@@ -857,7 +974,8 @@ class Network(object):
                             * self.dt / lp.dx_ext_2cell[_relative_id][0]
                     # From earlier
                     #C0 = upseg.C0[-1] # Should be consistent
-                    dzdx_0_16 = ( np.abs(lp.z_ext[1] - lp.z_ext[0])
+                    # !!!!!!!!!!!!!!!!!!!! [0] z_ext
+                    dzdx_0_16 = ( np.abs(lp.z_ext[0][1] - lp.z_ext[0][0])
                                   / (lp.dx_ext[_relative_id][0]))**(1/6.)
                     C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
                     left_new = -C1 * 7/6. * 2 / lp.dx_ext[_relative_id][0]
@@ -880,13 +998,15 @@ class Network(object):
                 # !!!C0!!!
                 # I've updated dx_ext_2cell to acknowledge boundaries
                 # This should therefore be used here.
+                # !!!!!!!!!!!!!!!!! [0]
                 C0 = downseg.k_Qs * downseg.intermittency \
                         / ((1-downseg.lambda_p) * downseg.sinuosity**(7/6.)) \
-                        * self.dt / lp.dx_ext_2cell[-1]
-                dzdx_0_16 = ( np.abs(lp.z_ext[-2] - lp.z_ext[-1])
-                              / (lp.dx_ext[0]))**(1/6.)
+                        * self.dt / lp.dx_ext_2cell[0][-1]
+                # !!!!!!!!!!!!!!!!!!!!!! [0] z_ext, dx_ext
+                dzdx_0_16 = ( np.abs(lp.z_ext[0][-2] - lp.z_ext[0][-1])
+                              / (lp.dx_ext[0][0]))**(1/6.)
                 C1 = C0 * dzdx_0_16 * lp.Q[-1] / downseg.B[0]
-                right_new = -C1 * 7/6. * 2 / lp.dx_ext[-1]
+                right_new = -C1 * 7/6. * 2 / lp.dx_ext[0][-1]
                 self.LHSblock_matrix[row, col] = right_new
 
 
@@ -1065,6 +1185,13 @@ class Network(object):
         for lp in self.list_of_LongProfile_objects:
             lp.z_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
                 [ np.concatenate( [_nan1, lp.z, _nan1] ) ]
+            print( "" )
+            print( lp.ID )
+            print( "" )
+            print( "Z_EXT" )
+            print( lp.z_ext[:] )
+            print( "" )
+        # z_ext messup happens after this.
 
     def update_z_ext_internal(self):
         """
@@ -1512,11 +1639,26 @@ class Network(object):
         self.update_dx_ext_2cell()
         
         # Generate arrays of z based on external values
+        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
+        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
+        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
+        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
+        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
+        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
+        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
         self.create_z_ext_lists()
         self.update_z_ext_internal()
         self.update_z_ext_external_upstream( S0 = S0, Q_s_0 = Q_s_0 )  # b.c.
         self.update_z_ext_external_downstream( z_bl )                   # b.c.
-    
+
+        # DEBUG
+        lp = self.list_of_LongProfile_objects[0]
+        i = 0
+        print( lp.z_ext )
+        print( lp.x_ext )
+        print( np.abs( (lp.z_ext[i][2:] - lp.z_ext[i][:-2]) \
+                 / lp.dx_ext_2cell[i] )**(1/6.) )
+
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
         """
         Solve the triadiagonal matrix through time, with a given
@@ -1528,12 +1670,30 @@ class Network(object):
         # self.dt is decided earlier
         for ti in range(int(self.nt)):
             for lp in self.list_of_LongProfile_objects:
+                # Debug
+                i=0
+                print( np.abs( (lp.z_ext[i][2:] - lp.z_ext[i][:-2]) \
+                         / lp.dx_ext_2cell[i] )**(1/6.) )
                 lp.zold = lp.z.copy()
+                print( "HEY!" )
                 lp.build_LHS_coeff_C0(dt=self.dt)
-                lp.compute_coefficient_time_varying()
+                print( np.abs( (lp.z_ext[i][2:] - lp.z_ext[i][:-2]) \
+                         / lp.dx_ext_2cell[i] )**(1/6.) )
+                lp.zold = lp.z.copy()
+                print( "Ho!" )
+                lp.compute_coefficient_time_varying() # <-- Quelle der Problem
+                print( np.abs( (lp.z_ext[i][2:] - lp.z_ext[i][:-2]) \
+                         / lp.dx_ext_2cell[i] )**(1/6.) )
+                lp.zold = lp.z.copy()
+                print( "Whooooa!" )
+                print( lp )
             for lp in self.list_of_LongProfile_objects:
                 #print lp.C1
                 lp.build_matrices()
+                # Debug
+                i=0
+                print( np.abs( (lp.z_ext[i][2:] - lp.z_ext[i][:-2]) \
+                         / lp.dx_ext_2cell[i] )**(1/6.) )
             self.build_block_diagonal_matrix_core()
             self.add_block_diagonal_matrix_upstream_boundary_conditions()
             self.add_block_diagonal_matrix_downstream_boundary_conditions()
@@ -1565,7 +1725,11 @@ class Network(object):
                 i = 0
                 idx = 0
                 for lp in self.list_of_LongProfile_objects:
-                    lp.z_ext[1:-1] = \
+                    # ??????????????????????????????????
+                    # THIS SEEMS POTENTIALLY PROBLEMATIC
+                    # ??????????????????????????????????
+                    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    lp.z_ext[0][1:-1] = \
                                     out[idx:idx+self.list_of_segment_lengths[i]]
                     idx += +self.list_of_segment_lengths[i]
                     i += 1
@@ -1577,7 +1741,8 @@ class Network(object):
             i = 0
             idx = 0
             for lp in self.list_of_LongProfile_objects:
-                lp.z = lp.z_ext[1:-1].copy()
+                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                lp.z = lp.z_ext[0][1:-1].copy()
                 lp.dz_dt = (lp.z - lp.zold)/self.dt
                 #lp.Qs_internal = 1/(1-lp.lambda_p) * np.cumsum(lp.dz_dt)*lp.B \
                 #                 + lp.Q_s_0

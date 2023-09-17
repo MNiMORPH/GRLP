@@ -1367,6 +1367,7 @@ class Network(object):
                 lp.S0 = S0[_idx]
             _idx += 1
             # Hard-coding: Expecting only one segment in list
+            # Because this is just for the channel-head segments
             lp.z_ext[0][0] = lp.z[0] + lp.S0 * lp.dx[0]
             
     def set_z_bl (self, z0):

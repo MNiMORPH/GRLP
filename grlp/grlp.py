@@ -1588,6 +1588,8 @@ class Network(object):
             lp.set_upstream_segment_IDs( upstream_segment_IDs[i] )
             lp.set_downstream_segment_IDs( downstream_segment_IDs[i] )
             # x, z, Q
+            # !!!!!!!!!!!!!!!!! NEEDS NETWROK INFO / MAYBE NOT NECESSARY
+            # BECAUSE OF HOW IT REQUIRES X_EXT
             lp.set_x( x = x[i], verbose=False )
                 # LET'S CHANGE THE SIGN CONVENTION FOR S0??
                 # !!!!!!!!!!!!
@@ -1595,7 +1597,8 @@ class Network(object):
             lp.set_z( z = z[i] )
             lp.set_Q( Q = Q[i] )
             # The other GRLP-ey stuff
-            lp.set_intermittency( 1 )
+            lp.set_intermittency( 1 ) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # These all check out -- no problems with network.
             lp.basic_constants()
             lp.bedload_lumped_constants()
             lp.set_hydrologic_constants()
@@ -1605,7 +1608,7 @@ class Network(object):
             # COULD WRITE A FUNCTION AROUND THIS
             # BUT I REALLY WANT TO REWRITE MORE IN TERMS OF SOURCE/SINK
             # DO SOMETHING HERE !!!!!
-            lp.set_uplift_rate( 0 )
+            lp.set_uplift_rate( 0 ) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             i += 1
         
         # Generate list of all segment IDs to store within this Network object

@@ -429,7 +429,9 @@ class LongProfile(object):
         # OR JUST RETURN CODE TO HOW IT USED TO BE, SO self.dx_ext_2cell
         # ONCE MORE BE PART OF C0?
         # CURRENTLY, THE self.dx_ext_2cell IS APPLIED EXTERNALLY TO C1
-        self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # HACK FOR FUNCTIONALITY
+        self.C1 = self.C0 * self.dzdx_0_16 * self.Q[0] / self.B
         # Handling C1 for networked rivers
         # Need to link the two segments without skipping the channel head
         # DOESN'T SEEM TO CHANGE ANYTHING!
@@ -488,7 +490,9 @@ class LongProfile(object):
         self.z_bl = 0
         self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[0][-1] * 7/3. \
                        * (1/self.dx_ext[0][-2] + 1/self.dx_ext[0][-1])/2. \
-                       + self.dQ[-1]/self.Q[-1] )
+                       + self.dQ[0][-1]/self.Q[-1] )
+                      # !!!!!!!!!!!!!!!!!
+                      # dQ --> dQ[0]. Expecting list! HACK.
 
     def set_bcl_Neumann_RHS(self):
         """
@@ -516,7 +520,9 @@ class LongProfile(object):
         self.bcl = self.dx_ext_2cell[0][0] * self.S0 * \
                             self.C1[0] / self.dx_ext_2cell[0][0] \
                             * ( 7/3./self.dx_ext[0][0]
-                            - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0][0] )
+                            - self.dQ[0][0]/self.Q[0]/self.dx_ext_2cell[0][0] )
+                            # !!!!!!!!!!!!!!!!!
+                            # dQ --> dQ[0]. Expecting list! HACK.
 
     def set_bcl_Neumann_LHS(self):
         """
@@ -591,7 +597,7 @@ class LongProfile(object):
         # UPDATED WITH STRAIGHT self.dx_ext_2cell
         self.left = -self.C1 / self.dx_ext_2cell[0] \
                         * ( (7/3.)/self.dx_ext[0][:-1]
-                        - self.dQ/self.Q/self.dx_ext_2cell[0] )
+                        - self.dQ[0]/self.Q/self.dx_ext_2cell[0] )
         self.center = -self.C1 / self.dx_ext_2cell[0] \
                               * ( (7/3.)
                               * (-1/self.dx_ext[0][:-1]
@@ -599,7 +605,9 @@ class LongProfile(object):
                                  + 1.
         self.right = -self.C1 / self.dx_ext_2cell[0] \
                               * ( (7/3.)/self.dx_ext[0][1:] # REALLY?
-                                  + self.dQ/self.Q/self.dx_ext_2cell[0] )
+                                  + self.dQ[0]/self.Q/self.dx_ext_2cell[0] )
+                                  # !!!!!!!!!!!!!!!!!
+                                  # dQ --> dQ[0]. Expecting list! HACK.
         # Apply boundary conditions if the segment is at the edges of the
         # network (both if there is only one segment!)
         if len(self.upstream_segment_IDs) == 0:
@@ -1482,6 +1490,21 @@ class Network(object):
             for x_ext in lp.x_ext:
                 lp.dx_ext_2cell.append( x_ext[2:] - x_ext[:-2] )
 
+    def update_Q(self, Q=None):
+        """
+        Set discharge within each segment.
+        Use the discharge provided during initialize()
+        unless a new Q be provided.
+        """
+        # Update Q (list of arrays)
+        _idx = 0
+        # Then pass the information to each long-profile object
+        for lp in self.list_of_LongProfile_objects:
+            print( _idx )
+            lp.Q = Q[_idx]
+            print( len(lp.Q) )
+            _idx += 1
+
     def create_Q_ext_lists(self):
         """
         ##########################################################
@@ -1491,41 +1514,32 @@ class Network(object):
         Set up "network" lists of "_ext" variables: one per upstream-linked
         segment and a minimum of 1 if no links are present 
         Currently building this for convergent networks only
+        
+        Run after "update_Q"
         """
-        # Pad x_ext with nans
+        # Pad Q_ext with nans
         _nan1 = np.array([np.nan])
         # Loop through long profiles (segments) in network
         for lp in self.list_of_LongProfile_objects:
             lp.Q_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
-                [ np.concatenate( [_nan1, lp.x, _nan1] ) ]
-
-    def update_Q(self, Q=None):
-        """
-        Set discharge within each segment.
-        Use the discharge provided during initialize()
-        unless a new Q be provided.
-        """
-        # Update Q (list of arrays) if a new value is passed
-        if Q is None:
-            pass
-        else:
-            self.Q = Q
-        _idx = 0
-        # Then pass the information to each long-profile object
-        for lp in self.list_of_LongProfile_objects:
-            lp.Q = self.Q[_idx]
+                [ np.concatenate( [_nan1, lp.Q, _nan1] ) ]
 
     def update_Q_ext_from_Q(self):
         """
-        Run immediately after "update_Q()"
+        Run in order after "update_Q()" and "create_Q_ext_lists()".
         
         This sets the [1:-1] (i.e., non-boundary) values for each Q_ext array
         within each Q_ext list
         """
+        _idx=0 # DEBUG
         for lp in self.list_of_LongProfile_objects:
             # List of arrays
+            print( _idx ) # DEBUG
             for Q_ext_array in lp.Q_ext:
+                print( Q_ext_array )
+                print( lp.Q )
                 Q_ext_array[1:-1] = lp.Q
+            _idx += _idx
 
     def update_Q_ext_internal(self):
         """
@@ -1609,7 +1623,9 @@ class Network(object):
                       "Simulation not set up to manage >1 river mouth.\n"+
                       "Exiting" )
         lp = self.list_of_LongProfile_objects[ID]
-        lp.Q_ext[-1] = lp.Q[-1]
+        # Assume that there is just one river mouth
+        # Could easily make this become a loop
+        lp.Q_ext[0][-1] = lp.Q[-1]
 
     def update_dQ(self):
         """
@@ -1628,6 +1644,14 @@ class Network(object):
         slopes for the C1 coefficient.
         """
         for lp in self.list_of_LongProfile_objects:
+            # Still looking good.
+            print( ":)" )
+            print( "" )
+            print( "" )
+            print( lp.Q_ext )
+            print( "" )
+            print( "" )
+            print( ":(" )
             lp.dQ = []
             for Q_ext_array in lp.Q_ext:
                 lp.dQ.append( Q_ext_array[2:] - Q_ext_array[:-2] )
@@ -1748,7 +1772,7 @@ class Network(object):
             # !!!!!!!!!!!!!!!!!!!
             # Need to manage dQ in network
             # TO DO HERE
-            lp.set_Q( Q = Q[i] )
+            # lp.set_Q( Q = Q[i] )
             # The other GRLP-ey stuff
             lp.set_intermittency( 1 ) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             # These all check out -- no problems with network.
@@ -1795,7 +1819,7 @@ class Network(object):
         self.update_dx_2cell()
         self.update_dx_ext_2cell()
         
-        # Generate arrays of z based on external values
+        # Generate arrays of z based on externally provided (user-set) values
         print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
         print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
         print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
@@ -1807,7 +1831,19 @@ class Network(object):
         self.update_z_ext_internal()
         self.update_z_ext_external_upstream( S0 = S0, Q_s_0 = Q_s_0 )  # b.c.
         self.update_z_ext_external_downstream( z_bl )                   # b.c.
-
+        
+        # Generate arrays of Q based on externally provided (user-set) values
+        print( "~~~~~~~~~~~~~~~~~" )
+        print( Q )
+        print( "~~~~~~~~~~~~~~~~~" )
+        self.update_Q( Q )
+        self.create_Q_ext_lists()
+        self.update_Q_ext_from_Q()
+        self.update_Q_ext_internal()
+        self.update_Q_ext_external_upstream()  # b.c., Q_ext[0] = Q[0]
+        self.update_Q_ext_external_downstream()   # b.c., Q_ext[-1] = Q[-1]
+        self.update_dQ()
+        
         # DEBUG
         lp = self.list_of_LongProfile_objects[0]
         i = 0
@@ -1825,6 +1861,14 @@ class Network(object):
         self.dt = dt
         self.update_z_ext_internal()
         # self.dt is decided earlier
+        
+        for lp in self.list_of_LongProfile_objects:
+            pass
+            #print( ":)" )
+            #print( lp.Q_ext )
+            #print( ":(" )
+            # Look fine
+        
         for ti in range(int(self.nt)):
             for lp in self.list_of_LongProfile_objects:
                 # Debug
@@ -1839,6 +1883,9 @@ class Network(object):
                 lp.zold = lp.z.copy()
                 print( "Ho!" )
                 lp.compute_coefficient_time_varying() # <-- Quelle der Problem
+                print( ":)" )
+                print( lp.C1 )
+                print( ":(" )
                 print( np.abs( (lp.z_ext[i][2:] - lp.z_ext[i][:-2]) \
                          / lp.dx_ext_2cell[i] )**(1/6.) )
                 lp.zold = lp.z.copy()

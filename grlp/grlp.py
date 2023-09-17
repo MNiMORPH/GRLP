@@ -1313,6 +1313,11 @@ class Network(object):
             _k_Qs = []
             for ID in self.list_of_channel_head_segment_IDs:
                 lp = self.list_of_LongProfile_objects[ID]
+                # We are using Q[0] instead of (Q_ext[0] + Q_ext[1])/2
+                # Q_ext[1] = Q[0], by definitions
+                # Therefore, I will set all Q_ext[0] = Q[0].
+                # This will be superfluous for the code, but at least
+                # consistent internally
                 _Q0.append(lp.Q[0])
                 _sinuosity.append(lp.sinuosity)
                 _intermittency.append(lp.intermittency)
@@ -1477,19 +1482,136 @@ class Network(object):
             for x_ext in lp.x_ext:
                 lp.dx_ext_2cell.append( x_ext[2:] - x_ext[:-2] )
 
-    def update_Q(self):
+    def create_Q_ext_lists(self):
         """
-        Set discharge within the network
+        ##########################################################
+        # GENERATE LISTS OF Q_ext: 1 FOR EACH INCOMING TRIBUTARY #
+        ##########################################################
+
+        Set up "network" lists of "_ext" variables: one per upstream-linked
+        segment and a minimum of 1 if no links are present 
+        Currently building this for convergent networks only
         """
-        pass
+        # Pad x_ext with nans
+        _nan1 = np.array([np.nan])
+        # Loop through long profiles (segments) in network
+        for lp in self.list_of_LongProfile_objects:
+            lp.Q_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
+                [ np.concatenate( [_nan1, lp.x, _nan1] ) ]
+
+    def update_Q(self, Q=None):
+        """
+        Set discharge within each segment.
+        Use the discharge provided during initialize()
+        unless a new Q be provided.
+        """
+        # Update Q (list of arrays) if a new value is passed
+        if Q is None:
+            pass
+        else:
+            self.Q = Q
+        _idx = 0
+        # Then pass the information to each long-profile object
+        for lp in self.list_of_LongProfile_objects:
+            lp.Q = self.Q[_idx]
+
+    def update_Q_ext_from_Q(self):
+        """
+        Run immediately after "update_Q()"
         
-    def set_Q(self):
+        This sets the [1:-1] (i.e., non-boundary) values for each Q_ext array
+        within each Q_ext list
         """
-        Set discharge within each segment
+        for lp in self.list_of_LongProfile_objects:
+            # List of arrays
+            for Q_ext_array in lp.Q_ext:
+                Q_ext_array[1:-1] = lp.Q
+
+    def update_Q_ext_internal(self):
         """
-        pass
+        ###################################################
+        # POPULATE Q_ext LISTS WITH VALUES FROM NEIGHBORS #
+        ###################################################
         
-    def set_dQ(self):
+        Q_ext[0] of downstream segment set to Q[-1] of upstream segment.
+        This is done for each Q_ext array within the list of arrays,
+        corresponding to each tributary junction.
+        
+        The upstream-most segments have Q_ext set by another function;
+        this becomes part of the broader upstream boundary condition
+        (including how Q_s_0 is managed).
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        REVISIT
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        
+        Q_ext[-1] of upstream segment set to Q[0] of downstream segment.
+
+        The final downstream segment has Q_ext[-1] = Q[-1], set by another
+        function:
+        Seems reasonable that at the very mouth, we have no new water inputs,
+        but the flow does need to stay continuous and exit the domain.
+        !!!!!!!!!!!!!!!!!!!!
+        DO THIS
+        !!!!!!!!!!!!!!!!!!!!
+        
+        Run this after update_Q, to make sure that it is using
+        the most recent discharge values
+        """
+        for lp in self.list_of_LongProfile_objects:
+            _idx = 0
+            # SET UPSTREAM BOUNDARIES: INTERNAL
+            for upseg_ID in lp.upstream_segment_IDs:
+                upseg = self.list_of_LongProfile_objects[upseg_ID]
+                lp.Q_ext[_idx][0] = upseg.Q[-1]
+                _idx += 1
+            # SET DOWNSTREAM BOUNDARIES: INTERNAL
+            _idx = 0
+            for downseg_ID in lp.downstream_segment_IDs:
+                downseg = self.list_of_LongProfile_objects[downseg_ID]
+                lp.Q_ext[_idx][-1] = downseg.Q[0]
+                _idx += 1
+
+    def update_Q_ext_external_upstream(self):
+        """
+        Update Q_ext at external upstream boundaries.
+        
+        Based on how S0 is defined and the need for a Qs:Qw ratio to set S0,
+        the upstream slope (and sediment-supply) boundary condition,
+        Q at all upstream boundaries is simply set to be identical to the 
+        same value as it is internally.
+        
+        Functionally, this doesn't matter: slopes are based on Q[0]
+        rather than (Q_ext[0] + Q_ext[1])/2, where Q_ext[1] = Q[0].
+        """
+        # SET UPSTREAM BOUNDARIES: EXTERNAL
+        for ID in self.list_of_channel_head_segment_IDs:
+            lp = self.list_of_LongProfile_objects[ID]
+            for Q_ext_array in lp.Q_ext:
+                Q_ext_array[0] = lp.Q[0]
+        
+    def update_Q_ext_external_downstream(self):
+        """
+        Set discharge at downstream boundary (ultimate base level, singular)
+
+        It expects a list of length (1) for the class variable:
+        self.list_of_channel_mouth_segment_IDs.
+        This assumption will have to be relaxed if the code ever be updated
+        to allow multiple river mouths.
+        
+        Here, we just assume that the downstream-boundary water discharge (Q)
+        is identical to the one just above -- no new tributaries join as it
+        enters the ocean, lake, river, basin, etc.
+        """
+        if len(self.list_of_channel_mouth_segment_IDs) == 1:
+            ID = self.list_of_channel_mouth_segment_IDs[0]
+        else:
+            sys.exit( ">1 channel-mouth-segment ID listed.\n"+
+                      "Simulation not set up to manage >1 river mouth.\n"+
+                      "Exiting" )
+        lp = self.list_of_LongProfile_objects[ID]
+        lp.Q_ext[-1] = lp.Q[-1]
+
+    def update_dQ(self):
         """
         Use segment adjacencies to set changes in discharge down segments.
         For a convergent network:
@@ -1505,8 +1627,11 @@ class Network(object):
         downstream river segment). This is needed to properly weight
         slopes for the C1 coefficient.
         """
-        pass
-
+        for lp in self.list_of_LongProfile_objects:
+            lp.dQ = []
+            for Q_ext_array in lp.Q_ext:
+                lp.dQ.append( Q_ext_array[2:] - Q_ext_array[:-2] )
+            
     def set_intermittency(self, intermittency):
         """
         Set the flow intermittency value within the channel network

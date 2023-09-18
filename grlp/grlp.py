@@ -370,27 +370,9 @@ class LongProfile(object):
         # KEEPING self.dx_ext_2cell INSTEAD OF USING MORE PRECISE OPTION
         # But this is fine so long as all gradients may be approximated
         # to be linear.
-
-        # Inefficient: repeats whole segment calc when just the b.c.
-        # change is needed
-        # Maybe don't use? Embed in next functions.
-        # !!!!!!!!!!!!!!!!!!!! COMMENT OUT LATER? !!!!!!!!!!!!!!!!!!!!!!!!
         dzdx_0_16_list = []
         for _idx in range(len( self.z_ext) ):
             # ADD FUNCTIONALITY TO LOOP OVER Q AND WEIGHT BY IT
-            """
-            print( self.z_ext )
-            print( self.z_ext[_idx][2:] )
-            print( self.z_ext[_idx][:-2] )
-            print( self.dx )
-            print( self.dx_ext )
-            print( self.dx_ext_2cell ) # <-- PROBLEM! Wrong size?
-            print( "Welp." )
-            print( self.x )
-            print( self.z )
-            print( len(self.x_ext[0]), len(self.z_ext[0]) )
-            print( self.x_ext[0][2:] - self.x_ext[0][:-2] )
-            """
             dzdx_0_16_list.append( 
                       np.abs( (self.z_ext[_idx][2:] - self.z_ext[_idx][:-2])
                                 / self.dx_ext_2cell[_idx] )**(1/6.)

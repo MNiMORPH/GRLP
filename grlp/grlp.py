@@ -408,11 +408,17 @@ class LongProfile(object):
         # Maybe I really do need to update how I pass things here...
         # !!!!!!!!!!!!!!!! JUST MAKE SOMETHING RUN
         self.z_bl = 0
-        self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[0][-1] * 7/3. \
-                       * (1/self.dx_ext[0][-2] + 1/self.dx_ext[0][-1])/2. \
-                       + self.dQ_ext_2cell[0][-1]/self.Q[-1] )
+        if type(self.x_ext) is list:
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! HACk to make it work for now
+            self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[0][-1] * 7/3. \
+                           * (1/self.dx_ext[0][-2] + 1/self.dx_ext[0][-1])/2. \
+                           + self.dQ_ext_2cell[0][-1]/self.Q[-1] )
                       # !!!!!!!!!!!!!!!!!
                       # dQ_ext_2cell --> dQ_ext_2cell[0]. Expecting list! HACK.
+        else:
+            self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[-1] * 7/3. \
+                           * (1/self.dx_ext[-2] + 1/self.dx_ext[-1])/2. \
+                           + self.dQ_ext_2cell[-1]/self.Q[-1] )
 
     def set_bcl_Neumann_RHS(self):
         """
@@ -437,12 +443,19 @@ class LongProfile(object):
         # !!!C0!!!
         # Probably not so easy to update as just updating C1
         # BECAUSE IT IS CHANGING THE RHS
-        self.bcl = self.dx_ext_2cell[0][0] * self.S0 * \
-                            self.C1[0] / self.dx_ext_2cell[0][0] \
-                            * ( 7/3./self.dx_ext[0][0]
-                            - self.dQ_ext_2cell[0][0]/self.Q[0]/self.dx_ext_2cell[0][0] )
-                            # !!!!!!!!!!!!!!!!!
-                            # dQ_ext_2cell --> dQ_ext_2cell[0]. Expecting list! HACK.
+        if type(self.x_ext) is list:
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! HACk to make it work for now
+            self.bcl = self.dx_ext_2cell[0][0] * self.S0 * \
+                                self.C1[0] / self.dx_ext_2cell[0][0] \
+                                * ( 7/3./self.dx_ext[0][0]
+                                - self.dQ_ext_2cell[0][0]/self.Q[0]/self.dx_ext_2cell[0][0] )
+                                # !!!!!!!!!!!!!!!!!
+                                # dQ_ext_2cell --> dQ_ext_2cell[0]. Expecting list! HACK.
+        else:
+            self.bcl = self.dx_ext_2cell[0] * self.S0 * \
+                                -self.C1[0] / self.dx_ext_2cell[0] \
+                                * ( 7/3./self.dx_ext[0]
+                                - self.dQ_ext_2cell[0]/self.Q[0]/self.dx_ext_2cell[0] )
 
     def set_bcl_Neumann_LHS(self):
         """
@@ -459,8 +472,13 @@ class LongProfile(object):
         # !!!C0!!!
         # UPDATED BUT JUST USING dx_ext_2cell
         #self.right[0] = -self.C1[0] * 7/3. \
-        self.right[0] = -self.C1[0] / self.dx_ext_2cell[0][0] * 7/3. \
-                         * (1/self.dx_ext[0][0] + 1/self.dx_ext[0][1])
+        if type(self.x_ext) is list:
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! HACK TEST
+            self.right[0] = -self.C1[0] / self.dx_ext_2cell[0][0] * 7/3. \
+                             * (1/self.dx_ext[0][0] + 1/self.dx_ext[0][1])
+        else:
+            self.right[0] = -self.C1[0] / self.dx_ext_2cell[0] * 7/3. \
+                             * (1/self.dx_ext[0] + 1/self.dx_ext[1])            
 
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
         """

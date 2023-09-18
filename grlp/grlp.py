@@ -390,11 +390,11 @@ class LongProfile(object):
         """
         Set the right-hand Dirichlet boundary conditions, i.e. the base level,
         given in the variable "z_bl" (elevation, base level)
+        
+        For 1D single-segment mode, not network
         """
         self.z_bl = z_bl
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # UPDATE
-        self.z_ext[0][-1] = self.z_bl
+        self.z_ext[-1] = self.z_bl
         
     def set_x_bl(self, x_bl):
         self.x_bl = x_bl

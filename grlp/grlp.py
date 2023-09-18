@@ -384,8 +384,10 @@ class LongProfile(object):
 
     def network__compute_coefficient_time_varying(self):
         i=0
-        if self.S0 is not None:
-            self.update_z_ext_0() # <-- Ursprüngliche Quelle
+        # !!!!!!!!!!!!!!!!!!!!!
+        # COUNT ON SCIENTIST ALREADY UPDATING Z_EXT
+        #if self.S0 is not None:
+        #    self.update_z_ext_0() # <-- Ursprüngliche Quelle
         # !!!C0!!!
         # NOT YET UPDATED
         # KEEPING self.dx_ext_2cell INSTEAD OF USING MORE PRECISE OPTION
@@ -399,12 +401,19 @@ class LongProfile(object):
         dzdx_0_16_list = []
         for _idx in range(len( self.z_ext) ):
             # ADD FUNCTIONALITY TO LOOP OVER Q AND WEIGHT BY IT
+            """
             print( self.z_ext )
             print( self.z_ext[_idx][2:] )
             print( self.z_ext[_idx][:-2] )
             print( self.dx )
             print( self.dx_ext )
-            print( self.dx_ext_2cell[_idx] ) # <-- PROBLEM! Wrong size?
+            print( self.dx_ext_2cell ) # <-- PROBLEM! Wrong size?
+            print( "Welp." )
+            print( self.x )
+            print( self.z )
+            print( len(self.x_ext[0]), len(self.z_ext[0]) )
+            print( self.x_ext[0][2:] - self.x_ext[0][:-2] )
+            """
             dzdx_0_16_list.append( 
                       np.abs( (self.z_ext[_idx][2:] - self.z_ext[_idx][:-2])
                                 / self.dx_ext_2cell[_idx] )**(1/6.)

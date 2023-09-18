@@ -56,7 +56,7 @@ x_bl = 1000*32
 z_bl = 0
 
 # Upstream boundary condition: 1.5% grade
-S0 = 0.015
+S0 = [0.03, 0.015, 0.01]
 
 # Instantiate network object
 net = grlp.Network()
@@ -87,7 +87,9 @@ net.evolve_threshold_width_river_network(nt=1, dt=dt)
 
 #"""
 # For plotting
-net.evolve_threshold_width_river_network(nt=10, dt=dt*100)
+# WHEN RUN FOR NT=10, GET BACKWARDS SLOPE ON TRIBUTARY
+# THIS IS WHERE WE NEED TO ADD IN CLOSED BASINS AS ANOTHER SEGMENT TYPE
+net.evolve_threshold_width_river_network(nt=500, dt=dt)
 
 for lp in net.list_of_LongProfile_objects:
     for _id in lp.downstream_segment_IDs:

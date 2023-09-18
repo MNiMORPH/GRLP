@@ -437,7 +437,6 @@ class LongProfile(object):
         # BUT THESE VALUES FROM THE BELOW CALCS ARE WAY DIFFERENT.
         # WHY?
         # !!!!!!!!!!!!!!!!!!!!!!!!!
-        """
         C1_m1_list = []
         C1_0_list = []
         print("Heay")
@@ -450,7 +449,7 @@ class LongProfile(object):
                           np.abs(self.z_ext[_idx][-2] - self.z_ext[_idx][-1])
                           / self.dx_ext[_idx][-1]
                         )**(1/6.)
-                      / self.Q_ext[_idx][-1] / self.B[-1] )
+                      * self.Q_ext[_idx][-1] / self.B[-1] )
                       # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
                       # SHOULD BE B_EXT. FIX LATER.
             C1_0_list.append(
@@ -459,7 +458,7 @@ class LongProfile(object):
                           np.abs(self.z_ext[_idx][1] - self.z_ext[_idx][0])
                           / self.dx_ext[_idx][0]
                         )**(1/6.)
-                      / self.Q_ext[_idx][0] / self.B[0] )
+                      * self.Q_ext[_idx][0] / self.B[0] )
                       # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
                       # SHOULD BE B_EXT. FIX LATER.
 
@@ -469,7 +468,6 @@ class LongProfile(object):
 
         print(self.C1)
         print(self.C1 / C1old)
-        """
 
     def set_z_bl(self, z_bl):
         """

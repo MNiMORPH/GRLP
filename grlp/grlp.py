@@ -343,7 +343,7 @@ class LongProfile(object):
         Q1: z_ext and boundary conditions
         
         Q2: z_ext and C1
-            self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
+            self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
         And C0 has all local variables.
         """
         # Only one segment: towards applying boundary condition upstream
@@ -355,9 +355,9 @@ class LongProfile(object):
         # !!!C0!!!
         # NOT YET UPDATED
         # KEEPING self.dx_ext_2cell INSTEAD OF USING MORE PRECISE OPTION
-        self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
+        dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                          / self.dx_ext_2cell )**(1/6.)
-        self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
+        self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
         # Handling C1 for networked rivers
         # Need to link the two segments without skipping the channel head
         # DOESN'T SEEM TO CHANGE ANYTHING!

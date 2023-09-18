@@ -886,30 +886,67 @@ class Network(object):
             # IDs
             self.IDs.append(lp.ID)
         self.IDs = np.array(self.IDs)
-
-    def build_block_diagonal_matrix_core(self):
+    
+    def map_block_diagonal_matrix_blocks(self):
+        """
+        Obtain the (row, column) indices for the cells at the beginnings
+        and ends of blocks in the block-diagonal matrix.
+        
+        These are "absolute" -- that is, within the full block-diagonal
+        matrix, rather than simply being indexed within a single block.
+        
+        Because the block-diagonal coefficient matrix and each of its blocks
+        are square, we need only record one index for each. The index repeats.
+        """
         self.block_start_absolute = []
         self.block_end_absolute = []
-        self.sparse_matrices = []
-        #self.dx_downstream = [] # Should be in input, at least for now
+
         for lp in self.list_of_LongProfile_objects:
-            # Absolute start and end list
+            # If a start_absolute has already been defined, then the next
+            # end_absolute is the cell immediately preceding.
             if len(self.block_start_absolute) > 0:
                 self.block_start_absolute.append \
                      (self.block_end_absolute[-1])
+            # Otherwise, we are at the very beginning and it is time to define
+            # the first start_absolute at 0
             else:
                 self.block_start_absolute.append(0)
+            # If a start_absolute has already been defined, stride to the
+            # next block and mark the location of its first cell.
+            # Each LHSmatrix is square, as is the overall block-diagonal
+            # matrix.
             if len(self.block_end_absolute) > 0:
                 self.block_end_absolute.append \
                      (self.block_end_absolute[-1] + lp.LHSmatrix.shape[0])
+            # Finally, if we are at the very start (before any block-end
+            # position has been recorded), then note the position of the
+            # end of the first block.
             else:
                 self.block_end_absolute.append(lp.LHSmatrix.shape[0])
-            # n-diagonal matrices
-            self.sparse_matrices.append(lp.LHSmatrix)
-        self.LHSblock_matrix = sparse.lil_matrix(
-                                          block_diag(self.sparse_matrices) )
+            # In the above definitions for block_end_absolute, we ignore
+            # 0-indexing, which we correct below.
+        # Create numpy arrays of the start, end indices, correcting the
+        # offset at the end.
         self.block_start_absolute = np.array(self.block_start_absolute)
         self.block_end_absolute = np.array(self.block_end_absolute) - 1
+    
+    def create_block_diagonal_matrix_with_internal_tridiagonals(self):
+        """
+        Add the internal set of tridiagonal-matrix values to each of the
+        blocks within the block-diagonal matrix structure.
+        
+        Currently, this assumes that a LHSmatrix has already been developed
+        for each block. Considering that this has been built using a 
+        function orginally built for a non-network structure,
+        this may be worth revisiting!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        """
+        sparse_blocks = []
+        for lp in self.list_of_LongProfile_objects:
+            # n-diagonal matrices
+            sparse_blocks.append(lp.LHSmatrix)
+        # Assemble
+        self.LHSblock_matrix = sparse.lil_matrix(
+                                          block_diag(sparse_blocks) )
 
     def add_block_diagonal_matrix_upstream_boundary_conditions(self):
         for lp in self.list_of_LongProfile_objects:
@@ -1844,7 +1881,8 @@ class Network(object):
                 lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
             for lp in self.list_of_LongProfile_objects:
                 lp.network__build_matrices_inner()
-            self.build_block_diagonal_matrix_core()
+            self.map_block_diagonal_matrix_blocks()
+            self.create_block_diagonal_matrix_with_internal_tridiagonals()
             self.add_block_diagonal_matrix_upstream_boundary_conditions()
             self.add_block_diagonal_matrix_downstream_boundary_conditions()
             # b.c. for no links

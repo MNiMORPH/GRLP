@@ -431,22 +431,33 @@ class LongProfile(object):
             C1_list.append( self.C0 * dzdx_0_16 * self.Q / self.B )
         self.C1 = np.sum(C1_list, axis=0)
 
+        """
         # WILL THIS BE NEEDED?
         # PERHAPS WE ALREADY INCLUDE THE B.C.'S IMPLICITLY ABOVE.
         # !!!!!!!!!!!!!!!!!!!!!!!!!!
         # BUT THESE VALUES FROM THE BELOW CALCS ARE WAY DIFFERENT.
         # WHY?
         # !!!!!!!!!!!!!!!!!!!!!!!!!
+        # Perhpas it is the Q values.
+        # It also works once we use more than 1 cell's step
+        # Also, this is totally unlike what I orignally did for C1, above.
+        # Perhpas this is because C1 should be calculated across
+        # two cells to be accurate.
+        # And perhaps the appropriate gradient can be calculated only
+        # this way.
+        # (And then update the internal array instead of being
+        # somehow reset on the boundaries)
         C1_m1_list = []
         C1_0_list = []
         print("Heay")
         C1old = self.C1.copy()
         print(self.C1)
+        
         for _idx in range(len(dzdx_0_16_list)):
             C1_m1_list.append(
                       self.C0
                       * (
-                          np.abs(self.z_ext[_idx][-2] - self.z_ext[_idx][-1])
+                          np.abs(self.z_ext[_idx][-1] - self.z_ext[_idx][-2])
                           / self.dx_ext[_idx][-1]
                         )**(1/6.)
                       * self.Q_ext[_idx][-1] / self.B[-1] )
@@ -468,6 +479,7 @@ class LongProfile(object):
 
         print(self.C1)
         print(self.C1 / C1old)
+        """
 
     def set_z_bl(self, z_bl):
         """

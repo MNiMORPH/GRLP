@@ -358,33 +358,6 @@ class LongProfile(object):
         dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                          / self.dx_ext_2cell )**(1/6.)
         self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
-        # Handling C1 for networked rivers
-        # Need to link the two segments without skipping the channel head
-        # DOESN'T SEEM TO CHANGE ANYTHING!
-        # Looks right when both are 0! Any accidental inclusion of its own
-        # ghost-node Qs,in?
-        if len(self.downstream_segment_IDs) > 0:
-            # !!!C0!!!
-            # LEAVING AS-IS.
-            # ADDRESSING CHANGES TO C0 IN LATER INSTANCES, NOT HERE
-            self.C1[-1] = self.C0 \
-                          * (np.abs(self.z_ext[-2] - self.z_ext[-1]) \
-                                   /self.dx_ext[-1])**(1/6.) \
-                          * self.Q[-1] / self.B[-1]
-                          # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                          # SHOULD BE B_EXT. FIX LATER.
-        # This compute_coefficient_timeone matters! The above doesn't!!!! (Maybe.)
-        # WORK HERE. If turns to 0, fixed. But why? Stays at initial profile?
-        if len(self.upstream_segment_IDs) > 0:
-            # !!!C0!!!
-            # LEAVING AS-IS.
-            # ADDRESSING CHANGES TO C0 IN LATER INSTANCES, NOT HERE
-            self.C1[0] = self.C0 \
-                          * (np.abs(self.z_ext[1] - self.z_ext[0]) \
-                                   /self.dx_ext[0])**(1/6.) \
-                          * self.Q[0] / self.B[0]
-                      # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                      # SHOULD BE B_EXT. FIX LATER.
 
     def network__compute_coefficient_time_varying(self):
         i=0

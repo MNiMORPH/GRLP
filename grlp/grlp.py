@@ -1736,7 +1736,10 @@ class Network(object):
             # x, z, Q
             # !!!!!!!!!!!!!!!!! NEEDS NETWROK INFO / MAYBE NOT NECESSARY
             # BECAUSE OF HOW IT REQUIRES X_EXT
-            lp.set_x( x = x[i], verbose=False )
+            # lp.set_x( x = x[i], verbose=False )
+            # TURN INTO FUNCTION ????? !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            lp.x = x[i]
+            lp.dx = np.diff(x[i])
                 # LET'S CHANGE THE SIGN CONVENTION FOR S0??
                 # !!!!!!!!!!!!
                 # NOTING HERE BUT IT IS SET IN MULTIPLE OTHER PLACES

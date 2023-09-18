@@ -247,11 +247,11 @@ class LongProfile(object):
             Q_ext = k_xQ * self.x_ext**P_xQ
         else:
             sys.exit("Error defining variable")
-        # dQ over 2*dx!
+        # dQ_ext_2cell over 2*dx.
         # See Eq. D3 in Wickert & Schildgen (2019)
         # This then combines with the 1/4 factor in the coefficients
         # for the stencil that results from (2*dx)**2
-        self.dQ = Q_ext[2:] - Q_ext[:-2]
+        self.dQ_ext_2cell = Q_ext[2:] - Q_ext[:-2]
         # Keep sediment supply tied to water supply, except
         # by changing S_0, to only turn one knob for one change (Q/Qs)
         if update_Qs_input:
@@ -477,9 +477,9 @@ class LongProfile(object):
         self.z_bl = 0
         self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[0][-1] * 7/3. \
                        * (1/self.dx_ext[0][-2] + 1/self.dx_ext[0][-1])/2. \
-                       + self.dQ[0][-1]/self.Q[-1] )
+                       + self.dQ_ext_2cell[0][-1]/self.Q[-1] )
                       # !!!!!!!!!!!!!!!!!
-                      # dQ --> dQ[0]. Expecting list! HACK.
+                      # dQ_ext_2cell --> dQ_ext_2cell[0]. Expecting list! HACK.
 
     def set_bcl_Neumann_RHS(self):
         """
@@ -500,16 +500,16 @@ class LongProfile(object):
         # UPDATED BUT JUST USING dx_ext_2cell
         #self.bcl = self.dx_ext_2cell[0] * self.S0 * \
         #                    -self.C1[0] * ( 7/3./self.dx_ext[0]
-        #                    - self.dQ[0]/self.Q[0]/self.dx_ext_2cell[0] )
+        #                    - self.dQ_ext_2cell[0]/self.Q[0]/self.dx_ext_2cell[0] )
         # !!!C0!!!
         # Probably not so easy to update as just updating C1
         # BECAUSE IT IS CHANGING THE RHS
         self.bcl = self.dx_ext_2cell[0][0] * self.S0 * \
                             self.C1[0] / self.dx_ext_2cell[0][0] \
                             * ( 7/3./self.dx_ext[0][0]
-                            - self.dQ[0][0]/self.Q[0]/self.dx_ext_2cell[0][0] )
+                            - self.dQ_ext_2cell[0][0]/self.Q[0]/self.dx_ext_2cell[0][0] )
                             # !!!!!!!!!!!!!!!!!
-                            # dQ --> dQ[0]. Expecting list! HACK.
+                            # dQ_ext_2cell --> dQ_ext_2cell[0]. Expecting list! HACK.
 
     def set_bcl_Neumann_LHS(self):
         """
@@ -589,7 +589,7 @@ class LongProfile(object):
         # UPDATED WITH STRAIGHT self.dx_ext_2cell
         self.left = -self.C1 / self.dx_ext_2cell[0] \
                         * ( (7/3.)/self.dx_ext[0][:-1]
-                        - self.dQ[0]/self.Q/self.dx_ext_2cell[0] )
+                        - self.dQ_ext_2cell[0]/self.Q/self.dx_ext_2cell[0] )
         self.center = -self.C1 / self.dx_ext_2cell[0] \
                               * ( (7/3.)
                               * (-1/self.dx_ext[0][:-1]
@@ -597,7 +597,7 @@ class LongProfile(object):
                                  + 1.
         self.right = -self.C1 / self.dx_ext_2cell[0] \
                               * ( (7/3.)/self.dx_ext[0][1:] # REALLY?
-                                  + self.dQ[0]/self.Q/self.dx_ext_2cell[0] )
+                                  + self.dQ_ext_2cell[0]/self.Q/self.dx_ext_2cell[0] )
                                   # !!!!!!!!!!!!!!!!!
                                   # dQ --> dQ[0]. Expecting list! HACK.
         # Apply boundary conditions if the segment is at the edges of the
@@ -1616,7 +1616,7 @@ class Network(object):
         # Could easily make this become a loop
         lp.Q_ext[0][-1] = lp.Q[-1]
 
-    def update_dQ(self):
+    def update_dQ_ext_2cell(self):
         """
         Use segment adjacencies to set changes in discharge down segments.
         For a convergent network:
@@ -1627,15 +1627,15 @@ class Network(object):
         
         Q_ext[0] of the downstream segment should see only a modest difference
         overall (i.e., when summing the upstream tributaries), but we in fact
-        require these to be separated into a dQ for each river-segment
+        require these to be separated into a dQ_ext_2cell for each river-segment
         combination (here, typically two tributaries joining into one 
         downstream river segment). This is needed to properly weight
         slopes for the C1 coefficient.
         """
         for lp in self.list_of_LongProfile_objects:
-            lp.dQ = []
+            lp.dQ_ext_2cell = []
             for Q_ext_array in lp.Q_ext:
-                lp.dQ.append( Q_ext_array[2:] - Q_ext_array[:-2] )
+                lp.dQ_ext_2cell.append( Q_ext_array[2:] - Q_ext_array[:-2] )
             
     def set_intermittency(self, intermittency):
         """
@@ -1754,7 +1754,7 @@ class Network(object):
             # OTHER FCN TO DO THE REST?
             lp.z = z[i]
             # !!!!!!!!!!!!!!!!!!!
-            # Need to manage dQ in network
+            # Need to manage dQ_ext_2cell in network
             # TO DO HERE
             # lp.set_Q( Q = Q[i] )
             # The other GRLP-ey stuff
@@ -1816,7 +1816,7 @@ class Network(object):
         self.update_Q_ext_internal()
         self.update_Q_ext_external_upstream()  # b.c., Q_ext[0] = Q[0]
         self.update_Q_ext_external_downstream()   # b.c., Q_ext[-1] = Q[-1]
-        self.update_dQ()
+        self.update_dQ_ext_2cell()
         
         """
         # DEBUG

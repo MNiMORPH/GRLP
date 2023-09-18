@@ -1,3 +1,5 @@
+#! /usr/bin/python3
+
 import numpy as np
 from matplotlib import pyplot as plt
 import importlib
@@ -25,6 +27,9 @@ z = []
 Q_in_list = [5., 10., 15., 10., 25.]
 Q = []
 B = []
+print( "" )
+print( "**************" )
+print( "" )
 for i in range(nseg):
     # Start z as all zeros
     z.append( np.zeros( numel[i] ) )
@@ -32,6 +37,10 @@ for i in range(nseg):
     Q.append( Q_in_list[i] * np.ones( numel[i] ) )
     # Uniform valley width: Simpler for example
     B.append( _B * np.ones( numel[i] ) )
+    print( numel[i] )
+print( "" )
+print( "**************" )
+print( "" )
 
 # Custom for just this test network
 x = [
@@ -49,10 +58,11 @@ z_bl = 0
 # Upstream boundary condition: 1.5% grade
 S0 = 0.015
 
+# Instantiate network object
 net = grlp.Network()
-
 self = net # For debugging, etc.
 
+# Initialize network by passing x, z, etc. information to model
 net.initialize(
                 config_file = None,
                 x_bl = x_bl,
@@ -68,4 +78,27 @@ net.initialize(
                 overwrite=False
                 )
 
+# Should do this above
+net.set_niter(1)
+net.get_z_lengths()
 
+# For testing
+net.evolve_threshold_width_river_network(nt=1, dt=dt)
+
+#"""
+# For plotting
+net.evolve_threshold_width_river_network(nt=10, dt=dt*100)
+
+for lp in net.list_of_LongProfile_objects:
+    for _id in lp.downstream_segment_IDs:
+        dsseg = net.list_of_LongProfile_objects[_id]
+        _xjoin = [lp.x[-1], dsseg.x[0]]
+        _zjoin = [lp.z[-1], dsseg.z[0]]
+        plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)
+    if len(lp.downstream_segment_IDs) == 0:
+        plt.plot(lp.x_ext[1:], lp.z_ext[1:], '-', linewidth=4, alpha=.5)#, label=lp.)
+    else:
+        plt.plot(lp.x, lp.z, '-', linewidth=4, alpha=.5)#, label=lp.)
+plt.tight_layout()
+plt.show()
+#"""

@@ -520,6 +520,10 @@ class LongProfile(object):
             self.compute_coefficient_time_varying()
         # !!!C0!!!
         # UPDATED WITH STRAIGHT self.dx_ext_2cell
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # NEXT TO DO! SET THESE UP FOR NETWORK OR SINGLE SEGMENT
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         self.left = -self.C1 / self.dx_ext_2cell[0] \
                         * ( (7/3.)/self.dx_ext[0][:-1]
                         - self.dQ_ext_2cell[0]/self.Q/self.dx_ext_2cell[0] )

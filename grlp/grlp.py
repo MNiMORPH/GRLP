@@ -371,6 +371,8 @@ class LongProfile(object):
                           * (np.abs(self.z_ext[-2] - self.z_ext[-1]) \
                                    /self.dx_ext[-1])**(1/6.) \
                           * self.Q[-1] / self.B[-1]
+                          # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                          # SHOULD BE B_EXT. FIX LATER.
         # This compute_coefficient_timeone matters! The above doesn't!!!! (Maybe.)
         # WORK HERE. If turns to 0, fixed. But why? Stays at initial profile?
         if len(self.upstream_segment_IDs) > 0:
@@ -381,6 +383,8 @@ class LongProfile(object):
                           * (np.abs(self.z_ext[1] - self.z_ext[0]) \
                                    /self.dx_ext[0])**(1/6.) \
                           * self.Q[0] / self.B[0]
+                      # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                      # SHOULD BE B_EXT. FIX LATER.
 
     def network__compute_coefficient_time_varying(self):
         i=0
@@ -440,6 +444,8 @@ class LongProfile(object):
                           / self.dx_ext[_idx][-1]
                         )**(1/6.)
                       / self.Q_ext[_idx][-1] / self.B[-1] )
+                      # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                      # SHOULD BE B_EXT. FIX LATER.
             C1_0_list.append(
                       self.C0
                       * (
@@ -447,6 +453,8 @@ class LongProfile(object):
                           / self.dx_ext[_idx][0]
                         )**(1/6.)
                       / self.Q_ext[_idx][0] / self.B[0] )
+                      # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                      # SHOULD BE B_EXT. FIX LATER.
 
         # Sum: This will weight by discharges
         self.C1[-1] = np.sum(C1_m1_list)

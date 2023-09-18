@@ -512,18 +512,61 @@ class LongProfile(object):
         """
         Build the tridiagonal matrix (LHS) and the RHS matrix for the solution
         """
-        # !!!!!!!!!!!!!! CHECK IF NETWORK. Maybe pass network flag?
-        if type(self.z_ext) is list:
-            # Network
-            self.network__compute_coefficient_time_varying()
+        self.compute_coefficient_time_varying()
+        # !!!C0!!!
+        # UPDATED WITH STRAIGHT self.dx_ext_2cell
+        self.left = -self.C1 / self.dx_ext_2cell \
+                        * ( (7/3.)/self.dx_ext[:-1]
+                        - self.dQ_ext_2cell/self.Q/self.dx_ext_2cell )
+        self.center = -self.C1 / self.dx_ext_2cell \
+                              * ( (7/3.)
+                              * (-1/self.dx_ext[:-1]
+                                 -1/self.dx_ext[1:]) ) \
+                                 + 1.
+        self.right = -self.C1 / self.dx_ext_2cell \
+                              * ( (7/3.)/self.dx_ext[1:] # REALLY?
+                                  + self.dQ_ext_2cell/self.Q/self.dx_ext_2cell )
+        # Apply boundary conditions if the segment is at the edges of the
+        # network (both if there is only one segment!)
+        if len(self.upstream_segment_IDs) == 0:
+            #print self.dx_ext_2cell
+            self.set_bcl_Neumann_LHS()
+            self.set_bcl_Neumann_RHS()
         else:
-            self.compute_coefficient_time_varying()
+            self.bcl = 0. # no b.c.-related changes
+        if len(self.downstream_segment_IDs) == 0:
+            self.set_bcr_Dirichlet()
+        else:
+            self.bcr = 0. # no b.c.-related changes
+        self.left = np.roll(self.left, -1)
+        self.right = np.roll(self.right, 1)
+        self.diagonals = np.vstack((self.left, self.center, self.right))
+        self.offsets = np.array([-1, 0, 1])
+        self.LHSmatrix = spdiags(self.diagonals, self.offsets, len(self.z),
+                            len(self.z), format='csr')
+        self.RHS = np.hstack(( self.bcl+self.z[0],
+                               self.z[1:-1],
+                               self.bcr+self.z[-1])) \
+                               + self.ssd * self.dt \
+                               + self.downstream_fining_subsidence_equivalent \
+                                      *self.dt \
+                               + self.U * self.dt
+
+    def network__build_matrices_inner(self):
+        """
+        Build the tridiagonal matrix (LHS) and the RHS matrix for the solution
+        """
+        self.network__compute_coefficient_time_varying()
         # !!!C0!!!
         # UPDATED WITH STRAIGHT self.dx_ext_2cell
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         # NEXT TO DO! SET THESE UP FOR NETWORK OR SINGLE SEGMENT
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # THIS IS A TOTAL HACK, BUT IT SHOULD ACTUALLY BUILD SUCH
+        # INNER MATRICES BECAUSE IT NEGLECTS THE BOUNDARY
+        # CONDITIONS' IMPACTS, OR SO I GUESS.
+        # !!!!!!!!!!!!!!!!!! TO CHECK !!!!!!!!!!!!!!!!!!!!!!!
         self.left = -self.C1 / self.dx_ext_2cell[0] \
                         * ( (7/3.)/self.dx_ext[0][:-1]
                         - self.dQ_ext_2cell[0]/self.Q/self.dx_ext_2cell[0] )
@@ -1782,7 +1825,7 @@ class Network(object):
                 lp.network__compute_coefficient_time_varying() # <-- Quelle der Problem
                 lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
             for lp in self.list_of_LongProfile_objects:
-                lp.build_matrices()
+                lp.network__build_matrices_inner()
             self.build_block_diagonal_matrix_core()
             self.add_block_diagonal_matrix_upstream_boundary_conditions()
             self.add_block_diagonal_matrix_downstream_boundary_conditions()
@@ -1805,7 +1848,7 @@ class Network(object):
                     # within the net
                     lp.network__compute_coefficient_time_varying()
                 for lp in self.list_of_LongProfile_objects:
-                    lp.build_matrices()
+                    lp.network__build_matrices_inner()
                 # Update semi-implicit on boundaries
                 # Commenting these two out helps solution!
                 # Don't understand why. Perhaps error in code for them?

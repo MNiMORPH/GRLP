@@ -350,46 +350,14 @@ class LongProfile(object):
         self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
     
     def compute_coefficient_time_varying(self):
-        i=0
         if self.S0 is not None:
-            self.update_z_ext_0() # <-- Ursprüngliche Quelle
+            self.update_z_ext_0()
         # !!!C0!!!
         # NOT YET UPDATED
         # KEEPING self.dx_ext_2cell INSTEAD OF USING MORE PRECISE OPTION
-        # But this is fine so long as all gradients may be approximated
-        # to be linear.
-        # TRY: not network
-        # EXCEPT: has a network
-        # PROBABLY NOT THE BEST WAY TO DO THIS
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        try:
-            self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
-                             / self.dx_ext_2cell )**(1/6.)
-        except:
-            # Inefficient: repeats whole segment calc when just the b.c.
-            # change is needed
-            dzdx_0_16_list = []
-            for i in range(len( self.z_ext) ):
-                # ADD FUNCTIONALITY TO LOOP OVER Q AND WEIGHT BY IT
-                dzdx_0_16_list.append( 
-                          np.abs( (self.z_ext[i][2:] - self.z_ext[i][:-2]) \
-                         / self.dx_ext_2cell[i] )**(1/6.)
-                )
-                # UMMMMM WE NEED WEIGHTING BY Q
-                # I GUESS I WILL WRITE A NEW FUNC TO PASS IT
-            # PLACEHOLDER TO SEE IF THINGS JUST WORK, THOUGH
-            # INSTEAD OF STRAIGHT MEAN, GIVE DISCHARGE WEIGHTING
-            self.dzdx_0_16 = np.mean(dzdx_0_16_list)
-                
-                
-        # UPDATE THIS TO INCLUDE THE DIV BY self.dx_ext_2cell THAT USED
-        # TO BE IN C0?
-        # OR JUST RETURN CODE TO HOW IT USED TO BE, SO self.dx_ext_2cell
-        # ONCE MORE BE PART OF C0?
-        # CURRENTLY, THE self.dx_ext_2cell IS APPLIED EXTERNALLY TO C1
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # HACK FOR FUNCTIONALITY
-        self.C1 = self.C0 * self.dzdx_0_16 * self.Q[0] / self.B
+        self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
+                         / self.dx_ext_2cell )**(1/6.)
+        self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
         # Handling C1 for networked rivers
         # Need to link the two segments without skipping the channel head
         # DOESN'T SEEM TO CHANGE ANYTHING!
@@ -399,13 +367,8 @@ class LongProfile(object):
             # !!!C0!!!
             # LEAVING AS-IS.
             # ADDRESSING CHANGES TO C0 IN LATER INSTANCES, NOT HERE
-            # but now need things to work with lists of arrays]
-            # LIKELY AGAIN NEED DISCHARGE WEIGHTING HERE; HACKING TO 
-            # SEE IF I CAN GET IT TO WORK
-            # JUST SETTING EVERYTHING TO PICK THE FIRST ARRAY IN THE LIST
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             self.C1[-1] = self.C0 \
-                          * (np.abs(self.z_ext[0][-2] - self.z_ext[0][-1]) \
+                          * (np.abs(self.z_ext[-2] - self.z_ext[-1]) \
                                    /self.dx[-1])**(1/6.) \
                           * self.Q[-1] / self.B[-1]
         # This compute_coefficient_timeone matters! The above doesn't!!!! (Maybe.)
@@ -414,14 +377,73 @@ class LongProfile(object):
             # !!!C0!!!
             # LEAVING AS-IS.
             # ADDRESSING CHANGES TO C0 IN LATER INSTANCES, NOT HERE
-            # NEED DISCHARGE WEIGHTING HERE, BUT HACKING TO SEE IF I CAN
-            # MAKE IT WORK
-            # JUST SETTING EVERYTHING TO PICK THE FIRST ARRAY IN THE LIST 
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             self.C1[0] = self.C0 \
-                          * (np.abs(self.z_ext[0][1] - self.z_ext[0][0]) \
+                          * (np.abs(self.z_ext[1] - self.z_ext[0]) \
                                    /self.dx[0])**(1/6.) \
                           * self.Q[0] / self.B[0]
+
+    def network__compute_coefficient_time_varying(self):
+        i=0
+        if self.S0 is not None:
+            self.update_z_ext_0() # <-- Ursprüngliche Quelle
+        # !!!C0!!!
+        # NOT YET UPDATED
+        # KEEPING self.dx_ext_2cell INSTEAD OF USING MORE PRECISE OPTION
+        # But this is fine so long as all gradients may be approximated
+        # to be linear.
+
+        # Inefficient: repeats whole segment calc when just the b.c.
+        # change is needed
+        # Maybe don't use? Embed in next functions.
+        # !!!!!!!!!!!!!!!!!!!! COMMENT OUT LATER? !!!!!!!!!!!!!!!!!!!!!!!!
+        dzdx_0_16_list = []
+        for _idx in range(len( self.z_ext) ):
+            # ADD FUNCTIONALITY TO LOOP OVER Q AND WEIGHT BY IT
+            print( self.z_ext )
+            print( self.z_ext[_idx][2:] )
+            print( self.z_ext[_idx][:-2] )
+            print( self.dx )
+            print( self.dx_ext )
+            print( self.dx_ext_2cell[_idx] ) # <-- PROBLEM! Wrong size?
+            dzdx_0_16_list.append( 
+                      np.abs( (self.z_ext[_idx][2:] - self.z_ext[_idx][:-2])
+                                / self.dx_ext_2cell[_idx] )**(1/6.)
+            )
+        
+        self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
+        
+        C1_list = []
+        for _idx in range(len( self.z_ext) ):
+            # dzdx_2cell ? !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            dzdx_0_16 = np.abs( (self.z_ext[_idx][2:] - self.z_ext[_idx][:-2]) \
+                        / self.dx_ext_2cell[_idx] )**(1/6.)
+            C1_list.append( self.C0 * dzdx_0_16 * self.Q / self.B )
+        self.C1 = np.sum(C1_list, axis=0)
+
+        # WILL THIS BE NEEDED?
+        # PERHAPS WE ALREADY INCLUDE THE B.C.'S IMPLICITLY ABOVE.
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!
+        C1_m1_list = []
+        C1_0_list = []
+        for _idx in range(len(dzdx_0_16_list)):
+            C1_m1_list.append(
+                      self.C0
+                      * (
+                          np.abs(self.z_ext[_idx][-2] - self.z_ext[_idx][-1])
+                          / self.dx_ext[_idx][-1]
+                        )**(1/6.)
+                      / self.Q_ext[_idx][-1] / self.B[-1] )
+            C1_0_list.append(
+                      self.C0
+                      * (
+                          np.abs(self.z_ext[_idx][1] - self.z_ext[_idx][0])
+                          / self.dx_ext[_idx][0]
+                        )**(1/6.)
+                      / self.Q_ext[_idx][0] / self.B[0] )
+
+        # Sum: This will weight by discharges
+        self.C1[-1] = np.sum(C1_m1_list)
+        self.C1[0] = np.sum(C1_0_list)
 
     def set_z_bl(self, z_bl):
         """
@@ -1805,7 +1827,7 @@ class Network(object):
             for lp in self.list_of_LongProfile_objects:
                 lp.build_LHS_coeff_C0(dt=self.dt)
                 lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
-                lp.compute_coefficient_time_varying() # <-- Quelle der Problem
+                lp.network__compute_coefficient_time_varying() # <-- Quelle der Problem
                 lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
             for lp in self.list_of_LongProfile_objects:
                 lp.build_matrices()
@@ -1829,7 +1851,7 @@ class Network(object):
                 for lp in self.list_of_LongProfile_objects:
                     # Update coefficient for all: elements may call to others
                     # within the net
-                    lp.compute_coefficient_time_varying()
+                    lp.network__compute_coefficient_time_varying()
                 for lp in self.list_of_LongProfile_objects:
                     lp.build_matrices()
                 # Update semi-implicit on boundaries

@@ -384,18 +384,8 @@ class LongProfile(object):
     
     def compute_coefficient_time_varying(self):
         i=0
-        print( ((self.z_ext[i][2:] - self.z_ext[i][:-2]) \
-                         / self.dx_ext_2cell[i] )**(1/6.)
-             )
-        print("FCN YO!")
         if self.S0 is not None:
             self.update_z_ext_0() # <-- Ursprüngliche Quelle
-        # DEBUG
-        i=0
-        #print( ((self.z_ext[i][2:] - self.z_ext[i][:-2]) \
-        #                 / self.dx_ext_2cell[i] )**(1/6.)
-        #     )
-        #print("FCN Whoooooa!")
         # !!!C0!!!
         # NOT YET UPDATED
         # KEEPING self.dx_ext_2cell INSTEAD OF USING MORE PRECISE OPTION
@@ -404,6 +394,7 @@ class LongProfile(object):
         # TRY: not network
         # EXCEPT: has a network
         # PROBABLY NOT THE BEST WAY TO DO THIS
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         try:
             self.dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                              / self.dx_ext_2cell )**(1/6.)
@@ -681,7 +672,7 @@ class LongProfile(object):
             * abs(self.k_a * self.P_a)**(1/6.) \
             * self.k_xQ / self.k_xB
         P = self.P_xQ
-        print(P)
+        #print(P)
         # Constants of integration
         #c1 = self.U * (x0**(P+2) - x1**(P+2)) / (K*(P-2)*(self.P_a + P - 2) \
         #     + (x1**self.P_a - x0**self.P_a) / self.P_a
@@ -1181,12 +1172,14 @@ class Network(object):
         for lp in self.list_of_LongProfile_objects:
             lp.z_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
                 [ np.concatenate( [_nan1, lp.z, _nan1] ) ]
+            """
             print( "" )
             print( lp.ID )
             print( "" )
             print( "Z_EXT" )
             print( lp.z_ext[:] )
             print( "" )
+            """
         # z_ext messup happens after this.
 
     def update_z_ext_internal(self):
@@ -1500,9 +1493,9 @@ class Network(object):
         _idx = 0
         # Then pass the information to each long-profile object
         for lp in self.list_of_LongProfile_objects:
-            print( _idx )
+            #print( _idx )
             lp.Q = Q[_idx]
-            print( len(lp.Q) )
+            #print( len(lp.Q) )
             _idx += 1
 
     def create_Q_ext_lists(self):
@@ -1531,15 +1524,10 @@ class Network(object):
         This sets the [1:-1] (i.e., non-boundary) values for each Q_ext array
         within each Q_ext list
         """
-        _idx=0 # DEBUG
         for lp in self.list_of_LongProfile_objects:
             # List of arrays
-            print( _idx ) # DEBUG
             for Q_ext_array in lp.Q_ext:
-                print( Q_ext_array )
-                print( lp.Q )
                 Q_ext_array[1:-1] = lp.Q
-            _idx += _idx
 
     def update_Q_ext_internal(self):
         """
@@ -1644,14 +1632,6 @@ class Network(object):
         slopes for the C1 coefficient.
         """
         for lp in self.list_of_LongProfile_objects:
-            # Still looking good.
-            print( ":)" )
-            print( "" )
-            print( "" )
-            print( lp.Q_ext )
-            print( "" )
-            print( "" )
-            print( ":(" )
             lp.dQ = []
             for Q_ext_array in lp.Q_ext:
                 lp.dQ.append( Q_ext_array[2:] - Q_ext_array[:-2] )
@@ -1820,22 +1800,12 @@ class Network(object):
         self.update_dx_ext_2cell()
         
         # Generate arrays of z based on externally provided (user-set) values
-        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
-        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
-        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
-        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
-        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
-        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
-        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " )
         self.create_z_ext_lists()
         self.update_z_ext_internal()
         self.update_z_ext_external_upstream( S0 = S0, Q_s_0 = Q_s_0 )  # b.c.
         self.update_z_ext_external_downstream( z_bl )                   # b.c.
         
         # Generate arrays of Q based on externally provided (user-set) values
-        print( "~~~~~~~~~~~~~~~~~" )
-        print( Q )
-        print( "~~~~~~~~~~~~~~~~~" )
         self.update_Q( Q )
         self.create_Q_ext_lists()
         self.update_Q_ext_from_Q()
@@ -1844,6 +1814,7 @@ class Network(object):
         self.update_Q_ext_external_downstream()   # b.c., Q_ext[-1] = Q[-1]
         self.update_dQ()
         
+        """
         # DEBUG
         lp = self.list_of_LongProfile_objects[0]
         i = 0
@@ -1851,6 +1822,7 @@ class Network(object):
         print( lp.x_ext )
         print( np.abs( (lp.z_ext[i][2:] - lp.z_ext[i][:-2]) \
                  / lp.dx_ext_2cell[i] )**(1/6.) )
+        """
 
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
         """
@@ -1862,46 +1834,19 @@ class Network(object):
         self.update_z_ext_internal()
         # self.dt is decided earlier
         
-        for lp in self.list_of_LongProfile_objects:
-            pass
-            #print( ":)" )
-            #print( lp.Q_ext )
-            #print( ":(" )
-            # Look fine
-        
         for ti in range(int(self.nt)):
             for lp in self.list_of_LongProfile_objects:
-                # Debug
-                i=0
-                print( np.abs( (lp.z_ext[i][2:] - lp.z_ext[i][:-2]) \
-                         / lp.dx_ext_2cell[i] )**(1/6.) )
-                lp.zold = lp.z.copy()
-                print( "HEY!" )
                 lp.build_LHS_coeff_C0(dt=self.dt)
-                print( np.abs( (lp.z_ext[i][2:] - lp.z_ext[i][:-2]) \
-                         / lp.dx_ext_2cell[i] )**(1/6.) )
-                lp.zold = lp.z.copy()
-                print( "Ho!" )
+                lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
                 lp.compute_coefficient_time_varying() # <-- Quelle der Problem
-                print( ":)" )
-                print( lp.C1 )
-                print( ":(" )
-                print( np.abs( (lp.z_ext[i][2:] - lp.z_ext[i][:-2]) \
-                         / lp.dx_ext_2cell[i] )**(1/6.) )
-                lp.zold = lp.z.copy()
-                print( "Whooooa!" )
-                print( lp )
+                lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
             for lp in self.list_of_LongProfile_objects:
-                #print lp.C1
                 lp.build_matrices()
-                # Debug
-                i=0
-                print( np.abs( (lp.z_ext[i][2:] - lp.z_ext[i][:-2]) \
-                         / lp.dx_ext_2cell[i] )**(1/6.) )
             self.build_block_diagonal_matrix_core()
             self.add_block_diagonal_matrix_upstream_boundary_conditions()
             self.add_block_diagonal_matrix_downstream_boundary_conditions()
             # b.c. for no links
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             """
             for lp in self.list_of_LongProfile_objects:
                 if len(lp.upstream_segment_IDs) == 0:

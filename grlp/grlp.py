@@ -419,8 +419,6 @@ class LongProfile(object):
                                 / self.dx_ext_2cell[_idx] )**(1/6.)
             )
         
-        self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
-        
         C1_list = []
         for _idx in range(len( self.z_ext) ):
             # dzdx_2cell ? !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -581,7 +579,12 @@ class LongProfile(object):
         """
         Build the tridiagonal matrix (LHS) and the RHS matrix for the solution
         """
-        self.compute_coefficient_time_varying()
+        # !!!!!!!!!!!!!! CHECK IF NETWORK. Maybe pass network flag?
+        if type(self.z_ext) is list:
+            # Network
+            self.network__compute_coefficient_time_varying()
+        else:
+            self.compute_coefficient_time_varying()
         # !!!C0!!!
         # UPDATED WITH STRAIGHT self.dx_ext_2cell
         self.left = -self.C1 / self.dx_ext_2cell[0] \

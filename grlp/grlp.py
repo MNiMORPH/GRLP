@@ -336,50 +336,18 @@ class LongProfile(object):
         sys.exit(4)
 
     def update_z_ext_0(self):
-        # Give upstream cell the same width as the first cell in domain
-        # UPDATE TO WORK WITH LIST OF ARRAYS
-        # Before fixing, think about what z_ext and C1 are really doing
-        # and how best to set them
-        # Does z_ext set up the boundary conditions in networked mode?
+        """
+        Give upstream cell the same width as the first cell in domain.
+        Used only for GRLP alone (non-networked mode)
         
-        # Q1: z_ext and boundary conditions
+        Q1: z_ext and boundary conditions
         
-        # Q2: z_ext and C1
-        #     self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
-        # And C0 has all local variables.
-        # So what we really need is the channel slope at the local site
-        # How do we weight it? Equally? By the discharge from each river?
-        # Yes! Q_s = k_Qs * Q * S^(7/6), and we are differentiating
-        # d Q_s / d x
-        # Therefore, S for the coefficient will be set via:
-        # Qs = k_Qs * Q * S^{7/6}
-        # START HERE!!!!!!!!!!!!
-        if type( self.z_ext ) is np.ndarray:
-            # Only one segment: towards applying boundary condition upstream
-            self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
-        elif type( self.z_ext ) is list:
-            for connected_array in self.z_ext:
-            # Wait a minute! We don't necessarily want the upstream boundary
-            # conditions to be enforced everywhere; we have internal segments.
-                if len(self.upstream_segment_IDs) == 0:
-                    # WHY ARE WE DOING THIS?
-                    # ALREADY ADDRESSED WITHIN NETWORK?
-                    # I GUESS IT DOESN'T HURT, BUT REVISIT AND STREAMLINE
-                    # WHEN THERE ARE FEWER MOVING PARTS
-                    # If upstream-most, then apply boundary condition
-                    # This should run just once in the loop and then exit
-                    # DX_EXT SHOULD BE LIST OF ARRAYS, SO NEED [0][0]
-                    # TO GET FIRST (ONLY) ARRAY, AND THEN ITS FIRST ELEMENT
-                    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                    connected_array[0] = self.z[0] + self.S0 * self.dx_ext[0][0]
-                else:
-                    # Otherwise, obtain upstream neighbors' elevations
-                    # PERHAPS NEED TO GET INFO FROM NETWORK!
-                    # We can't, buuuut: This is already wrapped in:
-                    # "if lp.S0 is not None"
-                    # So: Let's throw an error here.
-                    print("S0 was specified for a non-headwaters segment. Exiting.")
-                    sys.exit(1)
+        Q2: z_ext and C1
+            self.C1 = self.C0 * self.dzdx_0_16 * self.Q / self.B
+        And C0 has all local variables.
+        """
+        # Only one segment: towards applying boundary condition upstream
+        self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
     
     def compute_coefficient_time_varying(self):
         i=0
@@ -1894,8 +1862,9 @@ class Network(object):
                 lp.dz_dt = (lp.z - lp.zold)/self.dt
                 #lp.Qs_internal = 1/(1-lp.lambda_p) * np.cumsum(lp.dz_dt)*lp.B \
                 #                 + lp.Q_s_0
-                if lp.S0 is not None:
-                    lp.update_z_ext_0()
+            # Update upstream boundary condition: Elevation may change to keep
+            # slope constant
+            self.update_z_ext_external_upstream( S0 = lp.S0, Q_s_0 = lp.Q_s_0 )
 
     def find_downstream_IDs(self, ID):
         """

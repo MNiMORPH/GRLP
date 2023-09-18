@@ -333,7 +333,6 @@ class LongProfile(object):
                               * np.abs(self.Q[0])) )**(6/7.)
         # Give upstream cell the same width as the first cell in domain
         self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
-        sys.exit(4)
 
     def update_z_ext_0(self):
         """
@@ -391,7 +390,7 @@ class LongProfile(object):
         Set the right-hand Dirichlet boundary conditions, i.e. the base level,
         given in the variable "z_bl" (elevation, base level)
         
-        For 1D single-segment mode, not network
+        For 1D single-segment mode, not network.
         """
         self.z_bl = z_bl
         self.z_ext[-1] = self.z_bl

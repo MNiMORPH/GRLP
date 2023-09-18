@@ -434,8 +434,15 @@ class LongProfile(object):
         # WILL THIS BE NEEDED?
         # PERHAPS WE ALREADY INCLUDE THE B.C.'S IMPLICITLY ABOVE.
         # !!!!!!!!!!!!!!!!!!!!!!!!!!
+        # BUT THESE VALUES FROM THE BELOW CALCS ARE WAY DIFFERENT.
+        # WHY?
+        # !!!!!!!!!!!!!!!!!!!!!!!!!
+        """
         C1_m1_list = []
         C1_0_list = []
+        print("Heay")
+        C1old = self.C1.copy()
+        print(self.C1)
         for _idx in range(len(dzdx_0_16_list)):
             C1_m1_list.append(
                       self.C0
@@ -459,6 +466,10 @@ class LongProfile(object):
         # Sum: This will weight by discharges
         self.C1[-1] = np.sum(C1_m1_list)
         self.C1[0] = np.sum(C1_0_list)
+
+        print(self.C1)
+        print(self.C1 / C1old)
+        """
 
     def set_z_bl(self, z_bl):
         """

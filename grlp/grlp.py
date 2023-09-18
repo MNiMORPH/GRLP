@@ -218,6 +218,8 @@ class LongProfile(object):
         """
         Set Q directly or calculate it
         q_R = storm rainfall rate [m/hr]
+        
+        Set only for a 1D array: Q is handled externally for river networks
         """
         if k_xQ is not None:
             self.k_xQ = k_xQ
@@ -228,9 +230,6 @@ class LongProfile(object):
             else:
                 # Assuming "x" is known already
                 self.Q = Q * np.ones(self.x.shape)
-            # Have to be able to pass Q_ext, created with adjacencies
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            # COULD SKIP STRAIGHT TO DQ :)
             Q_ext = np.hstack( (2*self.Q[0]-self.Q[1],
                                 self.Q,
                                 2*self.Q[-1]-self.Q[-2]) )

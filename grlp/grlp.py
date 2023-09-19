@@ -386,6 +386,7 @@ class LongProfile(object):
         self.C1 = np.sum(C1_list, axis=0)
 
     def set_z_bl(self, z_bl):
+        raise ValueError('A very specific bad thing happened.')
         """
         Set the right-hand Dirichlet boundary conditions, i.e. the base level,
         given in the variable "z_bl" (elevation, base level)
@@ -396,6 +397,7 @@ class LongProfile(object):
         self.z_ext[-1] = self.z_bl
         
     def set_x_bl(self, x_bl):
+        raise ValueError('A very specific bad thing happened.')
         self.x_bl = x_bl
         self.x_ext[-1] = self.x_bl
 
@@ -410,6 +412,10 @@ class LongProfile(object):
         self.z_bl = 0
         if type(self.x_ext) is list:
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! HACk to make it work for now
+            # !!!! NO LONGER BEING USED FOR NETWORK; CHANGE BACK FOR SINGLE CHANNEL
+            # OR JUST REMOVE
+            # IS USED, FOR RIVER MOUTH. BUT MAYBE IT DOESN'T MATTER?
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[0][-1] * 7/3. \
                            * (1/self.dx_ext[0][-2] + 1/self.dx_ext[0][-1])/2. \
                            + self.dQ_ext_2cell[0][-1]/self.Q[-1] )
@@ -445,6 +451,11 @@ class LongProfile(object):
         # BECAUSE IT IS CHANGING THE RHS
         if type(self.x_ext) is list:
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! HACk to make it work for now
+            # !!!! NO LONGER BEING USED FOR NETWORK; CHANGE BACK FOR SINGLE CHANNEL
+            # OR JUST REMOVE
+            # YES! IS USED, WHEN THERE ARE NO UPSTREAM SEGMENTS
+            # SHOULD IT STILL BE, OR SHOULD NEW METHOD BE USED?
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
             self.bcl = self.dx_ext_2cell[0][0] * self.S0 * \
                                 self.C1[0] / self.dx_ext_2cell[0][0] \
                                 * ( 7/3./self.dx_ext[0][0]
@@ -474,6 +485,11 @@ class LongProfile(object):
         #self.right[0] = -self.C1[0] * 7/3. \
         if type(self.x_ext) is list:
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! HACK TEST
+            # NO LONGER IN USE!
+            # raise ValueError('Ooh!')
+            # YES! IS USED, WHEN THERE ARE NO UPSTREAM SEGMENTS
+            # SHOULD IT STILL BE, OR SHOULD NEW METHOD BE USED?
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
             self.right[0] = -self.C1[0] / self.dx_ext_2cell[0][0] * 7/3. \
                              * (1/self.dx_ext[0][0] + 1/self.dx_ext[0][1])
         else:
@@ -481,6 +497,7 @@ class LongProfile(object):
                              * (1/self.dx_ext[0] + 1/self.dx_ext[1])            
 
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
+        raise ValueError('A very specific bad thing happened.')
         """
         Solve the triadiagonal matrix through time, with a given
         number of time steps (nt) and time-step length (dt)
@@ -527,6 +544,7 @@ class LongProfile(object):
                     * self.dt
 
     def build_matrices(self):
+        raise ValueError('A very specific bad thing happened.')
         """
         Build the tridiagonal matrix (LHS) and the RHS matrix for the solution
         """
@@ -587,6 +605,8 @@ class LongProfile(object):
         # !!!!!!!!!!!!!!!!!! TO CHECK !!!!!!!!!!!!!!!!!!!!!!!
 
         # For all nodes that are fully internal to the segment
+        # 0s should be fine: internal members okay, and all external
+        # should be shared downstream (yep) or split out later for upstream
         self.left = -self.C1 / self.dx_ext_2cell[0] \
                         * ( (7/3.)/self.dx_ext[0][:-1]
                         - self.dQ_ext_2cell[0]/self.Q/self.dx_ext_2cell[0] )
@@ -672,6 +692,10 @@ class LongProfile(object):
         else:
             self.bcl = 0. # no b.c.-related changes
         if len(self.downstream_segment_IDs) == 0:
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # For river mouth.
+            # Keep this????
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             self.set_bcr_Dirichlet()
         else:
             self.bcr = 0. # no b.c.-related changes
@@ -681,6 +705,12 @@ class LongProfile(object):
         self.offsets = np.array([-1, 0, 1])
         self.LHSmatrix = spdiags(self.diagonals, self.offsets, len(self.z),
                             len(self.z), format='csr')
+        #print("Diag")
+        #print(self.diagonals)
+        #print("Array)
+        #plt.figure(); plt.imshow(np.log10(self.LHSmatrix.todense()), interpolation='nearest')
+        #plt.show()
+                            
         self.RHS = np.hstack(( self.bcl+self.z[0],
                                self.z[1:-1],
                                self.bcr+self.z[-1])) \
@@ -1040,6 +1070,7 @@ class Network(object):
                     # From earlier
                     #C0 = upseg.C0[-1] # Should be consistent
                     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    # Seems to make no difference whether these are 0 or 1
                     dzdx_0_16 = ( np.abs(lp.z_ext[0][1] - lp.z_ext[0][0])
                                   / (lp.dx_ext[0][0]))**(1/6.)
                     C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
@@ -2003,8 +2034,11 @@ class Network(object):
                     # THIS SEEMS POTENTIALLY PROBLEMATIC
                     # ??????????????????????????????????
                     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                    lp.z_ext[0][1:-1] = \
-                                    out[idx:idx+self.list_of_segment_lengths[i]]
+                    # Did this loop fix it???
+                    # Nope. But it didn't change anything either.
+                    for _tribi in range(len(lp.z_ext)):
+                        lp.z_ext[_tribi][1:-1] = \
+                                        out[idx:idx+self.list_of_segment_lengths[i]]
                     idx += +self.list_of_segment_lengths[i]
                     i += 1
             self.update_z_ext_internal()
@@ -2016,6 +2050,9 @@ class Network(object):
             idx = 0
             for lp in self.list_of_LongProfile_objects:
                 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                # This should be fine, and should have been fine before the loop
+                # Perhaps we should actually update things in the reverse order
+                # (z first, then z_ext)
                 lp.z = lp.z_ext[0][1:-1].copy()
                 lp.dz_dt = (lp.z - lp.zold)/self.dt
                 #lp.Qs_internal = 1/(1-lp.lambda_p) * np.cumsum(lp.dz_dt)*lp.B \

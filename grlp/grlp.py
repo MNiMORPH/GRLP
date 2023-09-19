@@ -2030,15 +2030,12 @@ class Network(object):
                 i = 0
                 idx = 0
                 for lp in self.list_of_LongProfile_objects:
-                    # ??????????????????????????????????
-                    # THIS SEEMS POTENTIALLY PROBLEMATIC
-                    # ??????????????????????????????????
-                    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                    # Did this loop fix it???
-                    # Nope. But it didn't change anything either.
+                    # IMPORTANT: NEED TO UPDATE Z FIRST
+                    # Z_EXT VALUES BASED ON Z VALUES, WHEN
+                    # INTERNAL VALUES ARE UPDATED FROM UPSTREAM
+                    lp.z = out[idx:idx+self.list_of_segment_lengths[i]]
                     for _tribi in range(len(lp.z_ext)):
-                        lp.z_ext[_tribi][1:-1] = \
-                                        out[idx:idx+self.list_of_segment_lengths[i]]
+                        lp.z_ext[_tribi][1:-1] = lp.z
                     idx += +self.list_of_segment_lengths[i]
                     i += 1
             self.update_z_ext_internal()
@@ -2053,7 +2050,7 @@ class Network(object):
                 # This should be fine, and should have been fine before the loop
                 # Perhaps we should actually update things in the reverse order
                 # (z first, then z_ext)
-                lp.z = lp.z_ext[0][1:-1].copy()
+                #lp.z = lp.z_ext[0][1:-1].copy() # MANAGED ABOVE !!!!!!!!!!!!
                 lp.dz_dt = (lp.z - lp.zold)/self.dt
                 #lp.Qs_internal = 1/(1-lp.lambda_p) * np.cumsum(lp.dz_dt)*lp.B \
                 #                 + lp.Q_s_0

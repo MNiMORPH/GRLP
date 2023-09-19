@@ -1001,6 +1001,9 @@ class Network(object):
             if len(lp.upstream_segment_IDs) == 0:
                 pass
             elif len(lp.upstream_segment_IDs) == 1:
+                # HAVE NOT YET UPDATED THIS
+                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                # COULD MAKE UNIFORM WITH THE OTHERS
                 for ID in lp.upstream_segment_IDs:
                     # Space to edit
                     col = self.block_end_absolute[self.IDs == ID][0]
@@ -1040,6 +1043,8 @@ class Network(object):
                     # !!!C0!!!
                     # I've updated dx_ext_2cell to acknowledge boundaries
                     # This should therefore be used here.
+                    """
+                    # Commented out 19 Sept 2023
                     C0 = upseg.k_Qs * upseg.intermittency \
                             / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
                             * self.dt / lp.dx_ext_2cell[_relative_id][0]
@@ -1052,6 +1057,15 @@ class Network(object):
                     left_new = -C1 * 7/6. * 2 / lp.dx_ext[_relative_id][0]
                     self.LHSblock_matrix[row, col] = left_new
                     _relative_id += 1
+                    """                    
+                    
+                    C0 = upseg.k_Qs * upseg.intermittency \
+                            / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
+                            * self.dt
+                    # From upseg, could be either dx_ext, so why not 0 : )
+                    left_new = C0 * upseg.Q[-1]/upseg.dx_ext[0][-1]
+                    self.LHSblock_matrix[row, col] = left_new
+                    _relative_id += 1 # No longer need this, but keeping it
 
 
     def add_block_diagonal_matrix_downstream_boundary_conditions(self):

@@ -628,15 +628,32 @@ class LongProfile(object):
             # integer > 0 number of tributaries
             _trib_cent = 0.
             for _tribi in range( len(self.dx_ext) ):
-                _trib_cent += self.Q_ext[_tribi][0] / self.dx_ext[_tribi][0]
+                # Slope for nonlinear portion
+                dzdx_0_16 = ( np.abs( self.z_ext[_tribi][0] - 
+                                      self.z_ext[_tribi][1] )
+                              / self.dx_ext[_tribi][0] )**(1/6.)
+                
+                # All of C1 except for C0 is included here
+                # It varies based on trib junction
+                _trib_cent += dzdx_0_16 * \
+                              ( self.Q_ext[_tribi][0] / 
+                                self.dx_ext[_tribi][0] ) \
+                              / self.B[0]
   
+            # All of C1 except for C0 is included here
+            dzdx_0_16 = ( np.abs( self.z[0] - 
+                                  self.z[1] )
+                          / self.dx[0] )**(1/6.)
             # Positive for right, negative for center
-            _mainstem_cent_right = (self.Q[0] + self.Q[1])/2. / self.dx[0]
+            _mainstem_cent_right = dzdx_0_16 * \
+                                   (self.Q[0] + self.Q[1])/2. / self.dx[0] \
+                                   / self.B[0]
             
-            self.center[0] = self.C0 * - ( _trib_cent + _mainstem_cent_right ) + 1
+            self.center[0] = self.C0 * - ( _trib_cent + _mainstem_cent_right ) \
+                             + 1
 
             # Right needs to be changed too
-            self.right[0] = _mainstem_cent_right
+            self.right[0] = self.C0 * _mainstem_cent_right
             
             # Left will be handled among boundary conditions
             
@@ -1063,9 +1080,15 @@ class Network(object):
                             / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
                             * self.dt
                     # From upseg, could be either dx_ext, so why not 0 : )
-                    left_new = C0 * upseg.Q[-1]/upseg.dx_ext[0][-1]
+                    dzdx_0_16 = ( np.abs( lp.z_ext[_relative_id][0] - 
+                                          lp.z_ext[_relative_id][1] )
+                                  / lp.dx_ext[_relative_id][0] )**(1/6.)
+                    C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
+                    # Slight hack but will work in convergent network
+                    #left_new = C0 / upseg.dx_ext[0][-1]
+                    left_new = C1 / lp.dx_ext[_relative_id][0]
                     self.LHSblock_matrix[row, col] = left_new
-                    _relative_id += 1 # No longer need this, but keeping it
+                    _relative_id += 1
 
 
     def add_block_diagonal_matrix_downstream_boundary_conditions(self):

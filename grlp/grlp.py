@@ -1999,7 +1999,7 @@ class Network(object):
                 lp.build_LHS_coeff_C0(dt=self.dt)
                 lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
                 lp.network__compute_coefficient_time_varying() # <-- Quelle der Problem
-                lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
+                #lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
             for lp in self.list_of_LongProfile_objects:
                 lp.network__build_matrix_inner()
             self.map_block_diagonal_matrix_blocks()
@@ -2044,24 +2044,19 @@ class Network(object):
                     idx += +self.list_of_segment_lengths[i]
                     i += 1
             self.update_z_ext_internal()
+            # Update upstream boundary condition: Elevation may change to keep
+            # slope constant
+            self.update_z_ext_external_upstream( S0 = self.S0, Q_s_0 = self.Q_s_0 )
+
             self.t += self.dt # Update each lp z? Should make a global class
                               # that these both inherit from
             for lp in self.list_of_LongProfile_objects:
                 lp.t = self.t
-            i = 0
-            idx = 0
+
             for lp in self.list_of_LongProfile_objects:
-                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                # This should be fine, and should have been fine before the loop
-                # Perhaps we should actually update things in the reverse order
-                # (z first, then z_ext)
-                #lp.z = lp.z_ext[0][1:-1].copy() # MANAGED ABOVE !!!!!!!!!!!!
                 lp.dz_dt = (lp.z - lp.zold)/self.dt
                 #lp.Qs_internal = 1/(1-lp.lambda_p) * np.cumsum(lp.dz_dt)*lp.B \
                 #                 + lp.Q_s_0
-            # Update upstream boundary condition: Elevation may change to keep
-            # slope constant
-            self.update_z_ext_external_upstream( S0 = self.S0, Q_s_0 = self.Q_s_0 )
 
     def find_downstream_IDs(self, ID):
         """

@@ -570,7 +570,7 @@ class LongProfile(object):
                                       *self.dt \
                                + self.U * self.dt
 
-    def network__build_matrices_inner(self):
+    def network__build_matrix_inner(self):
         """
         Build the tridiagonal matrix (LHS) and the RHS matrix for the solution
         """
@@ -585,6 +585,8 @@ class LongProfile(object):
         # INNER MATRICES BECAUSE IT NEGLECTS THE BOUNDARY
         # CONDITIONS' IMPACTS, OR SO I GUESS.
         # !!!!!!!!!!!!!!!!!! TO CHECK !!!!!!!!!!!!!!!!!!!!!!!
+
+        # For all nodes that are fully internal to the segment
         self.left = -self.C1 / self.dx_ext_2cell[0] \
                         * ( (7/3.)/self.dx_ext[0][:-1]
                         - self.dQ_ext_2cell[0]/self.Q/self.dx_ext_2cell[0] )
@@ -598,8 +600,54 @@ class LongProfile(object):
                                   + self.dQ_ext_2cell[0]/self.Q/self.dx_ext_2cell[0] )
                                   # !!!!!!!!!!!!!!!!!
                                   # dQ --> dQ[0]. Expecting list! HACK.
+        # Far-left "self.center" depends on upstream boundary conditions
+        # This is solved by discretizing the gradients and discharges abnove
+        # and below the upstream-most node (i.e., tributary junction)
+        # for each tributary and for the river reach immediately downstream
+        # of the junction.
+        # This applies only if there are multiple tributaries. Otherwise,
+        # the existing "self.center" should be correct.
+        # Although it might be set up differently (straight across junction)
+        # Actually, could use this in general, though don't have to.
+        # as in, for any number of tribs.
+        # Maybe that would be cleaner, even if it provides a different
+        # way of making boundary calculations
+        
+        """
+        # dQs/dx = self.C0 * d/dx (Q S^(7/6))
+        self.C0 = self.k_Qs * self.intermittency \
+                    / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \
+                    * self.dt
+        self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
+        """
+
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # ADD NONLINEARITY!
+        if len(self.dx_ext) > 1:
+            # Tributary contributions to center: Write to work for any
+            # integer > 0 number of tributaries
+            _trib_cent = 0.
+            for _tribi in range( len(self.dx_ext) ):
+                _trib_cent += self.Q_ext[_tribi][0] / self.dx_ext[_tribi][0]
+  
+            # Positive for right, negative for center
+            _mainstem_cent_right = (self.Q[0] + self.Q[1])/2. / self.dx[0]
+            
+            self.center[0] = self.C0 * - ( _trib_cent + _mainstem_cent_right ) + 1
+
+            # Right needs to be changed too
+            self.right[0] = _mainstem_cent_right
+            
+            # Left will be handled among boundary conditions
+            
+        # As long as the network is convergent and based on Dirichlet boundary
+        # conditions on the downstream end, the single downstream segment
+        # should suffice with no modifications
+        
         # Apply boundary conditions if the segment is at the edges of the
         # network (both if there is only one segment!)
+        # Change this only if we decide to use the new junction approach
+        # for everything
         if len(self.upstream_segment_IDs) == 0:
             #print self.dx_ext_2cell
             self.set_bcl_Neumann_LHS()
@@ -1880,7 +1928,7 @@ class Network(object):
                 lp.network__compute_coefficient_time_varying() # <-- Quelle der Problem
                 lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
             for lp in self.list_of_LongProfile_objects:
-                lp.network__build_matrices_inner()
+                lp.network__build_matrix_inner()
             self.map_block_diagonal_matrix_blocks()
             self.create_block_diagonal_matrix_with_internal_tridiagonals()
             self.add_block_diagonal_matrix_upstream_boundary_conditions()
@@ -1904,7 +1952,7 @@ class Network(object):
                     # within the net
                     lp.network__compute_coefficient_time_varying()
                 for lp in self.list_of_LongProfile_objects:
-                    lp.network__build_matrices_inner()
+                    lp.network__build_matrix_inner()
                 # Update semi-implicit on boundaries
                 # Commenting these two out helps solution!
                 # Don't understand why. Perhaps error in code for them?

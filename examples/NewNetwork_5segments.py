@@ -24,7 +24,7 @@ upstream_segment_IDs = [[], [], [0,1], [], [2,3]]
 downstream_segment_IDs = [[2], [2], [4], [4], []]
 
 z = []
-Q_in_list = [5., 10., 15., 10., 25.]
+Q_in_list = [5., 10., 15., 20, 35.]
 Q = []
 B = []
 print( "" )
@@ -56,7 +56,7 @@ x_bl = 1000*32
 z_bl = 0
 
 # Upstream boundary condition: 1.5% grade
-S0 = [0.03, 0.015, 0.01]
+S0 = [0.015, 0.015, 0.015]
 
 # Instantiate network object
 net = grlp.Network()
@@ -89,18 +89,20 @@ net.evolve_threshold_width_river_network(nt=1, dt=dt)
 # For plotting
 # WHEN RUN FOR NT=10, GET BACKWARDS SLOPE ON TRIBUTARY
 # THIS IS WHERE WE NEED TO ADD IN CLOSED BASINS AS ANOTHER SEGMENT TYPE
-net.evolve_threshold_width_river_network(nt=500, dt=dt)
+net.evolve_threshold_width_river_network(nt=100, dt=100*dt)
 
 for lp in net.list_of_LongProfile_objects:
-    for _id in lp.downstream_segment_IDs:
-        dsseg = net.list_of_LongProfile_objects[_id]
-        _xjoin = [lp.x[-1], dsseg.x[0]]
-        _zjoin = [lp.z[-1], dsseg.z[0]]
-        plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)
-    if len(lp.downstream_segment_IDs) == 0:
-        plt.plot(lp.x_ext[1:], lp.z_ext[1:], '-', linewidth=4, alpha=.5)#, label=lp.)
+    # If not downstream-most segment
+    if len( lp.downstream_segment_IDs ) > 0:
+        for _id in lp.downstream_segment_IDs:
+            dsseg = net.list_of_LongProfile_objects[_id]
+            _xjoin = [lp.x[-1], dsseg.x[0]]
+            _zjoin = [lp.z[-1], dsseg.z[0]]
+            plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)
     else:
-        plt.plot(lp.x, lp.z, '-', linewidth=4, alpha=.5)#, label=lp.)
+        plt.plot(lp.x_ext[0][-2:], lp.z_ext[0][-2:], 'k-', linewidth=4, alpha=.5)
+    plt.plot(lp.x, lp.z, '-', linewidth=4, alpha=.5)#, label=lp.)
 plt.tight_layout()
 plt.show()
 #"""
+

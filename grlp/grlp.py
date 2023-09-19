@@ -1825,6 +1825,11 @@ class Network(object):
         Run only once, at beginning of program.
         """
         
+        # FOR NOW, RECORD S0, Q_s_0
+        # Used in loop over solver
+        self.S0 = S0
+        self.Q_s_0 = Q_s_0
+        
         #########################################
         # FIRST, CHECK IF A CONFIG FILE EXISTS. #
         # ENSURE NO DUPLICITY WITH PASSED VARS. #
@@ -2056,7 +2061,7 @@ class Network(object):
                 #                 + lp.Q_s_0
             # Update upstream boundary condition: Elevation may change to keep
             # slope constant
-            self.update_z_ext_external_upstream( S0 = lp.S0, Q_s_0 = lp.Q_s_0 )
+            self.update_z_ext_external_upstream( S0 = self.S0, Q_s_0 = self.Q_s_0 )
 
     def find_downstream_IDs(self, ID):
         """

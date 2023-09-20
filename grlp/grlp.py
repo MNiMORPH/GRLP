@@ -607,6 +607,14 @@ class LongProfile(object):
         # For all nodes that are fully internal to the segment
         # 0s should be fine: internal members okay, and all external
         # should be shared downstream (yep) or split out later for upstream
+        
+        # THESE LOOK OKAY
+        #self.C0 = self.k_Qs * self.intermittency \
+        #            / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \
+        #            * self.dt
+        #self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
+        # NEXT TEST
+                
         self.left = -self.C1 / self.dx_ext_2cell[0] \
                         * ( (7/3.)/self.dx_ext[0][:-1]
                         - self.dQ_ext_2cell[0]/self.Q/self.dx_ext_2cell[0] )
@@ -662,7 +670,8 @@ class LongProfile(object):
                 # All of C1 except for C0 is included here
                 # It varies based on trib junction
                 # _trib_coeff = 1 * \
-                _trib_coeff = dzdx_0_16 * \
+                # 1E0 to play with coefficients and check them
+                _trib_coeff = dzdx_0_16 * 1E0 * \
                               ( self.Q_ext[_tribi][0] / 
                                 self.dx_ext[_tribi][0] ) \
                               / self.land_area_around_confluence
@@ -679,7 +688,8 @@ class LongProfile(object):
                           / self.dx[0] )**(1/6.)
             # Positive for right, negative for center
             #_mainstem_cent_right = 1 * \
-            _mainstem_cent_right = dzdx_0_16 * \
+            # 1E0 to play with coefficients and check them
+            _mainstem_cent_right = dzdx_0_16 * 1E0 * \
                                    (self.Q[0] + self.Q[1])/2. / self.dx[0] \
                                    / self.land_area_around_confluence
             

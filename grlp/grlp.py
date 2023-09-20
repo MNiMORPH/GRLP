@@ -652,6 +652,7 @@ class LongProfile(object):
             # Tributary contributions to center: Write to work for any
             # integer > 0 number of tributaries
             _trib_cent = 0.
+            self.upseg_trib_coeffs = []
             for _tribi in range( len(self.dx_ext) ):
                 # Slope for nonlinear portion
                 dzdx_0_16 = ( np.abs( self.z_ext[_tribi][0] - 
@@ -660,15 +661,15 @@ class LongProfile(object):
   
                 # All of C1 except for C0 is included here
                 # It varies based on trib junction
-                _trib_cent += dzdx_0_16 * \
+                _trib_coeff = dzdx_0_16 * \
                               ( self.Q_ext[_tribi][0] / 
                                 self.dx_ext[_tribi][0] ) \
                               / self.land_area_around_confluence
+                _trib_cent += _trib_coeff
                 print("T", self.upstream_segment_IDs[_tribi], 
-                            self.C0 * dzdx_0_16 * \
-                          ( self.Q_ext[_tribi][0] / 
-                            self.dx_ext[_tribi][0] ) \
-                          / self.land_area_around_confluence)
+                            self.C0 * _trib_coeff)
+                # Svae this value to transmit to upstream parts of matrix
+                self.upseg_trib_coeffs.append( self.C0 * _trib_coeff )
             #print(_tribi) # Yep: 2 streams
             
             # All of C1 except for C0 is included here
@@ -714,6 +715,9 @@ class LongProfile(object):
             
             # Left will be handled among boundary conditions
             
+            print("! 0 IF WE CONSERVE MASS !")
+            print( self.right[0] + self.center[0] - 1 + np.sum(self.upseg_trib_coeffs) )
+            
         # As long as the network is convergent and based on Dirichlet boundary
         # conditions on the downstream end, the single downstream segment
         # should suffice with no modifications
@@ -737,7 +741,9 @@ class LongProfile(object):
         else:
             self.bcr = 0. # no b.c.-related changes
         self.left = np.roll(self.left, -1)
+        #print(self.right)
         self.right = np.roll(self.right, 1)
+        #print(self.right)
         self.diagonals = np.vstack((self.left, self.center, self.right))
         self.offsets = np.array([-1, 0, 1])
         self.LHSmatrix = spdiags(self.diagonals, self.offsets, len(self.z),
@@ -1144,6 +1150,7 @@ class Network(object):
                     _relative_id += 1
                     """                    
                     
+                    """
                     C0 = upseg.k_Qs * upseg.intermittency \
                             / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
                             * self.dt
@@ -1159,6 +1166,18 @@ class Network(object):
                     self.LHSblock_matrix[row, col] = left_new
                     #if _relative_id == 0:
                     print("L", upseg.ID, left_new)
+                    _relative_id += 1
+                    """
+                    
+                    # I keep getting different values from the calcs above
+                    # in some places
+                    # but not others
+                    # and I don't know why
+                    # and it makes a total mess
+                    # So here.
+                    self.LHSblock_matrix[row, col] = \
+                                    lp.upseg_trib_coeffs[_relative_id]
+                    print("L", upseg.ID, lp.upseg_trib_coeffs[_relative_id])
                     _relative_id += 1
 
 

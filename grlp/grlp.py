@@ -640,6 +640,11 @@ class LongProfile(object):
                     * self.dt
         self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
         """
+        
+        # Perhaps add a separate function in the future to do this
+        # only once
+        
+        # START HERE AFTER MAKING CONFLUENCE AREA FUNCTION
                 
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!
         # ADD NONLINEARITY!
@@ -1834,6 +1839,41 @@ class Network(object):
                 lp.set_intermittency = intermittency[i]
                 i += 1
 
+    def compute_land_areas_around_confluences(self):
+        """
+        Approximate area at confluence as the sum of lengths
+        from the midpoints between nodes above and below the confluence,
+        each multiplied by its respective valley width
+        I assume that the width above the confluence is basically constant
+        until the confluence, and that the same goes for the
+        width below
+        This is a first attempt
+        """
+        for lp in self.list_of_LongProfile_objects:
+            if len(lp.dx_ext) > 1:
+                land_areas_above_confluence = []
+                for ID in lp.upstream_segment_IDs:
+                    upseg = self.list_of_LongProfile_objects[ID]
+                    half_dx = ( lp.x[0] - upseg.x[-1] ) / 2.
+                    representative_width = upseg.B[-1]
+                    land_areas_above_confluence.append( half_dx *
+                                                        representative_width )
+                # Assuming a convergent network
+                half_dx = ( lp.x[1] - lp.x[0] ) / 2.
+                representative_width = lp.B[1]
+                land_area_below_confluence = half_dx * representative_width
+                
+                lp.land_area_around_confluence = np.sum(( 
+                                          np.sum(land_areas_above_confluence),
+                                          land_area_below_confluence ))
+                                          
+            else:
+                lp.land_area_around_confluence = None
+
+            print(lp.land_area_around_confluence)
+            #raise ValueError("WHY OH WHY")
+
+
     def initialize(self,
                     config_file = None,
                     x_bl = None,
@@ -2001,6 +2041,9 @@ class Network(object):
         self.update_Q_ext_external_upstream()  # b.c., Q_ext[0] = Q[0]
         self.update_Q_ext_external_downstream()   # b.c., Q_ext[-1] = Q[-1]
         self.update_dQ_ext_2cell()
+        
+        # Land area around each conflunece: Special case to help with dz/dt
+        self.compute_land_areas_around_confluences()
         
         """
         # DEBUG

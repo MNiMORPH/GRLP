@@ -1211,6 +1211,35 @@ class Network(object):
                 # CLOSER!
                 self.LHSblock_matrix[row, col] = lp.right[0]
 
+                # Try updating with this instead
+                C0 = downseg.k_Qs * downseg.intermittency \
+                        / ((1-downseg.lambda_p) * downseg.sinuosity**(7/6.)) \
+                        * self.dt
+                
+                # Yep: They are the same
+                #print("CO", C0, lp.C0)
+
+                """
+                # Change to use with downseg -- test
+                # Unclear why the answer here differs from that above.
+                dzdx_0_16 = ( np.abs(downseg.z_ext[0][1] - downseg.z_ext[0][2])
+                              / (downseg.dx[0]))**(1/6.)
+
+                C1 = C0 * dzdx_0_16 * (downseg.Q[0] + downseg.Q[1])/2. \
+                        / downseg.land_area_around_confluence
+                right_new = C1 / downseg.dx[0] # = / downseg.dx[0]
+                print("RIGHT", lp.right[0], right_new )
+
+                self.LHSblock_matrix[row, col] = right_new
+                """
+                self.LHSblock_matrix[row, col] = lp.right[0]
+                
+                # I don't know why this isn't working
+                # Conserve mass on faith; fix later
+                #right_new = - (lp.center[-1] + lp.left[-2])
+                #print("RN", right_new)
+                #self.LHSblock_matrix[row, col] = right_new
+
     """
     def get_z_all(self):
         self.zold = []

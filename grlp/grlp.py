@@ -1574,7 +1574,10 @@ class Network(object):
         # S0 might be iterable even if Q_s_0 be not
         try:
             iter(S0)
-            S0 = np.array(S0).squeeze() # Enforce numpy array
+            # Enforce numpy array
+            # And ensure that it isn't squeezed down to 0D
+            # if there is just 1 S0 value given
+            S0 = np.atleast_1d(np.array(S0).squeeze(axis=0))
         except:
             _is_scalar=True
         

@@ -1547,16 +1547,22 @@ class Network(object):
         else:
             S0 = self.S0
 
+        print("SCALAR?", _is_scalar)
+        print( S0 )
+        print( np.atleast_1d(np.array(S0).squeeze) )
+
         # S0 might be iterable even if Q_s_0 be not
         try:
             iter(S0)
             # Enforce numpy array
             # And ensure that it isn't squeezed down to 0D
             # if there is just 1 S0 value given
-            S0 = np.atleast_1d(np.array(S0).squeeze(axis=0))
+            S0 = np.atleast_1d(np.array(S0).squeeze())
         except:
             _is_scalar=True
         
+        print("SCALAR?", _is_scalar)
+
         # FIFTH: Set S0 and z_ext[0]
         _idx = 0
         for ID in self.list_of_channel_head_segment_IDs:
@@ -1568,6 +1574,7 @@ class Network(object):
             _idx += 1
             # Hard-coding: Expecting only one segment in list
             # Because this is just for the channel-head segments
+            print("ID", lp.ID)
             lp.z_ext[0][0] = lp.z[0] + lp.S0 * lp.dx[0]
             
     def set_z_bl (self, z0):

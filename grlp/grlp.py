@@ -1108,6 +1108,9 @@ class Network(object):
                                           block_diag(sparse_blocks) )
 
     def add_block_diagonal_matrix_upstream_boundary_conditions(self):
+        """
+        Add internal upstream boundary conditions
+        """
         for lp in self.list_of_LongProfile_objects:
             if len(lp.upstream_segment_IDs) == 0:
                 pass
@@ -1174,6 +1177,9 @@ class Network(object):
 
 
     def add_block_diagonal_matrix_downstream_boundary_conditions(self):
+        """
+        Add internal downstream boundary conditions
+        """
         for lp in self.list_of_LongProfile_objects:
             for ID in lp.downstream_segment_IDs:
                 # Space to edit
@@ -1189,6 +1195,7 @@ class Network(object):
                 # I've updated dx_ext_2cell to acknowledge boundaries
                 # This should therefore be used here.
                 # !!!!!!!!!!!!!!!!! [0]
+                """
                 C0 = downseg.k_Qs * downseg.intermittency \
                         / ((1-downseg.lambda_p) * downseg.sinuosity**(7/6.)) \
                         * self.dt / lp.dx_ext_2cell[0][-1]
@@ -1198,6 +1205,11 @@ class Network(object):
                 C1 = C0 * dzdx_0_16 * lp.Q[-1] / downseg.B[0]
                 right_new = -C1 * 7/6. * 2 / lp.dx_ext[0][-1]
                 self.LHSblock_matrix[row, col] = right_new
+                """
+                # Pull it from when the blocks were created, above
+                # Janky but I think it will work
+                # CLOSER!
+                self.LHSblock_matrix[row, col] = lp.right[0]
 
 
     """

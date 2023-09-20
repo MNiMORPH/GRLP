@@ -640,7 +640,7 @@ class LongProfile(object):
                     * self.dt
         self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
         """
-
+                
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!
         # ADD NONLINEARITY!
         if len(self.dx_ext) > 1:
@@ -664,16 +664,43 @@ class LongProfile(object):
             dzdx_0_16 = ( np.abs( self.z[0] - 
                                   self.z[1] )
                           / self.dx[0] )**(1/6.)
-            # Positive for right, negative for center
+       # Positive for right, negative for center
             _mainstem_cent_right = dzdx_0_16 * \
                                    (self.Q[0] + self.Q[1])/2. / self.dx[0] \
                                    / self.B[0]
             
             self.center[0] = self.C0 * - ( _trib_cent + _mainstem_cent_right ) \
-                             + 1
+                              / (self.dx_ext_2cell[_tribi][0]/2.) \
+                              + 1
+
+            """
+                    C0 = upseg.k_Qs * upseg.intermittency \
+                            / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
+                            * self.dt
+                    # From upseg, could be either dx_ext, so why not 0 : )
+                    dzdx_0_16 = ( np.abs( lp.z_ext[_relative_id][0] - 
+                                          lp.z_ext[_relative_id][1] )
+                                  / lp.dx_ext[_relative_id][0] )**(1/6.)
+                    C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
+                    # Slight hack but will work in convergent network
+                    #left_new = C0 / upseg.dx_ext[0][-1]
+                    left_new = C1 / lp.dx_ext[_relative_id][0] \
+                                / (lp.dx_ext_2cell[_relative_id][0]/2.)
+                    self.LHSblock_matrix[row, col] = left_new
+                    _relative_id += 1
+            """
+
 
             # Right needs to be changed too
-            self.right[0] = self.C0 * _mainstem_cent_right
+            # This should be positive... but I get something that looks right
+            # when I make it negative
+            # ???????????????????????????????????????????
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            self.right[0] = self.C0 * _mainstem_cent_right \
+                            / (self.dx_ext_2cell[_tribi][0]/2.)
+            # But gradient keeps decreasing and should be constant
+            # Is sediment being transmitted across properly via
+            # slope * discharge?
             
             # Left will be handled among boundary conditions
             
@@ -1117,7 +1144,8 @@ class Network(object):
                     C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
                     # Slight hack but will work in convergent network
                     #left_new = C0 / upseg.dx_ext[0][-1]
-                    left_new = C1 / lp.dx_ext[_relative_id][0]
+                    left_new = C1 / lp.dx_ext[_relative_id][0] \
+                                / (lp.dx_ext_2cell[_relative_id][0]/2.)
                     self.LHSblock_matrix[row, col] = left_new
                     _relative_id += 1
 

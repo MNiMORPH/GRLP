@@ -1201,7 +1201,7 @@ class Network(object):
                         * self.dt / lp.dx_ext_2cell[0][-1]
                 # !!!!!!!!!!!!!!!!!!!!!! [0] z_ext, dx_ext
                 dzdx_0_16 = ( np.abs(lp.z_ext[0][-2] - lp.z_ext[0][-1])
-                              / (lp.dx_ext[0][0]))**(1/6.)
+                              / (lp.dx_ext[0][-1]))**(1/6.)
                 C1 = C0 * dzdx_0_16 * lp.Q[-1] / downseg.B[0]
                 right_new = -C1 * 7/6. * 2 / lp.dx_ext[0][-1]
                 self.LHSblock_matrix[row, col] = right_new
@@ -1210,7 +1210,6 @@ class Network(object):
                 # Janky but I think it will work
                 # CLOSER!
                 self.LHSblock_matrix[row, col] = lp.right[0]
-
 
     """
     def get_z_all(self):

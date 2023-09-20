@@ -32,6 +32,21 @@ x = [
       1000 * np.array([12, 14, 16, 18]),
     ]
 
+# Shorter for test
+# Custom for just this test network
+x = [
+      1000 * np.array([2, 4, 6, 8]),
+      1000 * np.array([2, 4, 6, 8]),
+      1000 * np.array([10, 12, 14, 16]),
+    ]
+
+# Base level
+x_bl = 1000*18
+z_bl = 0
+
+# Upstream boundary condition: 1.5% grade
+S0 = [0.015, 0.015]
+
 nseg = len(x)
 numel = []
 for _x in x:
@@ -63,13 +78,6 @@ print( "**************" )
 print( "" )
 
 
-# Base level
-x_bl = 1000*20
-z_bl = 0
-
-# Upstream boundary condition: 1.5% grade
-S0 = [0.015, 0.015]
-
 # Instantiate network object
 net = grlp.Network()
 self = net # For debugging, etc.
@@ -91,7 +99,7 @@ net.initialize(
                 )
 
 # Should do this above
-net.set_niter(1)
+net.set_niter(3)
 net.get_z_lengths()
 
 # For testing
@@ -101,7 +109,7 @@ net.get_z_lengths()
 # For plotting
 # WHEN RUN FOR NT=10, GET BACKWARDS SLOPE ON TRIBUTARY
 # THIS IS WHERE WE NEED TO ADD IN CLOSED BASINS AS ANOTHER SEGMENT TYPE
-net.evolve_threshold_width_river_network(nt=36, dt=100*dt)
+net.evolve_threshold_width_river_network(nt=36, dt=1000*dt)
 
 for lp in net.list_of_LongProfile_objects:
     # If not downstream-most segment

@@ -2099,7 +2099,7 @@ class Network(object):
         for ti in range(int(self.nt)):
             for lp in self.list_of_LongProfile_objects:
                 lp.build_LHS_coeff_C0(dt=self.dt)
-                lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
+                lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT? < -- KEEP! FOR ITERATOR.
                 lp.network__compute_coefficient_time_varying() # <-- Quelle der Problem
                 #lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
             """
@@ -2124,7 +2124,7 @@ class Network(object):
             # Leave to iterations?
             #self.stack_RHS_vector()
 
-            for i in range(self.niter):
+            for _iter_i in range(self.niter):
                 self.update_z_ext_internal()
                 for lp in self.list_of_LongProfile_objects:
                     # Update coefficient for all: elements may call to others
@@ -2138,27 +2138,50 @@ class Network(object):
                 self.add_block_diagonal_matrix_upstream_boundary_conditions()
                 self.add_block_diagonal_matrix_downstream_boundary_conditions()
                 self.stack_RHS_vector()
+                # Returning z to z_old if in the iteration loops
+                # Shouldnt be necessary on first iteration, but will
+                # add this check after making sure that other things
+                # are working
+                for lp in self.list_of_LongProfile_objects:
+                    lp.z = lp.zold.copy()
                 # Update semi-implicit on boundaries
                 # Commenting these two out helps solution!
                 # Don't understand why. Perhaps error in code for them?
                 #self.add_block_diagonal_matrix_upstream_boundary_conditions()
                 #self.add_block_diagonal_matrix_downstream_boundary_conditions()
                 out = spsolve(sparse.csr_matrix(self.LHSblock_matrix), self.RHS)
-                i = 0
+                
+                lp_i = 0
                 idx = 0
                 for lp in self.list_of_LongProfile_objects:
-                    pass
                     # IMPORTANT: NEED TO UPDATE Z FIRST
                     # Z_EXT VALUES BASED ON Z VALUES, WHEN
                     # INTERNAL VALUES ARE UPDATED FROM UPSTREAM
                     # Hm: Might not want to update z within iterator.
-                    """
-                    lp.z = out[idx:idx+self.list_of_segment_lengths[i]]
-                    for _tribi in range(len(lp.z_ext)):
-                        lp.z_ext[_tribi][1:-1] = lp.z
-                    idx += +self.list_of_segment_lengths[i]
-                    i += 1
-                    """
+                    
+                    # !!!!!!!!!!!!!!!!!!!!!!!
+                    # ITERATOR NOT WORKING UNTIL THIS IS FIXED
+                    # 
+                    
+                    # NEED TO UPDATE lp.z: OTHER FUNCTIONS ARE BASED ON THIS
+                    lp.z = out[idx:idx+self.list_of_segment_lengths[lp_i]]
+                    
+                    # Not sure if this be the way to go:
+                    #for _tribi in range(len(lp.z_ext)):
+                    #    lp.z_ext[_tribi][1:-1] = lp.z
+                        
+                    # Or maybe this is it:
+                    self.update_z_ext_internal()
+                    self.update_z_ext_external_upstream( S0 = self.S0,
+                                                          Q_s_0 = self.Q_s_0 )
+                    # This probably needn't be run, but whatever
+                    #self.update_z_ext_external_downstream( z_bl )
+
+                    idx += +self.list_of_segment_lengths[lp_i]
+                    lp_i += 1
+                    
+                    # Update boundaries in later functions
+
             # Simplify; Hard-code single iteration
             i = 0
             idx = 0

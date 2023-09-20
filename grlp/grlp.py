@@ -657,14 +657,20 @@ class LongProfile(object):
                 dzdx_0_16 = ( np.abs( self.z_ext[_tribi][0] - 
                                       self.z_ext[_tribi][1] )
                               / self.dx_ext[_tribi][0] )**(1/6.)
-                
+  
                 # All of C1 except for C0 is included here
                 # It varies based on trib junction
                 _trib_cent += dzdx_0_16 * \
                               ( self.Q_ext[_tribi][0] / 
                                 self.dx_ext[_tribi][0] ) \
                               / self.land_area_around_confluence
-  
+                print("T", self.upstream_segment_IDs[_tribi], 
+                            self.C0 * dzdx_0_16 * \
+                          ( self.Q_ext[_tribi][0] / 
+                            self.dx_ext[_tribi][0] ) \
+                          / self.land_area_around_confluence)
+            #print(_tribi) # Yep: 2 streams
+            
             # All of C1 except for C0 is included here
             dzdx_0_16 = ( np.abs( self.z[0] - 
                                   self.z[1] )
@@ -701,6 +707,7 @@ class LongProfile(object):
             # ???????????????????????????????????????????
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             self.right[0] = self.C0 * _mainstem_cent_right
+            #print("R", self.right[0])
             # But gradient keeps decreasing and should be constant
             # Is sediment being transmitted across properly via
             # slope * discharge?
@@ -1150,6 +1157,8 @@ class Network(object):
                     #left_new = C0 / upseg.dx_ext[0][-1]
                     left_new = C1 / lp.dx_ext[_relative_id][0]
                     self.LHSblock_matrix[row, col] = left_new
+                    #if _relative_id == 0:
+                    print("L", upseg.ID, left_new)
                     _relative_id += 1
 
 
@@ -2069,12 +2078,15 @@ class Network(object):
                 lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
                 lp.network__compute_coefficient_time_varying() # <-- Quelle der Problem
                 #lp.zold = lp.z.copy() # DEBUG OR NOT? KEEP OR NOT?
+            """
+            # Zap from here: Only inside iteration
             for lp in self.list_of_LongProfile_objects:
                 lp.network__build_matrix_inner()
             self.map_block_diagonal_matrix_blocks()
             self.create_block_diagonal_matrix_with_internal_tridiagonals()
             self.add_block_diagonal_matrix_upstream_boundary_conditions()
             self.add_block_diagonal_matrix_downstream_boundary_conditions()
+            """
             # b.c. for no links
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             """
@@ -2085,7 +2097,8 @@ class Network(object):
                 if len(lp.downstream_segment_IDs) == 0:
                     lp.set_bcr_Dirichlet()
             """
-            self.stack_RHS_vector()
+            # Leave to iterations?
+            #self.stack_RHS_vector()
 
             for i in range(self.niter):
                 self.update_z_ext_internal()
@@ -2095,6 +2108,12 @@ class Network(object):
                     lp.network__compute_coefficient_time_varying()
                 for lp in self.list_of_LongProfile_objects:
                     lp.network__build_matrix_inner()
+                # Try adding all of these here??
+                self.map_block_diagonal_matrix_blocks()
+                self.create_block_diagonal_matrix_with_internal_tridiagonals()
+                self.add_block_diagonal_matrix_upstream_boundary_conditions()
+                self.add_block_diagonal_matrix_downstream_boundary_conditions()
+                self.stack_RHS_vector()
                 # Update semi-implicit on boundaries
                 # Commenting these two out helps solution!
                 # Don't understand why. Perhaps error in code for them?
@@ -2104,14 +2123,27 @@ class Network(object):
                 i = 0
                 idx = 0
                 for lp in self.list_of_LongProfile_objects:
+                    pass
                     # IMPORTANT: NEED TO UPDATE Z FIRST
                     # Z_EXT VALUES BASED ON Z VALUES, WHEN
                     # INTERNAL VALUES ARE UPDATED FROM UPSTREAM
+                    # Hm: Might not want to update z within iterator.
+                    """
                     lp.z = out[idx:idx+self.list_of_segment_lengths[i]]
                     for _tribi in range(len(lp.z_ext)):
                         lp.z_ext[_tribi][1:-1] = lp.z
                     idx += +self.list_of_segment_lengths[i]
                     i += 1
+                    """
+            # Simplify; Hard-code single iteration
+            i = 0
+            idx = 0
+            for lp in self.list_of_LongProfile_objects:
+                lp.z = out[idx:idx+self.list_of_segment_lengths[i]]
+                for _tribi in range(len(lp.z_ext)):
+                    lp.z_ext[_tribi][1:-1] = lp.z
+                idx += +self.list_of_segment_lengths[i]
+                i += 1
             self.update_z_ext_internal()
             # Update upstream boundary condition: Elevation may change to keep
             # slope constant

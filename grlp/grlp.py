@@ -663,19 +663,18 @@ class LongProfile(object):
                 _trib_cent += dzdx_0_16 * \
                               ( self.Q_ext[_tribi][0] / 
                                 self.dx_ext[_tribi][0] ) \
-                              / self.B[0]
+                              / self.land_area_around_confluence
   
             # All of C1 except for C0 is included here
             dzdx_0_16 = ( np.abs( self.z[0] - 
                                   self.z[1] )
                           / self.dx[0] )**(1/6.)
-       # Positive for right, negative for center
+            # Positive for right, negative for center
             _mainstem_cent_right = dzdx_0_16 * \
                                    (self.Q[0] + self.Q[1])/2. / self.dx[0] \
-                                   / self.B[0]
+                                   / self.land_area_around_confluence
             
             self.center[0] = self.C0 * - ( _trib_cent + _mainstem_cent_right ) \
-                              / (self.dx_ext_2cell[_tribi][0]/2.) \
                               + 1
 
             """
@@ -701,8 +700,7 @@ class LongProfile(object):
             # when I make it negative
             # ???????????????????????????????????????????
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            self.right[0] = self.C0 * _mainstem_cent_right \
-                            / (self.dx_ext_2cell[_tribi][0]/2.)
+            self.right[0] = self.C0 * _mainstem_cent_right
             # But gradient keeps decreasing and should be constant
             # Is sediment being transmitted across properly via
             # slope * discharge?
@@ -1146,11 +1144,11 @@ class Network(object):
                     dzdx_0_16 = ( np.abs( lp.z_ext[_relative_id][0] - 
                                           lp.z_ext[_relative_id][1] )
                                   / lp.dx_ext[_relative_id][0] )**(1/6.)
-                    C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
+                    C1 = C0 * dzdx_0_16 * upseg.Q[-1] / \
+                                    lp.land_area_around_confluence
                     # Slight hack but will work in convergent network
                     #left_new = C0 / upseg.dx_ext[0][-1]
-                    left_new = C1 / lp.dx_ext[_relative_id][0] \
-                                / (lp.dx_ext_2cell[_relative_id][0]/2.)
+                    left_new = C1 / lp.dx_ext[_relative_id][0]
                     self.LHSblock_matrix[row, col] = left_new
                     _relative_id += 1
 

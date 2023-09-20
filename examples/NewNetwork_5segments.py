@@ -24,7 +24,10 @@ upstream_segment_IDs = [[], [], [0,1], [], [2,3]]
 downstream_segment_IDs = [[2], [2], [4], [4], []]
 
 z = []
-Q_in_list = [5., 5., 10., 5, 15.]
+#Q_in_list = [5., 5., 10., 5, 15.]
+# Test constant 
+#Q_in_list = [5., 5., 10., 5, 15.]
+Q_in_list = [5., 5., 5., 5, 5.]
 Q = []
 B = []
 print( "" )

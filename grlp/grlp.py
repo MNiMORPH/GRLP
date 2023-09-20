@@ -656,84 +656,86 @@ class LongProfile(object):
                 
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!
         # ADD NONLINEARITY!
-        if len(self.dx_ext) > 1:
-            # Tributary contributions to center: Write to work for any
-            # integer > 0 number of tributaries
-            _trib_cent = 0.
-            self.upseg_trib_coeffs = []
-            for _tribi in range( len(self.dx_ext) ):
-                # Slope for nonlinear portion
-                dzdx_0_16 = ( np.abs( self.z_ext[_tribi][0] - 
-                                      self.z_ext[_tribi][1] )
-                              / self.dx_ext[_tribi][0] )**(1/6.)
-  
-                # All of C1 except for C0 is included here
-                # It varies based on trib junction
-                # _trib_coeff = 1 * \
-                # 1E0 to play with coefficients and check them
-                _trib_coeff = dzdx_0_16 * 1E0 * \
-                              ( self.Q_ext[_tribi][0] / 
-                                self.dx_ext[_tribi][0] ) \
-                              / self.land_area_around_confluence
-                _trib_cent += _trib_coeff
-                print("T", self.upstream_segment_IDs[_tribi], 
-                            self.C0 * _trib_coeff)
-                # Svae this value to transmit to upstream parts of matrix
-                self.upseg_trib_coeffs.append( self.C0 * _trib_coeff )
-            #print(_tribi) # Yep: 2 streams
-            
+        #if len(self.dx_ext) > 1: # Or even 1
+        # Tributary contributions to center: Write to work for any
+        # integer > 0 number of tributaries
+        _trib_cent = 0.
+        self.upseg_trib_coeffs = []
+        for _tribi in range( len(self.dx_ext) ):
+            # Slope for nonlinear portion
+            dzdx_0_16 = ( np.abs( self.z_ext[_tribi][0] - 
+                                  self.z_ext[_tribi][1] )
+                          / self.dx_ext[_tribi][0] )**(1/6.)
+
+            print ( self.dx_ext )
+
             # All of C1 except for C0 is included here
-            dzdx_0_16 = ( np.abs( self.z[0] - 
-                                  self.z[1] )
-                          / self.dx[0] )**(1/6.)
-            # Positive for right, negative for center
-            #_mainstem_cent_right = 1 * \
+            # It varies based on trib junction
+            # _trib_coeff = 1 * \
             # 1E0 to play with coefficients and check them
-            _mainstem_cent_right = dzdx_0_16 * 1E0 * \
-                                   (self.Q[0] + self.Q[1])/2. / self.dx[0] \
-                                   / self.land_area_around_confluence
-            
-            self.center[0] = self.C0 * - ( _trib_cent + _mainstem_cent_right ) \
-                              + 1
+            _trib_coeff = dzdx_0_16 * 1E0 * \
+                          ( self.Q_ext[_tribi][0] / 
+                            self.dx_ext[_tribi][0] ) \
+                          / self.land_area_around_confluence
+            _trib_cent += _trib_coeff
+            print("T", self.upstream_segment_IDs[_tribi], 
+                        self.C0 * _trib_coeff)
+            # Svae this value to transmit to upstream parts of matrix
+            self.upseg_trib_coeffs.append( self.C0 * _trib_coeff )
+        #print(_tribi) # Yep: 2 streams
+        
+        # All of C1 except for C0 is included here
+        dzdx_0_16 = ( np.abs( self.z[0] - 
+                              self.z[1] )
+                      / self.dx[0] )**(1/6.)
+        # Positive for right, negative for center
+        #_mainstem_cent_right = 1 * \
+        # 1E0 to play with coefficients and check them
+        _mainstem_cent_right = dzdx_0_16 * 1E0 * \
+                               (self.Q[0] + self.Q[1])/2. / self.dx[0] \
+                               / self.land_area_around_confluence
+        
+        self.center[0] = self.C0 * - ( _trib_cent + _mainstem_cent_right ) \
+                          + 1
 
-            """
-                    C0 = upseg.k_Qs * upseg.intermittency \
-                            / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
-                            * self.dt
-                    # From upseg, could be either dx_ext, so why not 0 : )
-                    dzdx_0_16 = ( np.abs( lp.z_ext[_relative_id][0] - 
-                                          lp.z_ext[_relative_id][1] )
-                                  / lp.dx_ext[_relative_id][0] )**(1/6.)
-                    C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
-                    # Slight hack but will work in convergent network
-                    #left_new = C0 / upseg.dx_ext[0][-1]
-                    left_new = C1 / lp.dx_ext[_relative_id][0] \
-                                / (lp.dx_ext_2cell[_relative_id][0]/2.)
-                    self.LHSblock_matrix[row, col] = left_new
-                    _relative_id += 1
-            """
+        """
+                C0 = upseg.k_Qs * upseg.intermittency \
+                        / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
+                        * self.dt
+                # From upseg, could be either dx_ext, so why not 0 : )
+                dzdx_0_16 = ( np.abs( lp.z_ext[_relative_id][0] - 
+                                      lp.z_ext[_relative_id][1] )
+                              / lp.dx_ext[_relative_id][0] )**(1/6.)
+                C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
+                # Slight hack but will work in convergent network
+                #left_new = C0 / upseg.dx_ext[0][-1]
+                left_new = C1 / lp.dx_ext[_relative_id][0] \
+                            / (lp.dx_ext_2cell[_relative_id][0]/2.)
+                self.LHSblock_matrix[row, col] = left_new
+                _relative_id += 1
+        """
 
 
-            # Right needs to be changed too
-            # This should be positive... but I get something that looks right
-            # when I make it negative
-            # ???????????????????????????????????????????
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            self.right[0] = self.C0 * _mainstem_cent_right
-            #print("R", self.right[0])
-            # But gradient keeps decreasing and should be constant
-            # Is sediment being transmitted across properly via
-            # slope * discharge?
-            
-            # Left will be handled among boundary conditions
-            
-            print("! 0 IF WE CONSERVE MASS !")
-            print( self.right[0] + self.center[0] - 1 + np.sum(self.upseg_trib_coeffs) )
+        # Right needs to be changed too
+        # This should be positive... but I get something that looks right
+        # when I make it negative
+        # ???????????????????????????????????????????
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        self.right[0] = self.C0 * _mainstem_cent_right
+        #print("R", self.right[0])
+        # But gradient keeps decreasing and should be constant
+        # Is sediment being transmitted across properly via
+        # slope * discharge?
+        
+        # Left will be handled among boundary conditions
+        
+        print("! 0 IF WE CONSERVE MASS !")
+        print( self.right[0] + self.center[0] - 1 + np.sum(self.upseg_trib_coeffs) )
 
-            print("L-R balance!")
-            print( np.sum(self.upseg_trib_coeffs) - self.right[0] )
+        print("L-R balance!")
+        print( np.sum(self.upseg_trib_coeffs) - self.right[0] )
 
-            
+        
         # As long as the network is convergent and based on Dirichlet boundary
         # conditions on the downstream end, the single downstream segment
         # should suffice with no modifications
@@ -1106,36 +1108,7 @@ class Network(object):
         for lp in self.list_of_LongProfile_objects:
             if len(lp.upstream_segment_IDs) == 0:
                 pass
-            elif len(lp.upstream_segment_IDs) == 1:
-                # HAVE NOT YET UPDATED THIS
-                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                # COULD MAKE UNIFORM WITH THE OTHERS
-                for ID in lp.upstream_segment_IDs:
-                    # Space to edit
-                    col = self.block_end_absolute[self.IDs == ID][0]
-                    row = self.block_start_absolute[self.IDs == lp.ID][0]
-                    # Matrix entry, assuming net aligns with ids
-                    upseg = self.list_of_LongProfile_objects[ID]
-                    # OLD
-                    #C0 = upseg.k_Qs * upseg.intermittency \
-                    #        / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
-                    #        * self.dt / (2 * lp.dx_ext[0])
-                    # !!!C0!!!
-                    # I've updated dx_ext_2cell to acknowledge boundaries
-                    # This should therefore be used here.
-                    C0 = upseg.k_Qs * upseg.intermittency \
-                            / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
-                            * self.dt / lp.dx_ext_2cell[0]
-                    # From earlier
-                    #C0 = upseg.C0[-1] # Should be consistent
-                    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                    # Seems to make no difference whether these are 0 or 1
-                    dzdx_0_16 = ( np.abs(lp.z_ext[0][1] - lp.z_ext[0][0])
-                                  / (lp.dx_ext[0][0]))**(1/6.)
-                    C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
-                    left_new = -C1 * 7/6. * 2 / lp.dx_ext[0][0]
-                    self.LHSblock_matrix[row, col] = left_new
-            elif len(lp.upstream_segment_IDs) > 1:
+            else:
                 _relative_id = 0
                 for ID in lp.upstream_segment_IDs:
                     # Space to edit

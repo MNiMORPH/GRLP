@@ -1868,7 +1868,9 @@ class Network(object):
         This is a first attempt
         """
         for lp in self.list_of_LongProfile_objects:
-            if len(lp.dx_ext) > 1:
+            # COULD CLEAN THIS UP
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            if len(lp.upstream_segment_IDs) > 0:
                 land_areas_above_confluence = []
                 for ID in lp.upstream_segment_IDs:
                     upseg = self.list_of_LongProfile_objects[ID]
@@ -1886,6 +1888,7 @@ class Network(object):
                                           land_area_below_confluence ))
                                           
             else:
+                #print("Ahhhhmmmm.... why do you have no dx_ext?")
                 lp.land_area_around_confluence = None
 
             print(lp.land_area_around_confluence)

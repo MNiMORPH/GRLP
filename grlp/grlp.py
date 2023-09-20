@@ -661,6 +661,7 @@ class LongProfile(object):
   
                 # All of C1 except for C0 is included here
                 # It varies based on trib junction
+                # _trib_coeff = 1 * \
                 _trib_coeff = dzdx_0_16 * \
                               ( self.Q_ext[_tribi][0] / 
                                 self.dx_ext[_tribi][0] ) \
@@ -677,6 +678,7 @@ class LongProfile(object):
                                   self.z[1] )
                           / self.dx[0] )**(1/6.)
             # Positive for right, negative for center
+            #_mainstem_cent_right = 1 * \
             _mainstem_cent_right = dzdx_0_16 * \
                                    (self.Q[0] + self.Q[1])/2. / self.dx[0] \
                                    / self.land_area_around_confluence
@@ -717,6 +719,10 @@ class LongProfile(object):
             
             print("! 0 IF WE CONSERVE MASS !")
             print( self.right[0] + self.center[0] - 1 + np.sum(self.upseg_trib_coeffs) )
+
+            print("L-R balance!")
+            print( np.sum(self.upseg_trib_coeffs) - self.right[0] )
+
             
         # As long as the network is convergent and based on Dirichlet boundary
         # conditions on the downstream end, the single downstream segment

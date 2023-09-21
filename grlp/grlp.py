@@ -354,6 +354,7 @@ class LongProfile(object):
         # !!!C0!!!
         # NOT YET UPDATED
         # KEEPING self.dx_ext_2cell INSTEAD OF USING MORE PRECISE OPTION
+        # Just used for 1-seg modeling
         dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
                          / self.dx_ext_2cell )**(1/6.)
         self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
@@ -690,8 +691,8 @@ class LongProfile(object):
             
             # All of C1 except for C0 is included here
             # This is the value for downstream of the confluence
-            dzdx_0_16 = ( np.abs( self.z[0] - 
-                                  self.z[1] )
+            dzdx_0_16 = ( np.abs( self.z_ext[_tribi][1] - 
+                                  self.z_ext[_tribi][2] )
                           / self.dx[0] )**(1/6.)
             #self.DEBUG_dzdx_0_16__downstream = dzdx_0_16.copy()
             # Positive for right, negative for center
@@ -1300,7 +1301,7 @@ class Network(object):
                 # For a convergent network, can just choose any part
                 # of dx_ext_2cell; 0 is the most sensible.
                 # Then, naturally, the end.
-                dzdx_0_16 = np.abs( (lp.z[-2] - downseg.z[0]) \
+                dzdx_0_16 = np.abs( (lp.z_ext[0][-3] - lp.z_ext[0][-1]) \
                                / lp.dx_ext_2cell[0][-1] )**(1/6.)
                 # In fact, should everytihng be the same?
                 # C1 values are the same here
@@ -2312,8 +2313,11 @@ class Network(object):
                 # Shouldnt be necessary on first iteration, but will
                 # add this check after making sure that other things
                 # are working
-                for lp in self.list_of_LongProfile_objects:
-                    lp.z = lp.zold.copy()
+                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                # Removed reference to this: dzdx_0_16 now only from z_ext
+                # and friends. Can update as much as we want before the end :)
+                #for lp in self.list_of_LongProfile_objects:
+                #    lp.z = lp.zold.copy()
                 # Update semi-implicit on boundaries
                 # Commenting these two out helps solution!
                 # Don't understand why. Perhaps error in code for them?

@@ -1231,17 +1231,10 @@ class Network(object):
                 """
                 
                 # dQ/dx term is miniscule! Doesn't really matter.
-                #right_new = -C1 / lp.dx_ext_2cell[0][-1] \
+                #right_new = -C1 / lp.dx_ext[0][-1] \
                 #              * (7/3.)/lp.dx_ext_2cell[0][-1]
-                # But if I multiply by 2, it works.
-                # This is required even for Network_2_segments
-                # in which there is no increase in discharge!
-                # Just 1 river straight to another across a boundary
                 self.LHSblock_matrix[row, col] = right_new
-                #print("OLD,NEW:", lp.right[0], right_new*2)
-                #self.LHSblock_matrix[row, col] = lp.right[0]
-                
-                #self.LHSblock_matrix[row, col] = right_new*2
+
                 """
                 # Notes from above
                 self.C0 = self.k_Qs * self.intermittency \

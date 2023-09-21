@@ -67,6 +67,8 @@ Q_in_list = [np.array([5,5,5,5]), np.array([10,10,10,10])]
 # Back to the upstream example.
 Q_in_list = [np.array([5,5,10,10]), np.array([10,10,10,10])]
 
+Q_in_list = [5., 5.]
+
 
 Q = []
 B = []
@@ -107,7 +109,10 @@ net.initialize(
                 )
 
 # Should do this above
-net.set_niter(1)
+
+# ITERATIONS CAUSE SEGMENTS DOWNSTREAM OF CONFLUENCE TO *DIVERGE FROM*
+# AND BECOME GENTLER IN SLOPE THAN THEY SHOULD BE VIA THEORY
+net.set_niter(30)
 net.get_z_lengths()
 
 # For testing
@@ -122,7 +127,7 @@ net.evolve_threshold_width_river_network(nt=36, dt=100*dt)
 # Predict slopes -- without tributary-network inputs
 S_predicted = []
 S0val = S0[0]
-Q0 = Q_in_list[0][0]
+Q0 = Q_in_list[0]
 for lp in net.list_of_LongProfile_objects:
     Mean_Q = (lp.Q[:-1] + lp.Q[1:])/2.
     S_predicted.append( S0val * (Q0/Mean_Q)**(6/7.) )

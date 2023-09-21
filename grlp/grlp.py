@@ -688,10 +688,11 @@ class LongProfile(object):
             #print(_tribi) # Yep: 2 streams
             
             # All of C1 except for C0 is included here
+            # This is the value for downstream of the confluence
             dzdx_0_16 = ( np.abs( self.z[0] - 
                                   self.z[1] )
                           / self.dx[0] )**(1/6.)
-            self.DEBUG_dzdx_0_16 = dzdx_0_16.copy()
+            #self.DEBUG_dzdx_0_16__downstream = dzdx_0_16.copy()
             # Positive for right, negative for center
             #_mainstem_cent_right = 1 * \
             # 1E0 to play with coefficients and check them
@@ -1193,6 +1194,7 @@ class Network(object):
                     # !!!!!!!!!!!!!!!!!!!! [0] z_ext
                     
                     # Same as above
+                    # This is specific for the upstream reach
                     dzdx_0_16 = ( np.abs(lp.z_ext[0][1] - lp.z_ext[0][0])
                                   / (lp.dx_ext[_relative_id][0]))**(1/6.)
 

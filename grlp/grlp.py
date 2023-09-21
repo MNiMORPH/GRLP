@@ -1220,7 +1220,7 @@ class Network(object):
                 # by a factor of 3.84ish
                 C1 = C0 * dzdx_0_16 * lp.Q[-1] / lp.B[-1]
                 right_new = -C1 / lp.dx_ext_2cell[0][-1] \
-                              * ( (7/3.)/lp.dx_ext_2cell[0][-1] # REALLY?
+                              * ( (7/3.)/lp.dx_ext[0][-1] # REALLY?
                                   + lp.dQ_ext_2cell[0][-1]/lp.Q[-1]
                                     / lp.dx_ext_2cell[0][-1] )
                 """
@@ -1231,13 +1231,13 @@ class Network(object):
                 """
                 
                 # dQ/dx term is miniscule! Doesn't really matter.
-                right_new = -C1 / lp.dx_ext_2cell[0][-1] \
-                              * (7/3.)/lp.dx_ext_2cell[0][-1]
+                #right_new = -C1 / lp.dx_ext_2cell[0][-1] \
+                #              * (7/3.)/lp.dx_ext_2cell[0][-1]
                 # But if I multiply by 2, it works.
                 # This is required even for Network_2_segments
                 # in which there is no increase in discharge!
                 # Just 1 river straight to another across a boundary
-                self.LHSblock_matrix[row, col] = right_new * 2
+                self.LHSblock_matrix[row, col] = right_new
                 #print("OLD,NEW:", lp.right[0], right_new*2)
                 #self.LHSblock_matrix[row, col] = lp.right[0]
                 

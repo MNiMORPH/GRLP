@@ -680,6 +680,7 @@ class LongProfile(object):
                               ( self.Q_ext[_tribi][0] / 
                                 self.dx_ext[_tribi][0] ) \
                               / self.land_area_around_confluence
+                #_trib_coeff *= -1
                 _trib_cent += _trib_coeff
                 print("T", self.upstream_segment_IDs[_tribi], 
                             self.C0 * _trib_coeff)
@@ -700,7 +701,7 @@ class LongProfile(object):
                                    (self.Q[0] + self.Q[1])/2. / self.dx[0] \
                                    / self.land_area_around_confluence
             
-            self.center[0] = self.C0 * - ( _trib_cent + _mainstem_cent_right ) \
+            self.center[0] = self.C0 * ( _trib_cent + _mainstem_cent_right ) \
                               + 1
 
             """
@@ -726,7 +727,7 @@ class LongProfile(object):
             # when I make it negative
             # ???????????????????????????????????????????
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            self.right[0] = self.C0 * _mainstem_cent_right
+            self.right[0] = - self.C0 * _mainstem_cent_right
             #print("R", self.right[0])
             # But gradient keeps decreasing and should be constant
             # Is sediment being transmitted across properly via
@@ -734,12 +735,13 @@ class LongProfile(object):
             
             # Left will be handled among boundary conditions
             
+            """
             print("! 0 IF WE CONSERVE MASS !")
             print( self.right[0] + self.center[0] - 1 + np.sum(self.upseg_trib_coeffs) )
 
             print("L-R balance!")
             print( np.sum(self.upseg_trib_coeffs) - self.right[0] )
-
+            """
         
         # As long as the network is convergent and based on Dirichlet boundary
         # conditions on the downstream end, the single downstream segment
@@ -1207,7 +1209,7 @@ class Network(object):
                     #C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
                     
                     # Try something like above -- still the same?
-                    _trib_coeff = dzdx_0_16 * \
+                    _trib_coeff = -dzdx_0_16 * \
                                   ( lp.Q_ext[_relative_id][0] / 
                                     lp.dx_ext[_relative_id][0] ) \
                                   / lp.land_area_around_confluence

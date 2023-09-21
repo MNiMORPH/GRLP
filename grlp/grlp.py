@@ -1165,6 +1165,8 @@ class Network(object):
                     _relative_id += 1
                     """
                     
+                    """
+                    # THIS BASICALLY SEEMED TO WORK, BUT I WONDER...
                     # I keep getting different values from the calcs above
                     # in some places
                     # but not others
@@ -1175,8 +1177,90 @@ class Network(object):
                                     lp.upseg_trib_coeffs[_relative_id]
                     print("L", upseg.ID, lp.upseg_trib_coeffs[_relative_id])
                     _relative_id += 1
+                    """
+                    
+                    # Revisiting this question
+                    # in case I should calculate locally
+                    # for some reason
+                    
+                    # Same as above.
+                    C0 = upseg.k_Qs * upseg.intermittency \
+                            / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
+                            * self.dt
+                            
+                    # From earlier
+                    #C0 = upseg.C0[-1] # Should be consistent
+                    # !!!!!!!!!!!!!!!!!!!! [0] z_ext
+                    
+                    # Same as above
+                    dzdx_0_16 = ( np.abs(lp.z_ext[0][1] - lp.z_ext[0][0])
+                                  / (lp.dx_ext[_relative_id][0]))**(1/6.)
 
+                    # Half value -- because we are using upseg.Q?
+                    # But perhaps that is as it should be, and might
+                    # solve some of our problem.
+                    # But actually, the above code also uses
+                    # that upstream Q....
+                    # ... though it really doesn't use a "C1" as stated
+                    #C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
+                    
+                    # Try something like above -- still the same?
+                    _trib_coeff = dzdx_0_16 * \
+                                  ( lp.Q_ext[_relative_id][0] / 
+                                    lp.dx_ext[_relative_id][0] ) \
+                                  / lp.land_area_around_confluence
+                    
+                    # Very slightly different from upstream values !!!???WHY?
+                    # Hm, in fact, they seem the same, upon running the code
+                    # So perhaps no reason to do this
+                    # Just use values from above function, in array?
+                    self.LHSblock_matrix[row, col] = \
+                                    C0 * _trib_coeff
+                    print("L", upseg.ID, lp.upseg_trib_coeffs[_relative_id],
+                                C0 * _trib_coeff)
+                    _relative_id += 1
+                    
+                    """
+                    C1 = C0 * dzdx_0_16 * upseg.Q[-1] \
+                          / lp.land_area_around_confluence
+                          
 
+                    left_new = -C1 * 7/6. * 2 / lp.dx_ext[_relative_id][0]
+                    self.LHSblock_matrix[row, col] = left_new
+                    _relative_id += 1
+                    """
+                    
+                    """
+                    C0 = upseg.k_Qs * upseg.intermittency \
+                            / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
+                            * self.dt
+                    # From upseg, could be either dx_ext, so why not 0 : )
+                    dzdx_0_16 = ( np.abs( lp.z_ext[_relative_id][0] - 
+                                          lp.z_ext[_relative_id][1] )
+                                  / lp.dx_ext[_relative_id][0] )**(1/6.)
+                    C1 = C0 * dzdx_0_16 * upseg.Q[-1] / \
+                                    lp.land_area_around_confluence
+                    # Slight hack but will work in convergent network
+                    #left_new = C0 / upseg.dx_ext[0][-1]
+                    left_new = C1 / lp.dx_ext[_relative_id][0]
+                    self.LHSblock_matrix[row, col] = left_new
+                    #if _relative_id == 0:
+                    print("L", upseg.ID, left_new)
+                    _relative_id += 1
+                    """
+                    
+                    """
+                    _trib_coeff = dzdx_0_16 * 1E0 * \
+                                  ( self.Q_ext[_tribi][0] / 
+                                    self.dx_ext[_tribi][0] ) \
+                                  / self.land_area_around_confluence
+                    _trib_cent += _trib_coeff
+                    print("T", self.upstream_segment_IDs[_tribi], 
+                                self.C0 * _trib_coeff)
+                    # Svae this value to transmit to upstream parts of matrix
+                    self.upseg_trib_coeffs.append( self.C0 * _trib_coeff )
+                    """
+                
     def add_block_diagonal_matrix_downstream_boundary_conditions(self):
         """
         Add internal downstream boundary conditions

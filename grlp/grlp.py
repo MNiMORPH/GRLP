@@ -1219,10 +1219,12 @@ class Network(object):
                 # But of course, are smaller than those from downstream
                 # by a factor of 3.84ish
                 C1 = C0 * dzdx_0_16 * lp.Q[-1] / lp.B[-1]
+                dQ_term =  ( 1 / lp.Q[-1] ) \
+                           * lp.dQ_ext_2cell[0][-1] \
+                            / lp.dx_ext_2cell[0][-1]
                 right_new = -C1 / lp.dx_ext_2cell[0][-1] \
                               * ( (7/3.)/lp.dx_ext[0][-1] # REALLY?
-                                  + lp.dQ_ext_2cell[0][-1]/lp.Q[-1]
-                                    / lp.dx_ext_2cell[0][-1] )
+                                  + dQ_term)
                 """
                 right_new_noC1 = 1 / lp.dx_ext_2cell[0][-1] \
                               * ( (7/3.)/lp.dx_ext_2cell[0][-1] # REALLY?
@@ -1231,6 +1233,8 @@ class Network(object):
                 """
                 
                 # dQ/dx term is miniscule! Doesn't really matter.
+                # Turns out, it does when I have more significant
+                # differences at the tributary junction.
                 #right_new = -C1 / lp.dx_ext[0][-1] \
                 #              * (7/3.)/lp.dx_ext_2cell[0][-1]
                 self.LHSblock_matrix[row, col] = right_new

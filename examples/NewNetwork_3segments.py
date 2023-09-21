@@ -59,7 +59,7 @@ z = []
 #Q_in_list = [5., 5., 10., 5, 15.]
 # Test constant 
 #Q_in_list = [5., 5., 10., 5, 15.]
-Q_in_list = [5., 5., 10.]
+Q_in_list = [5., 10., 15.]
 Q = []
 B = []
 print( "" )
@@ -99,7 +99,7 @@ net.initialize(
                 )
 
 # Should do this above
-net.set_niter(3)
+net.set_niter(1)
 net.get_z_lengths()
 
 # For testing

@@ -119,9 +119,7 @@ net.get_z_lengths()
 # THIS IS WHERE WE NEED TO ADD IN CLOSED BASINS AS ANOTHER SEGMENT TYPE
 
 # Confluence forced negative at initial contact.
-net.evolve_threshold_width_river_network(nt=6, dt=100*dt)
-
-net.evolve_threshold_width_river_network(nt=30, dt=100*dt)
+net.evolve_threshold_width_river_network(nt=36, dt=100*dt)
 
 # Predict slopes -- without tributary-network inputs
 S_predicted = []

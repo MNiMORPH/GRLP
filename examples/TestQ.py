@@ -14,7 +14,7 @@ import grlp
 importlib.reload(grlp)
 #del net
 
-dt = 3.15E7*10
+dt = 3.15E7
 _B = 100 # uniform
 
 # Shorter for test
@@ -117,7 +117,7 @@ net.get_z_lengths()
 # For plotting
 # WHEN RUN FOR NT=10, GET BACKWARDS SLOPE ON TRIBUTARY
 # THIS IS WHERE WE NEED TO ADD IN CLOSED BASINS AS ANOTHER SEGMENT TYPE
-net.evolve_threshold_width_river_network(nt=36, dt=100*dt)
+net.evolve_threshold_width_river_network(nt=360, dt=10*dt)
 
 # Predict slopes -- without tributary-network inputs
 S_predicted = []

@@ -107,7 +107,7 @@ net.initialize(
                 )
 
 # Should do this above
-net.set_niter(1)
+net.set_niter(3)
 net.get_z_lengths()
 
 # For testing
@@ -117,7 +117,11 @@ net.get_z_lengths()
 # For plotting
 # WHEN RUN FOR NT=10, GET BACKWARDS SLOPE ON TRIBUTARY
 # THIS IS WHERE WE NEED TO ADD IN CLOSED BASINS AS ANOTHER SEGMENT TYPE
-net.evolve_threshold_width_river_network(nt=360, dt=10*dt)
+
+# Confluence forced negative at initial contact.
+net.evolve_threshold_width_river_network(nt=6, dt=100*dt)
+
+net.evolve_threshold_width_river_network(nt=30, dt=100*dt)
 
 # Predict slopes -- without tributary-network inputs
 S_predicted = []

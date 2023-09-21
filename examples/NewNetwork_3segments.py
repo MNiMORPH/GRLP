@@ -59,7 +59,7 @@ z = []
 #Q_in_list = [5., 5., 10., 5, 15.]
 # Test constant 
 #Q_in_list = [5., 5., 10., 5, 15.]
-Q_in_list = [5., 10., 15.]
+Q_in_list = [5., 5., 10.]
 Q = []
 B = []
 print( "" )

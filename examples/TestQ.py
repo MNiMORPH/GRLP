@@ -20,12 +20,12 @@ _B = 100 # uniform
 # Shorter for test
 # Custom for just this test network
 x = [
-      1000 * np.array([2, 4, 6, 8]),
-      1000 * np.array([10, 12, 14, 16]),
+      1000 * np.array([2, 4, 6, 8, 10, 12]),
+      1000 * np.array([14, 16, 18, 20]),
     ]
 
 # Base level
-x_bl = 1000*18
+x_bl = 1000*22
 z_bl = 0
 
 # Upstream boundary condition: 1.5% grade
@@ -65,7 +65,7 @@ Q_in_list = [np.array([5,5,5,5]), np.array([5,10,10,10])]
 Q_in_list = [np.array([5,5,5,5]), np.array([10,10,10,10])]
 # Hm -- let's check slopes, then.
 # Back to the upstream example.
-Q_in_list = [np.array([5,5,10,10]), np.array([10,10,10,10])]
+Q_in_list = [np.array([5,5,15,15,15,15]), np.array([15,15,15,15])]
 
 
 Q = []

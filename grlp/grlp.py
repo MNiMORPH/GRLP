@@ -691,6 +691,7 @@ class LongProfile(object):
             dzdx_0_16 = ( np.abs( self.z[0] - 
                                   self.z[1] )
                           / self.dx[0] )**(1/6.)
+            self.DEBUG_dzdx_0_16 = dzdx_0_16.copy()
             # Positive for right, negative for center
             #_mainstem_cent_right = 1 * \
             # 1E0 to play with coefficients and check them
@@ -1195,50 +1196,94 @@ class Network(object):
                 # I've updated dx_ext_2cell to acknowledge boundaries
                 # This should therefore be used here.
                 # !!!!!!!!!!!!!!!!! [0]
-                """
-                C0 = downseg.k_Qs * downseg.intermittency \
-                        / ((1-downseg.lambda_p) * downseg.sinuosity**(7/6.)) \
-                        * self.dt / lp.dx_ext_2cell[0][-1]
-                # !!!!!!!!!!!!!!!!!!!!!! [0] z_ext, dx_ext
-                dzdx_0_16 = ( np.abs(lp.z_ext[0][-2] - lp.z_ext[0][-1])
-                              / (lp.dx_ext[0][-1]))**(1/6.)
-                C1 = C0 * dzdx_0_16 * lp.Q[-1] / downseg.B[0]
-                right_new = -C1 * 7/6. * 2 / lp.dx_ext[0][-1]
-                self.LHSblock_matrix[row, col] = right_new
-                """
-                # Pull it from when the blocks were created, above
-                # Janky but I think it will work
-                # CLOSER!
-                self.LHSblock_matrix[row, col] = lp.right[0]
-
-                # Try updating with this instead
                 C0 = downseg.k_Qs * downseg.intermittency \
                         / ((1-downseg.lambda_p) * downseg.sinuosity**(7/6.)) \
                         * self.dt
-                
-                # Yep: They are the same
-                #print("CO", C0, lp.C0)
-
+                        # We've removed this bit
+                        # / lp.dx_ext_2cell[0][-1]
+                # !!!!!!!!!!!!!!!!!!!!!! [0] z_ext, dx_ext
+                # Hmph. The other part of this solution will be using 2*dx.
+                # I think I should have a consistent equation across this
+                # boundary.
+                #dzdx_0_16 = ( np.abs(lp.z_ext[0][-2] - lp.z_ext[0][-1])
+                #              / (lp.dx_ext[0][-1]))**(1/6.)
+                # This should just be the same as the end of the standard
+                # calculation
+                # For a convergent network, can just choose any part
+                # of dx_ext_2cell; 0 is the most sensible.
+                # Then, naturally, the end.
+                dzdx_0_16 = np.abs( (lp.z[-2] - downseg.z[0]) \
+                               / lp.dx_ext_2cell[0][-1] )**(1/6.)
+                # In fact, should everytihng be the same?
+                # C1 values are the same here
+                # But of course, are smaller than those from downstream
+                # by a factor of 3.84ish
+                C1 = C0 * dzdx_0_16 * lp.Q[-1] / lp.B[-1]
+                right_new = -C1 / lp.dx_ext_2cell[0][-1] \
+                              * ( (7/3.)/lp.dx_ext_2cell[0][-1] # REALLY?
+                                  + lp.dQ_ext_2cell[0][-1]/lp.Q[-1]
+                                    / lp.dx_ext_2cell[0][-1] )
                 """
-                # Change to use with downseg -- test
-                # Unclear why the answer here differs from that above.
-                dzdx_0_16 = ( np.abs(downseg.z_ext[0][1] - downseg.z_ext[0][2])
-                              / (downseg.dx[0]))**(1/6.)
+                right_new_noC1 = 1 / lp.dx_ext_2cell[0][-1] \
+                              * ( (7/3.)/lp.dx_ext_2cell[0][-1] # REALLY?
+                                  + lp.dQ_ext_2cell[0][-1]/lp.Q[-1]
+                                    / lp.dx_ext_2cell[0][-1] )
+                """
+                
+                # dQ/dx term is miniscule! Doesn't really matter.
+                right_new = -C1 / lp.dx_ext_2cell[0][-1] \
+                              * (7/3.)/lp.dx_ext_2cell[0][-1]
+                # But if I multiply by 2, it works.
+                # This is required even for Network_2_segments
+                # in which there is no increase in discharge!
+                # Just 1 river straight to another across a boundary
+                self.LHSblock_matrix[row, col] = right_new * 2
+                #print("OLD,NEW:", lp.right[0], right_new*2)
+                #self.LHSblock_matrix[row, col] = lp.right[0]
+                
+                #self.LHSblock_matrix[row, col] = right_new*2
+                """
+                # Notes from above
+                self.C0 = self.k_Qs * self.intermittency \
+                            / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \
+                            * self.dt
 
-                C1 = C0 * dzdx_0_16 * (downseg.Q[0] + downseg.Q[1])/2. \
-                        / downseg.land_area_around_confluence
-                right_new = C1 / downseg.dx[0] # = / downseg.dx[0]
-                print("RIGHT", lp.right[0], right_new )
-
+                self.left = -self.C1 / self.dx_ext_2cell \
+                                * ( (7/3.)/self.dx_ext[:-1]
+                                - self.dQ_ext_2cell/self.Q/self.dx_ext_2cell )
+                self.center = -self.C1 / self.dx_ext_2cell \
+                                      * ( (7/3.)
+                                      * (-1/self.dx_ext[:-1]
+                                         -1/self.dx_ext[1:]) ) \
+                                         + 1.
+                self.right = -self.C1 / self.dx_ext_2cell \
+                                      * ( (7/3.)/self.dx_ext[1:] # REALLY?
+                                          + self.dQ_ext_2cell/self.Q/self.dx_ext_2cell )
+                """
+                
+                # Perhaps I need the other half of the "handshake" across
+                # matrices to also be the d/dx (dQs/dx) form, with 1-cell
+                # rather than 2-cell calculations.
+                
+                # The upstream term can balance it better, but isn't actually
+                # adjusted for local slope. Hence right_new[0] sort of works
+                """
+                dzdx_0_16 = np.abs( (lp.z[-1] - downseg.z[0]) \
+                               / lp.dx_ext[0][-1] )**(1/6.)
+                C1 = C0 * dzdx_0_16 * (lp.Q[-1]+downseg.Q[0])/2. / lp.B[-1]
+                right_new = -C1 / lp.dx_ext[0][-1] \
+                              * ( (7/3.)/lp.dx_ext[0][-1] # REALLY?
+                                  + (downseg.Q[0] - lp.Q[-1])/lp.Q[-1]
+                                    / lp.dx_ext[0][-1] )
                 self.LHSblock_matrix[row, col] = right_new
                 """
-                self.LHSblock_matrix[row, col] = lp.right[0]
                 
-                # I don't know why this isn't working
-                # Conserve mass on faith; fix later
-                #right_new = - (lp.center[-1] + lp.left[-2])
-                #print("RN", right_new)
-                #self.LHSblock_matrix[row, col] = right_new
+                #print("OLD,NEW:", lp.right[0], right_new*2)
+                #self.LHSblock_matrix[row, col] = lp.right[0]
+                
+                #self.LHSblock_matrix[row, col] = right_new*2
+                
+                
 
     """
     def get_z_all(self):

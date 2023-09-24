@@ -2004,24 +2004,61 @@ class Network(object):
         Run this after update_Q, to make sure that it is using
         the most recent discharge values
         """
+        # Order:
+        # Inner (close to each other): upstream.
+        # Outer (strides from each other): downstream.
+        # Right now, this is moot: Downstream = 1
         for lp in self.list_of_LongProfile_objects:
             _idx = 0
             # SET UPSTREAM BOUNDARIES: INTERNAL
-            for upseg_ID in lp.upstream_segment_IDs:
-                upseg = self.list_of_LongProfile_objects[upseg_ID]
-                print( upseg )
-                lp.Q_ext[_idx][0] = upseg.Q[-1]
-                print("!!!!!!!!!!!!!!!!!!!!!!!!")
-                print(_idx)
-                print("Q_ext", lp.Q_ext)
-                print("!!!!!!!!!!!!!!!!!!!!!!!!")
-                _idx += 1
+            # Here, max so the downstream-most segment gets looped through
+            # too, even if it has no downseg ID
+            for i_downseg in range(np.max((1, len(lp.downstream_segment_IDs)))):
+                for upseg_ID in lp.upstream_segment_IDs:
+                    upseg = self.list_of_LongProfile_objects[upseg_ID]
+                    lp.x_ext[_idx][0] = upseg.x[-1]
+                    _idx += 1
             # SET DOWNSTREAM BOUNDARIES: INTERNAL
             _idx = 0
             for downseg_ID in lp.downstream_segment_IDs:
+                # For each downstream ID, must update for each upstream
+                # ID
                 downseg = self.list_of_LongProfile_objects[downseg_ID]
-                lp.Q_ext[_idx][-1] = downseg.Q[0]
-                _idx += 1
+                # Min = 1 so downseg still updated for headwaters segments
+                for i_upseg in range(np.max((1, len(lp.upstream_segment_IDs)))):
+                    lp.x_ext[_idx][-1] = downseg.x[0]
+                    _idx += 1
+
+        # Order:
+        # Inner (close to each other): upstream.
+        # Outer (strides from each other): downstream.
+        # Right now, this is moot: Downstream = 1
+
+        for lp in self.list_of_LongProfile_objects:
+            _idx = 0
+            # SET UPSTREAM BOUNDARIES: INTERNAL
+            # Here, max so the downstream-most segment gets looped through
+            # too, even if it has no downseg ID
+            for i_downseg in range(np.max((1, len(lp.downstream_segment_IDs)))):
+                for upseg_ID in lp.upstream_segment_IDs:
+                    upseg = self.list_of_LongProfile_objects[upseg_ID]
+                    print( upseg )
+                    lp.Q_ext[_idx][0] = upseg.Q[-1]
+                    print("!!!!!!!!!!!!!!!!!!!!!!!!")
+                    print(_idx)
+                    print("Q_ext", lp.Q_ext)
+                    print("!!!!!!!!!!!!!!!!!!!!!!!!")
+                    _idx += 1
+            # SET DOWNSTREAM BOUNDARIES: INTERNAL
+            _idx = 0
+            for downseg_ID in lp.downstream_segment_IDs:
+                # For each downstream ID, must update for each upstream
+                # ID
+                downseg = self.list_of_LongProfile_objects[downseg_ID]
+                # Min = 1 so downseg still updated for headwaters segments
+                for i_upseg in range(np.max((1, len(lp.upstream_segment_IDs)))):
+                    lp.Q_ext[_idx][-1] = downseg.Q[0]
+                    _idx += 1
 
     def update_Q_ext_external_upstream(self):
         """
@@ -2063,7 +2100,10 @@ class Network(object):
         lp = self.list_of_LongProfile_objects[ID]
         # Assume that there is just one river mouth
         # Could easily make this become a loop
-        lp.Q_ext[0][-1] = lp.Q[-1]
+        # Nope: Multiple arrays if there are also upstream segments
+        # Just loop over them all
+        for Q_ext_array in lp.Q_ext:
+                Q_ext_array[-1] = lp.Q[-1]
 
     def update_dQ_ext_upwind(self):
         """

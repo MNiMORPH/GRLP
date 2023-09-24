@@ -715,9 +715,10 @@ class LongProfile(object):
             
             # All of C1 except for C0 is included here
             # This is the value for downstream of the confluence
+            # Using z_ext so it updates while iterating
             # _TRIBI, 0, ... DOESN'T REALLY MATTER
-            dzdx_0_16 = ( np.abs( self.z_ext[_tribi][1] - 
-                                  self.z_ext[_tribi][2] )
+            dzdx_0_16 = ( np.abs( self.z_ext[0][1] - 
+                                  self.z_ext[0][2] )
                           / self.dx[0] )**(1/6.)
             #dzdx_0_16 = 1 # DEBUG TEST
             #self.DEBUG_dzdx_0_16__downstream = dzdx_0_16.copy()
@@ -1232,8 +1233,9 @@ class Network(object):
                     
                     # Same as above
                     # This is specific for the upstream reach
-                    dzdx_0_16 = ( np.abs(lp.z_ext[0][1] - lp.z_ext[0][0])
-                                  / (lp.dx_ext[_relative_id][0]))**(1/6.)
+                    dzdx_0_16 = ( np.abs( lp.z_ext[_relative_id][1]
+                                          - lp.z_ext[_relative_id][0] )
+                                  / (lp.dx_ext[_relative_id][0]) )**(1/6.)
 
                     # Half value -- because we are using upseg.Q?
                     # But perhaps that is as it should be, and might

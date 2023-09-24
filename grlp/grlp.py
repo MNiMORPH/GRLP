@@ -1440,8 +1440,11 @@ class Network(object):
         _nan1 = np.array([np.nan])
         # Loop through long profiles (segments) in network
         for lp in self.list_of_LongProfile_objects:
-            lp.x_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
-                [ np.concatenate( [_nan1, lp.x, _nan1] ) ]
+            lp.x_ext = []
+            x_inner = np.concatenate( [_nan1, lp.x, _nan1] )
+            for _iter_i in range(np.max( (1, len(lp.upstream_segment_IDs)) )):
+                lp.x_ext.append(x_inner.copy())
+                
 
     def update_x_ext_internal(self):
         """

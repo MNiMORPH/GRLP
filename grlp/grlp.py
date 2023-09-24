@@ -682,6 +682,10 @@ class LongProfile(object):
             print("ID", self.ID)
             for _tribi in range( len(self.upstream_segment_IDs) ):
                 # Slope for nonlinear portion
+                # This indexing works assuming only 1 downstream segment
+                # (i.e., convergent network)
+                # or in general if we keep the inner stride as the upstream
+                # segments
                 dzdx_0_16 = ( np.abs( self.z_ext[_tribi][0] - 
                                       self.z_ext[_tribi][1] )
                               / self.dx_ext[_tribi][0] )**(1/6.)
@@ -1305,6 +1309,7 @@ class Network(object):
                 # Space to edit
                 col = self.block_start_absolute[self.IDs == ID][0]
                 row = self.block_end_absolute[self.IDs == lp.ID][0]
+                """
                 # Matrix entry, assuming net aligns with ids
                 downseg = self.list_of_LongProfile_objects[ID]
                 # OLD
@@ -1338,12 +1343,16 @@ class Network(object):
                 # But of course, are smaller than those from downstream
                 # by a factor of 3.84ish
                 C1 = C0 * dzdx_0_16 * lp.Q[-1] / lp.B[-1]
-                dQ_term =  ( 1 / lp.Q[-1] ) \
-                           * lp.dQ_ext_upwind[0][-1] \
-                            / lp.dx_ext[0][-1]
+                
+                dQ_term = 0
+                for _iter_i in range(len(lp.x_ext)):
+                    dQ_term += ( 1 / lp.Q[-1] ) \
+                               * lp.dQ_ext_upwind[_iter_i][-1] \
+                                / lp.dx_ext[_iter_i][-1]
                 right_new = -C1 / lp.dx_ext_2cell[0][-1] \
                               * ( (7/3.)/lp.dx_ext[0][-1] # REALLY?
                                   + dQ_term)
+                """
                 """
                 right_new_noC1 = 1 / lp.dx_ext_2cell[0][-1] \
                               * ( (7/3.)/lp.dx_ext_2cell[0][-1] # REALLY?
@@ -1356,7 +1365,19 @@ class Network(object):
                 # differences at the tributary junction.
                 #right_new = -C1 / lp.dx_ext[0][-1] \
                 #              * (7/3.)/lp.dx_ext_2cell[0][-1]
-                self.LHSblock_matrix[row, col] = right_new
+                
+                # GOOD FOR 2 SEGS
+                # BUT NOT ACCOUNTING PROPERLY WHEN 1 OF THOSE SEGS
+                # HAS TRIBUTARIES
+                # HAVE NOT LOOKED INTO EXACTLY WHY (ABOVE)
+                # JUST INTUITED AND CHANGED TO LP.RIGHT[0]
+                
+                # AH, PROBABLY DQ_TERM
+                # WELL, NOT JUST THAT. BUT COULD SORT THIS,
+                # OR JUST ACCEPT THAT I DID IT CORRECTLY ABOVE.
+                #####self.LHSblock_matrix[row, col] = right_new
+                
+                self.LHSblock_matrix[row, col] = lp.right[0]
 
                 """
                 # Notes from above

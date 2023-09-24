@@ -112,7 +112,7 @@ net.initialize(
 
 # ITERATIONS CAUSE SEGMENTS DOWNSTREAM OF CONFLUENCE TO *DIVERGE FROM*
 # AND BECOME GENTLER IN SLOPE THAN THEY SHOULD BE VIA THEORY
-net.set_niter(30)
+net.set_niter(1)
 net.get_z_lengths()
 
 # For testing

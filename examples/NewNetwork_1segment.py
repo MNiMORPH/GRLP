@@ -17,25 +17,9 @@ importlib.reload(grlp)
 dt = 3.15E7*10
 _B = 100 # uniform
 
-# Custom for just this test network
-x = [
-      1000 * np.array([2, 4, 6.5, 9, 10]),
-      1000 * np.array([0, 1, 2, 3, 6, 8, 10.5]),
-      1000 * np.array([12, 15, 18, 20]),
-    ]
-
-# Uniform dx test
-# Custom for just this test network
-x = [
-      1000 * np.array([2, 4, 6, 8, 10]),
-      1000 * np.array([-2, 0, 2, 4, 6, 8, 10]),
-      1000 * np.array([12, 14, 16, 18]),
-    ]
-
 # Shorter for test
 # Custom for just this test network
 x = [
-      1000 * np.array([2, 4, 6, 8]),
       1000 * np.array([2, 4, 6, 8]),
       1000 * np.array([10, 12, 14, 16]),
     ]
@@ -45,23 +29,45 @@ x_bl = 1000*18
 z_bl = 0
 
 # Upstream boundary condition: 1.5% grade
-S0 = [0.015, 0.015]
+S0 = [0.015]
 
 nseg = len(x)
 numel = []
 for _x in x:
     numel.append(len(_x))
 
-upstream_segment_IDs = [[], [], [0,1]]
-downstream_segment_IDs = [[2], [2], []]
+upstream_segment_IDs = [[], [0]]
+downstream_segment_IDs = [[1], []]
 
 z = []
 #Q_in_list = [5., 5., 10., 5, 15.]
 # Test constant 
 #Q_in_list = [5., 5., 10., 5, 15.]
-Q_in_list = [5., 5., 10.] # straight
-Q_in_list = [4., 6., 10.] # convex
-#Q_in_list = [6., 4., 10.] # concave : )
+# HM! DOUBLE Q AND GET AN UNEXPECTEDLY LARGE DROP IN SLOPE.
+# Expect 0.5**(6/7.) = 0.44545
+# Instead, get 0.3572
+# This could be the hint behind the rest of the model misfit
+Q_in_list = [5., 10.]
+# Let's try a linear ramp. Same issue?
+# Probing into the discrepancy at the junction
+# Looks good!
+Q_in_list = [np.arange(6,10), np.arange(10,14)]
+# Is the problem more just due to discontinuities in water dsicharge?
+Q_in_list = [np.array([2,3,8,9]), np.arange(10,14)]
+# Looks good!
+# So: discontinuity AT tributary junction is the problem <-- NEXT STEP
+# Let's try moving the discontinuity
+# Upstream: Looks good.
+Q_in_list = [np.array([5,5,5,10]), np.array([10,10,10,10])]
+# Downstream: Looks good.
+Q_in_list = [np.array([5,5,5,5]), np.array([5,10,10,10])]
+# At junction: Looks visually good.
+Q_in_list = [np.array([5,5,5,5]), np.array([10,10,10,10])]
+# Hm -- let's check slopes, then.
+# Back to the upstream example.
+Q_in_list = [np.array([5,5,10,10]), np.array([10,10,10,10])]
+
+
 Q = []
 B = []
 print( "" )
@@ -101,7 +107,7 @@ net.initialize(
                 )
 
 # Should do this above
-net.set_niter(30)
+net.set_niter(6)
 net.get_z_lengths()
 
 # For testing
@@ -111,7 +117,28 @@ net.get_z_lengths()
 # For plotting
 # WHEN RUN FOR NT=10, GET BACKWARDS SLOPE ON TRIBUTARY
 # THIS IS WHERE WE NEED TO ADD IN CLOSED BASINS AS ANOTHER SEGMENT TYPE
-net.evolve_threshold_width_river_network(nt=36, dt=1000*dt)
+net.evolve_threshold_width_river_network(nt=36, dt=100*dt)
+
+# Predict slopes -- without tributary-network inputs
+S_predicted = []
+S0val = S0[0]
+Q0 = Q_in_list[0][0]
+"""
+for lp in net.list_of_LongProfile_objects:
+    Mean_Q = (lp.Q[:-1] + lp.Q[1:])/2.
+    S_predicted.append( S0val * (Q0/Mean_Q)**(6/7.) )
+"""
+for lp in net.list_of_LongProfile_objects:
+    S_predicted.append( S0val * (Q0/lp.Q)**(6/7.) )
+
+# Print slope calc
+print ( "Slopes:" )
+_iter = 0
+for lp in net.list_of_LongProfile_objects:
+    print ("Measured", np.diff(lp.z)/np.diff(lp.x) )
+    print ("Predicted", S_predicted[_iter])
+    _iter += 1
+
 
 for lp in net.list_of_LongProfile_objects:
     # If not downstream-most segment

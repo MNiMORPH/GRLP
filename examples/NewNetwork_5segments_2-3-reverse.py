@@ -17,51 +17,17 @@ importlib.reload(grlp)
 dt = 3.15E7*10
 _B = 100 # uniform
 
-# Custom for just this test network
-x = [
-      1000 * np.array([2, 4, 6.5, 9, 10]),
-      1000 * np.array([0, 1, 2, 3, 6, 8, 10.5]),
-      1000 * np.array([12, 15, 18, 20]),
-    ]
+nseg = 5
+numel = [5, 7, 8, 4, 6]
 
-# Uniform dx test
-# Custom for just this test network
-x = [
-      1000 * np.array([2, 4, 6, 8, 10]),
-      1000 * np.array([-2, 0, 2, 4, 6, 8, 10]),
-      1000 * np.array([12, 14, 16, 18]),
-    ]
-
-# Shorter for test
-# Custom for just this test network
-x = [
-      1000 * np.array([2, 4, 6, 8]),
-      1000 * np.array([2, 4, 6, 8]),
-      1000 * np.array([10, 12, 14, 16]),
-    ]
-
-# Base level
-x_bl = 1000*18
-z_bl = 0
-
-# Upstream boundary condition: 1.5% grade
-S0 = [0.015, 0.015]
-
-nseg = len(x)
-numel = []
-for _x in x:
-    numel.append(len(_x))
-
-upstream_segment_IDs = [[], [], [0,1]]
-downstream_segment_IDs = [[2], [2], []]
+upstream_segment_IDs = [[], [], [], [0,1], [2,3]]
+downstream_segment_IDs = [[3], [3], [4], [4], []]
 
 z = []
 #Q_in_list = [5., 5., 10., 5, 15.]
 # Test constant 
-#Q_in_list = [5., 5., 10., 5, 15.]
-Q_in_list = [5., 5., 10.] # straight
-Q_in_list = [4., 6., 10.] # convex
-#Q_in_list = [6., 4., 10.] # concave : )
+#Q_in_list = [5., 5., 10., 10., 20.]
+Q_in_list = [5., 5., 5., 5, 5.]
 Q = []
 B = []
 print( "" )
@@ -79,6 +45,31 @@ print( "" )
 print( "**************" )
 print( "" )
 
+# Custom for just this test network
+x = [
+      1000 * np.array([2, 4, 6.5, 9, 10]),
+      1000 * np.array([0, 1, 2, 3, 6, 8, 10.5]),
+      1000 * np.array([2, 6, 8, 12, 14, 16, 18, 20]),
+      1000 * np.array([12, 15, 18, 20]),
+      1000 * np.array([23, 24, 27, 29, 29.5, 30])
+    ]
+
+# Uniform dx test
+# Custom for just this test network
+x = [
+      1000 * np.array([2, 4, 6, 8, 10]),
+      1000 * np.array([-2, 0, 2, 4, 6, 8, 10]),
+      1000 * np.array([4, 6, 8, 10, 12, 14, 16, 18]),
+      1000 * np.array([12, 14, 16, 18]),
+      1000 * np.array([20, 22, 24, 26, 28, 30])
+    ]
+
+# Base level
+x_bl = 1000*32
+z_bl = 0
+
+# Upstream boundary condition: 1.5% grade
+S0 = [0.015, 0.015, 0.015]
 
 # Instantiate network object
 net = grlp.Network()
@@ -101,7 +92,7 @@ net.initialize(
                 )
 
 # Should do this above
-net.set_niter(30)
+net.set_niter(1)
 net.get_z_lengths()
 
 # For testing
@@ -111,7 +102,7 @@ net.get_z_lengths()
 # For plotting
 # WHEN RUN FOR NT=10, GET BACKWARDS SLOPE ON TRIBUTARY
 # THIS IS WHERE WE NEED TO ADD IN CLOSED BASINS AS ANOTHER SEGMENT TYPE
-net.evolve_threshold_width_river_network(nt=36, dt=1000*dt)
+net.evolve_threshold_width_river_network(nt=36, dt=100*dt)
 
 for lp in net.list_of_LongProfile_objects:
     # If not downstream-most segment

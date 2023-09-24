@@ -679,7 +679,7 @@ class LongProfile(object):
         if len(self.upstream_segment_IDs) > 0:
             _trib_cent = 0.
             self.upseg_trib_coeffs = []
-            print("ID", self.ID)
+            ##print("ID", self.ID)
             for _tribi in range( len(self.upstream_segment_IDs) ):
                 # Slope for nonlinear portion
                 # This indexing works assuming only 1 downstream segment
@@ -700,11 +700,11 @@ class LongProfile(object):
                               ( self.Q_ext[_tribi][0] / 
                                 self.dx_ext[_tribi][0] ) \
                               / self.land_area_around_confluence
-                print("                    TC", _trib_coeff)
-                print("_tribi", _tribi)
-                print(dzdx_0_16)
-                print(self.Q_ext[_tribi][0])
-                print(self.dx_ext[_tribi][0])
+                ##print("                    TC", _trib_coeff)
+                ##print("_tribi", _tribi)
+                ##print(dzdx_0_16)
+                ##print(self.Q_ext[_tribi][0])
+                ##print(self.dx_ext[_tribi][0])
                 #_trib_coeff *= -1
                 _trib_cent += _trib_coeff
                 #print("T", self.upstream_segment_IDs[_tribi], 
@@ -1257,8 +1257,8 @@ class Network(object):
                     # Just use values from above function, in array?
                     self.LHSblock_matrix[row, col] = \
                                     C0 * _trib_coeff
-                    print("L", upseg.ID, lp.upseg_trib_coeffs[_relative_id],
-                                C0 * _trib_coeff)
+                    ##print("L", upseg.ID, lp.upseg_trib_coeffs[_relative_id],
+                    ##            C0 * _trib_coeff)
                     _relative_id += 1
                     
                     """
@@ -1808,9 +1808,9 @@ class Network(object):
         else:
             S0 = self.S0
 
-        print("SCALAR?", _is_scalar)
-        print( S0 )
-        print( np.atleast_1d(np.array(S0).squeeze) )
+        ##print("SCALAR?", _is_scalar)
+        ##print( S0 )
+        ##print( np.atleast_1d(np.array(S0).squeeze) )
 
         # S0 might be iterable even if Q_s_0 be not
         try:
@@ -1822,7 +1822,7 @@ class Network(object):
         except:
             _is_scalar=True
         
-        print("SCALAR?", _is_scalar)
+        ##print("SCALAR?", _is_scalar)
 
         # FIFTH: Set S0 and z_ext[0]
         _idx = 0
@@ -1835,7 +1835,7 @@ class Network(object):
             _idx += 1
             # Hard-coding: Expecting only one segment in list
             # Because this is just for the channel-head segments
-            print("ID", lp.ID)
+            ##print("ID", lp.ID)
             lp.z_ext[0][0] = lp.z[0] + lp.S0 * lp.dx[0]
             
     def set_z_bl (self, z0):
@@ -2089,12 +2089,12 @@ class Network(object):
             for i_downseg in range(np.max((1, len(lp.downstream_segment_IDs)))):
                 for upseg_ID in lp.upstream_segment_IDs:
                     upseg = self.list_of_LongProfile_objects[upseg_ID]
-                    print( upseg )
+                    ##print( upseg )
                     lp.Q_ext[_idx][0] = upseg.Q[-1]
-                    print("!!!!!!!!!!!!!!!!!!!!!!!!")
-                    print(_idx)
-                    print("Q_ext", lp.Q_ext)
-                    print("!!!!!!!!!!!!!!!!!!!!!!!!")
+                    ##print("!!!!!!!!!!!!!!!!!!!!!!!!")
+                    ##print(_idx)
+                    ##print("Q_ext", lp.Q_ext)
+                    ##print("!!!!!!!!!!!!!!!!!!!!!!!!")
                     _idx += 1
             # SET DOWNSTREAM BOUNDARIES: INTERNAL
             _idx = 0
@@ -2225,7 +2225,7 @@ class Network(object):
                 #print("Ahhhhmmmm.... why do you have no dx_ext?")
                 lp.land_area_around_confluence = None
 
-            print(lp.land_area_around_confluence)
+            ##print(lp.land_area_around_confluence)
             #raise ValueError("WHY OH WHY")
 
 

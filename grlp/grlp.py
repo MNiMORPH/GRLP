@@ -1152,6 +1152,7 @@ class Network(object):
         Add internal upstream boundary conditions
         """
         for lp in self.list_of_LongProfile_objects:
+            lp.later_trib_coeffs = [] # DEBUG
             if len(lp.upstream_segment_IDs) == 0:
                 pass
             else:
@@ -1259,6 +1260,17 @@ class Network(object):
                                     C0 * _trib_coeff
                     ##print("L", upseg.ID, lp.upseg_trib_coeffs[_relative_id],
                     ##            C0 * _trib_coeff)
+                    
+                    lp.later_trib_coeffs.append(C0 * _trib_coeff) # DEBUG
+
+                    #print(upseg.left)
+                    # THESE ARE EXACTLY IDENTICAL TO THOSE CALCULATED ABOVE.
+                    # SO: NOT THE ANSWER FOR FIXING THE ITERATION PROBELM
+                    # (THEY REMAIN IDENTICAL THROUGH ITERATIONS)
+                    # BUT: POSSIBLY WORTH USING TO NOT SPEND TIME
+                    # CALCULATING THE ABOVE.
+                    self.LHSblock_matrix[row, col] = -lp.upseg_trib_coeffs[_relative_id]
+                
                     _relative_id += 1
                     
                     """

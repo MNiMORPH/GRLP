@@ -679,36 +679,43 @@ class LongProfile(object):
         if len(self.upstream_segment_IDs) > 0:
             _trib_cent = 0.
             self.upseg_trib_coeffs = []
+            print("ID", self.ID)
             for _tribi in range( len(self.upstream_segment_IDs) ):
                 # Slope for nonlinear portion
                 dzdx_0_16 = ( np.abs( self.z_ext[_tribi][0] - 
                                       self.z_ext[_tribi][1] )
                               / self.dx_ext[_tribi][0] )**(1/6.)
-
-                print ( self.dx_ext )
+                #dzdx_0_16 = 1 # DEBUG TEST
+                #print ( self.dx_ext )
 
                 # All of C1 except for C0 is included here
                 # It varies based on trib junction
                 # _trib_coeff = 1 * \
                 # 1E0 to play with coefficients and check them
-                print("ID", self.ID)
                 _trib_coeff = dzdx_0_16 * 1E0 * \
                               ( self.Q_ext[_tribi][0] / 
                                 self.dx_ext[_tribi][0] ) \
                               / self.land_area_around_confluence
+                print("                    TC", _trib_coeff)
+                print("_tribi", _tribi)
+                print(dzdx_0_16)
+                print(self.Q_ext[_tribi][0])
+                print(self.dx_ext[_tribi][0])
                 #_trib_coeff *= -1
                 _trib_cent += _trib_coeff
-                print("T", self.upstream_segment_IDs[_tribi], 
-                            self.C0 * _trib_coeff)
+                #print("T", self.upstream_segment_IDs[_tribi], 
+                #            self.C0 * _trib_coeff)
                 # Svae this value to transmit to upstream parts of matrix
                 self.upseg_trib_coeffs.append( self.C0 * _trib_coeff )
             #print(_tribi) # Yep: 2 streams
             
             # All of C1 except for C0 is included here
             # This is the value for downstream of the confluence
+            # _TRIBI, 0, ... DOESN'T REALLY MATTER
             dzdx_0_16 = ( np.abs( self.z_ext[_tribi][1] - 
                                   self.z_ext[_tribi][2] )
                           / self.dx[0] )**(1/6.)
+            #dzdx_0_16 = 1 # DEBUG TEST
             #self.DEBUG_dzdx_0_16__downstream = dzdx_0_16.copy()
             # Positive for right, negative for center
             #_mainstem_cent_right = 1 * \
@@ -716,7 +723,15 @@ class LongProfile(object):
             _mainstem_cent_right = dzdx_0_16 * 1E0 * \
                                    (self.Q[0] + self.Q[1])/2. / self.dx[0] \
                                    / self.land_area_around_confluence
-            
+
+                                   # Replacing this with just exactly the Q
+                                   # at the confluence
+                                   #(self.Q[0] + self.Q[1])/2. / self.dx[0] \
+
+            # Changes based on tributaries having more or less Q each!
+            #print("")
+            #print("TRIB CENT", _trib_cent)
+            #print("")
             self.center[0] = self.C0 * ( _trib_cent + _mainstem_cent_right ) \
                               + 1
 
@@ -1909,12 +1924,28 @@ class Network(object):
         
         Run after "update_Q"
         """
+        
         # Pad Q_ext with nans
         _nan1 = np.array([np.nan])
         # Loop through long profiles (segments) in network
         for lp in self.list_of_LongProfile_objects:
             lp.Q_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
-                [ np.concatenate( [_nan1, lp.Q, _nan1] ) ]
+                [ np.concatenate( [_nan1, lp.Q, _nan1] ).copy() ]
+        # ^ Even wtih .copy(), this caused the two arrays to be linked in
+        # memory. Therefore, the discharge of the second would always
+        # be chosen. This casued extreme weirdness with slopes
+        # at confluences -- it would seem as if there were more or less
+        # discharge coming from the tributaries when compared
+        # to the mainstem
+                
+        _nan1 = np.array([np.nan])
+        for lp in self.list_of_LongProfile_objects:
+            lp.Q_ext = []
+            Q_inner = np.concatenate( [_nan1, lp.Q, _nan1] )
+            for _iter_i in range(np.max( (1, len(lp.upstream_segment_IDs)) )):
+                lp.Q_ext.append(Q_inner.copy())
+                
+        
 
     def update_Q_ext_from_Q(self):
         """
@@ -1954,7 +1985,7 @@ class Network(object):
         !!!!!!!!!!!!!!!!!!!!
         DO THIS
         !!!!!!!!!!!!!!!!!!!!
-        
+        lp.Q_ext[
         Run this after update_Q, to make sure that it is using
         the most recent discharge values
         """
@@ -1963,7 +1994,12 @@ class Network(object):
             # SET UPSTREAM BOUNDARIES: INTERNAL
             for upseg_ID in lp.upstream_segment_IDs:
                 upseg = self.list_of_LongProfile_objects[upseg_ID]
+                print( upseg )
                 lp.Q_ext[_idx][0] = upseg.Q[-1]
+                print("!!!!!!!!!!!!!!!!!!!!!!!!")
+                print(_idx)
+                print("Q_ext", lp.Q_ext)
+                print("!!!!!!!!!!!!!!!!!!!!!!!!")
                 _idx += 1
             # SET DOWNSTREAM BOUNDARIES: INTERNAL
             _idx = 0

@@ -1585,21 +1585,31 @@ class Network(object):
         segment and a minimum of 1 if no links are present 
         Currently building this for convergent networks only
         """
+        """
         # Pad x_ext with nans
         _nan1 = np.array([np.nan])
         # Loop through long profiles (segments) in network
         for lp in self.list_of_LongProfile_objects:
             lp.z_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
                 [ np.concatenate( [_nan1, lp.z, _nan1] ) ]
-            """
             print( "" )
             print( lp.ID )
             print( "" )
             print( "Z_EXT" )
             print( lp.z_ext[:] )
             print( "" )
-            """
+        """
         # z_ext messup happens after this.
+        
+        # HUH! I WONDER WHAT I WAS THINKING WHEN I WROTE THAT.
+        # BUT I SEEM TO HAVE AN ANSWER.
+
+        _nan1 = np.array([np.nan])
+        for lp in self.list_of_LongProfile_objects:
+            lp.z_ext = []
+            z_inner = np.concatenate( [_nan1, lp.z, _nan1] )
+            for _iter_i in range(np.max( (1, len(lp.upstream_segment_IDs)) )):
+                lp.z_ext.append(z_inner.copy())
 
     def update_z_ext_internal(self):
         """
@@ -1618,19 +1628,31 @@ class Network(object):
 
         The final downstream segment has z_ext[-1] set as base level.
         """
+
+        # Order:
+        # Inner (close to each other): upstream.
+        # Outer (strides from each other): downstream.
+        # Right now, this is moot: Downstream = 1
         for lp in self.list_of_LongProfile_objects:
             # SET UPSTREAM BOUNDARIES: INTERNAL
             _idx = 0
-            for upseg_ID in lp.upstream_segment_IDs:
-                upseg = self.list_of_LongProfile_objects[upseg_ID]
-                lp.z_ext[_idx][0] = upseg.z[-1]
-                _idx += 1
+            # Here, max so the downstream-most segment gets looped through
+            # too, even if it has no downseg ID
+            for i_downseg in range(np.max((1, len(lp.downstream_segment_IDs)))):
+                for upseg_ID in lp.upstream_segment_IDs:
+                    upseg = self.list_of_LongProfile_objects[upseg_ID]
+                    lp.z_ext[_idx][0] = upseg.z[-1]
+                    _idx += 1
             # SET DOWNSTREAM BOUNDARIES: INTERNAL
             _idx = 0
             for downseg_ID in lp.downstream_segment_IDs:
+                # For each downstream ID, must update for each upstream
+                # ID
                 downseg = self.list_of_LongProfile_objects[downseg_ID]
-                lp.z_ext[_idx][-1] = downseg.z[0]
-                _idx += 1
+                # Min = 1 so downseg still updated for headwaters segments
+                for i_upseg in range(np.max((1, len(lp.upstream_segment_IDs)))):
+                    lp.z_ext[_idx][-1] = downseg.z[0]
+                    _idx += 1
 
     def update_z_ext_external_upstream(self, S0=None, Q_s_0=None):
         """
@@ -1940,12 +1962,14 @@ class Network(object):
         Run after "update_Q"
         """
         
+        """
         # Pad Q_ext with nans
         _nan1 = np.array([np.nan])
         # Loop through long profiles (segments) in network
         for lp in self.list_of_LongProfile_objects:
             lp.Q_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
                 [ np.concatenate( [_nan1, lp.Q, _nan1] ).copy() ]
+        """
         # ^ Even wtih .copy(), this caused the two arrays to be linked in
         # memory. Therefore, the discharge of the second would always
         # be chosen. This casued extreme weirdness with slopes

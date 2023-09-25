@@ -679,7 +679,7 @@ class LongProfile(object):
         if len(self.upstream_segment_IDs) > 0:
             _trib_cent = 0.
             self.upseg_trib_coeffs = []
-            ##print("ID", self.ID)
+            print("ID", self.ID)
             for _tribi in range( len(self.upstream_segment_IDs) ):
                 # Slope for nonlinear portion
                 # This indexing works assuming only 1 downstream segment
@@ -700,11 +700,12 @@ class LongProfile(object):
                               ( self.Q_ext[_tribi][0] / 
                                 self.dx_ext[_tribi][0] ) \
                               / self.land_area_around_confluence
-                ##print("                    TC", _trib_coeff)
-                ##print("_tribi", _tribi)
-                ##print(dzdx_0_16)
-                ##print(self.Q_ext[_tribi][0])
-                ##print(self.dx_ext[_tribi][0])
+                print("_tribi", _tribi)
+                print("TC", _trib_coeff)
+                print(dzdx_0_16)
+                print(self.Q_ext[_tribi][0])
+                print(self.dx_ext[_tribi][0])
+                print("")
                 #_trib_coeff *= -1
                 _trib_cent += _trib_coeff
                 #print("T", self.upstream_segment_IDs[_tribi], 

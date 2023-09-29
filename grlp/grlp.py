@@ -686,8 +686,23 @@ class LongProfile(object):
         #if len(self.dx_ext) > 1: # Or even 1
         # Tributary contributions to center: Write to work for any
         # integer > 0 number of tributaries
+
+        if len(self.downstream_segment_IDs) > 0:
+            # SHOULD DO ANOTHER CHECK: ACTUALLY TRIB JCN?
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # Update new trib at upseg[-1]
+            # Could do with len z_ext or something like this
+            # Index -1: Before roll
+            self.left[-1] = -self.C1[-1] / self.dx_ext_2cell[0][-1] \
+                            * ( (7/3.)/self.dx_ext[0][-2]
+                            - (self.Q[-1]-self.Q[-2])/self.Q[-1]/self.dx[-1] )
+            self.right[-1] = -self.C1[-1] / self.dx_ext_2cell[0][-1] \
+                                  * ( (7/3.)/self.dx_ext[0][-1] # REALLY?
+                                      + (self.Q[-1]-self.Q[-2])/self.Q[-1]/self.dx[-1] )
+            
         
         if len(self.upstream_segment_IDs) > 0:
+            # Update new trib at downseg[0]
             _trib_cent = 0.
             self.upseg_trib_coeffs = []
             ##print("ID", self.ID)

@@ -329,7 +329,7 @@ class LongProfile(object):
                 - self.gravel_fractional_loss_per_km * self.Q_s \
                 / ( (1-self.lambda_p) * self.B )
 
-    def set_niter(self, niter=3):
+    def set_niter(self, niter):
         self.niter = niter
 
     def set_Qs_input_upstream(self, Q_s_0):
@@ -1471,7 +1471,7 @@ class Network(object):
             self.RHS += list(lp.RHS)
         self.RHS = np.array(self.RHS)
 
-    def set_niter(self, niter=3):
+    def set_niter(self, niter):
         # MAKE UNIFORM IN BASE CLASS
         self.niter = niter
 
@@ -2372,7 +2372,6 @@ class Network(object):
             lp.bedload_lumped_constants()
             # REMOVE??? PROBABLY. THIS SHOULD BE SET EXTERNALLY FOR A NETWORK.
             # lp.set_hydrologic_constants()
-            lp.set_niter()
             #lp.set_z_bl(z1)
             lp.set_B( B = B[i] )
             # COULD WRITE A FUNCTION AROUND THIS

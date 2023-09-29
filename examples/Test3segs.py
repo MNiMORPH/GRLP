@@ -92,7 +92,7 @@ net.initialize(
                 )
 
 # Should do this above
-net.set_niter(5)
+net.set_niter(1)
 net.get_z_lengths()
 
 # For testing

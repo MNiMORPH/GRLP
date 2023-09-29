@@ -1705,7 +1705,7 @@ class Network(object):
             for i_downseg in range(np.max((1, len(lp.downstream_segment_IDs)))):
                 for upseg_ID in lp.upstream_segment_IDs:
                     upseg = self.list_of_LongProfile_objects[upseg_ID]
-                    lp.z_ext[_idx][0] = upseg.z[-1]
+                    lp.z_ext[_idx][0] = upseg.z_ext[0][-2]
                     _idx += 1
             # SET DOWNSTREAM BOUNDARIES: INTERNAL
             _idx = 0
@@ -1715,7 +1715,7 @@ class Network(object):
                 downseg = self.list_of_LongProfile_objects[downseg_ID]
                 # Min = 1 so downseg still updated for headwaters segments
                 for i_upseg in range(np.max((1, len(lp.upstream_segment_IDs)))):
-                    lp.z_ext[_idx][-1] = downseg.z[0]
+                    lp.z_ext[_idx][-1] = downseg.z_ext[0][1]
                     _idx += 1
 
     def update_z_ext_external_upstream(self, S0=None, Q_s_0=None):

@@ -14,7 +14,7 @@ import grlp
 importlib.reload(grlp)
 #del net
 
-dt = 3.15E7*10
+dt = 3.15E7
 _B = 100 # uniform
 
 # Custom for just this test network
@@ -60,7 +60,7 @@ z = []
 # Test constant 
 #Q_in_list = [5., 5., 10., 5, 15.]
 Q_in_list = [5., 5., 10.] # straight
-Q_in_list = [4., 6., 10.] # convex
+#Q_in_list = [4., 6., 10.] # convex
 #Q_in_list = [6., 4., 10.] # concave : )
 Q = []
 B = []
@@ -101,7 +101,7 @@ net.initialize(
                 )
 
 # Should do this above
-net.set_niter(30)
+net.set_niter(50)
 net.get_z_lengths()
 
 # For testing
@@ -111,7 +111,7 @@ net.get_z_lengths()
 # For plotting
 # WHEN RUN FOR NT=10, GET BACKWARDS SLOPE ON TRIBUTARY
 # THIS IS WHERE WE NEED TO ADD IN CLOSED BASINS AS ANOTHER SEGMENT TYPE
-net.evolve_threshold_width_river_network(nt=36, dt=1000*dt)
+net.evolve_threshold_width_river_network(nt=360, dt=1000*dt)
 
 for lp in net.list_of_LongProfile_objects:
     # If not downstream-most segment

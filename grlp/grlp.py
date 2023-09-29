@@ -247,6 +247,7 @@ class LongProfile(object):
             Q_ext = k_xQ * self.x_ext**P_xQ
         else:
             sys.exit("Error defining variable")
+        # [was VERY helpful; currently deprecated]
         # dQ_ext_upwind over the cell and the cell upstream of it
         # Therefore, the same cell in which Q increases
         # also experiences the nonzero dQ/dx (23.09.23)
@@ -254,11 +255,18 @@ class LongProfile(object):
         # This is an update over Eq. D3 in Wickert & Schildgen (2019),
         # who applied a central difference, which then spread the dQ out
         # over two cells.
+        # 
+        # Update x2: The impulsive increase in Q and dQ may not interact well
+        # with dz/dx and d2z/dx2, which are calculated across the target cell
+        # and both its neighbors. Therefore, I believe that we should go back
+        # to the 2-cell approach and then "smear" Q by averaging it also over
+        # the target cell and its neighbors.
+        # 
         # [old material:]
         # This then combines with the 1/4 factor in the coefficients
         # for the stencil that results from (2*dx)**2
-        #self.dQ_ext_2cell = Q_ext[2:] - Q_ext[:-2]
-        dQ_ext_upwind = Q_ext[1:-1] - Q_ext[:-2]
+        self.dQ_ext_2cell = Q_ext[2:] - Q_ext[:-2]
+        #dQ_ext_upwind = Q_ext[1:-1] - Q_ext[:-2]
         # Keep sediment supply tied to water supply, except
         # by changing S_0, to only turn one knob for one change (Q/Qs)
         if update_Qs_input:
@@ -427,20 +435,23 @@ class LongProfile(object):
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[0][-1] * 7/3. \
                            * (1/self.dx_ext[0][-2] + 1/self.dx_ext[0][-1])/2. \
-                           + self.dQ_ext_upwind[0][-1]/self.Q[-1] )
+                           + self.dQ_ext_2cell[0][-1]/self.Qsmear[-1] )
                            #+ self.dQ_ext_2cell[0][-1]/self.Q[-1] )
                       # !!!!!!!!!!!!!!!!!
                       # dQ_ext_2cell --> dQ_ext_2cell[0]. Expecting list! HACK.
         else:
             self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[-1] * 7/3. \
                            * (1/self.dx_ext[-2] + 1/self.dx_ext[-1])/2. \
-                           + self.dQ_ext_upwind[-1]/self.Q[-1] )
+                           + self.dQ_ext_2cell[-1]/self.Qsmear[-1] )
                            #+ self.dQ_ext_2cell[-1]/self.Q[-1] )
                            
          # I HAVE NOT CHECKED WHY PREV CODE DIDN'T HAVE A DX IN THE LAST LINE
          # WITH DQ/Q
          # AND NOW I'VE JUST INCLUDED THE SAME DQ, BUT IN JUST ONE CELL
          # INSTEAD OF TWO.
+         # (WHEN I CHANGED TO "UPWIND". JUST CHANGED BACK, AND STILL DON'T KNOW.
+         # IN ANY CASE, THE TESTS INCLUDE Z_BL = 0, SO BCR = 0 AND THIS CAN'T
+         # BE THE SWOURCE OF AN ERROR.
 
     def set_bcl_Neumann_RHS(self):
         """
@@ -475,14 +486,14 @@ class LongProfile(object):
             self.bcl = self.dx_ext_2cell[0][0] * self.S0 * \
                                 self.C1[0] / self.dx_ext_2cell[0][0] \
                                 * ( 7/3./self.dx_ext[0][0]
-                                - self.dQ_ext_upwind[0][0]/self.Q[0]/self.dx_ext[0][0] )
+                                - self.dQ_ext_2cell[0][0]/self.Qsmear[0]/self.dx_ext_2cell[0][0] )
                                 # !!!!!!!!!!!!!!!!!
                                 # dQ_ext_2cell --> dQ_ext_2cell[0]. Expecting list! HACK.
         else:
             self.bcl = self.dx_ext_2cell[0] * self.S0 * \
                                 -self.C1[0] / self.dx_ext_2cell[0] \
                                 * ( 7/3./self.dx_ext[0]
-                                - self.dQ_ext_upwind[0]/self.Q[0]/self.dx_ext[0] )
+                                - self.dQ_ext_2cell[0]/self.Qsmear[0]/self.dx_ext_2cell[0] )
 
     def set_bcl_Neumann_LHS(self):
         """
@@ -569,7 +580,7 @@ class LongProfile(object):
         # UPDATED WITH STRAIGHT self.dx_ext_2cell
         self.left = -self.C1 / self.dx_ext_2cell \
                         * ( (7/3.)/self.dx_ext[:-1]
-                        - self.dQ_ext_upwind/self.Q/self.dx_ext[:-1] )
+                        - self.dQ_ext_2cell/self.Qsmear/self.dx_ext_2cell )
         self.center = -self.C1 / self.dx_ext_2cell \
                               * ( (7/3.)
                               * (-1/self.dx_ext[:-1]
@@ -577,7 +588,7 @@ class LongProfile(object):
                                  + 1.
         self.right = -self.C1 / self.dx_ext_2cell \
                               * ( (7/3.)/self.dx_ext[1:] # REALLY?
-                                  + self.dQ_ext_upwind/self.Q/self.dx_ext[:-1] )
+                                  + self.dQ_ext_2cell/self.Qsmear/self.dx_ext_2cell )
         # Apply boundary conditions if the segment is at the edges of the
         # network (both if there is only one segment!)
         if len(self.upstream_segment_IDs) == 0:
@@ -633,7 +644,7 @@ class LongProfile(object):
                 
         self.left = -self.C1 / self.dx_ext_2cell[0] \
                         * ( (7/3.)/self.dx_ext[0][:-1]
-                        - self.dQ_ext_upwind[0]/self.Q/self.dx_ext[0][:-1] )
+                        - self.dQ_ext_2cell[0]/self.Qsmear/self.dx_ext_2cell[0] )
         self.center = -self.C1 / self.dx_ext_2cell[0] \
                               * ( (7/3.)
                               * (-1/self.dx_ext[0][:-1]
@@ -641,7 +652,7 @@ class LongProfile(object):
                                  + 1.
         self.right = -self.C1 / self.dx_ext_2cell[0] \
                               * ( (7/3.)/self.dx_ext[0][1:] # REALLY?
-                                  + self.dQ_ext_upwind[0]/self.Q/self.dx_ext[0][:-1] )
+                                  + self.dQ_ext_2cell[0]/self.Qsmear/self.dx_ext_2cell[0] )
                                   # !!!!!!!!!!!!!!!!!
                                   # dQ --> dQ[0]. Expecting list! HACK.
         # Far-left "self.center" depends on upstream boundary conditions
@@ -679,7 +690,7 @@ class LongProfile(object):
         if len(self.upstream_segment_IDs) > 0:
             _trib_cent = 0.
             self.upseg_trib_coeffs = []
-            print("ID", self.ID)
+            ##print("ID", self.ID)
             for _tribi in range( len(self.upstream_segment_IDs) ):
                 # Slope for nonlinear portion
                 # This indexing works assuming only 1 downstream segment
@@ -700,12 +711,14 @@ class LongProfile(object):
                               ( self.Q_ext[_tribi][0] / 
                                 self.dx_ext[_tribi][0] ) \
                               / self.land_area_around_confluence
+                """
                 print("_tribi", _tribi)
                 print("TC", _trib_coeff)
                 print(dzdx_0_16)
                 print(self.Q_ext[_tribi][0])
                 print(self.dx_ext[_tribi][0])
                 print("")
+                """
                 #_trib_coeff *= -1
                 _trib_cent += _trib_coeff
                 #print("T", self.upstream_segment_IDs[_tribi], 
@@ -2165,7 +2178,7 @@ class Network(object):
         for Q_ext_array in lp.Q_ext:
                 Q_ext_array[-1] = lp.Q[-1]
 
-    def update_dQ_ext_upwind(self):
+    def update_dQ_ext_2cell(self):
         """
         Use segment adjacencies to set changes in discharge down segments.
         For a convergent network:
@@ -2180,11 +2193,22 @@ class Network(object):
         combination (here, typically two tributaries joining into one 
         downstream river segment). This is needed to properly weight
         slopes for the C1 coefficient.
+        
+        # NOW BACK TO 2CELL, FOR CONGRUENCE WITH SLOPE CALCULATIONS.
+        # NEED TO SMEAR Q FOR IT TO WORK, THOUGH
         """
         for lp in self.list_of_LongProfile_objects:
-            lp.dQ_ext_upwind = []
+            lp.dQ_ext_2cell = []
             for Q_ext_array in lp.Q_ext:
-                lp.dQ_ext_upwind.append( (Q_ext_array[1:-1] - Q_ext_array[:-2]) )
+                lp.dQ_ext_2cell.append( (Q_ext_array[2:] - Q_ext_array[:-2]) )
+    
+    def update_Qsmear(self):
+        for lp in self.list_of_LongProfile_objects:
+            lp.Qsmear = []
+            for Q_ext_array in lp.Q_ext:
+                lp.Qsmear = lp.Q.copy()
+                lp.Qsmear = np.mean(( lp.Q, Q_ext_array[2:] ), axis = 0)
+                print( lp.Qsmear )
             
     def set_intermittency(self, intermittency):
         """
@@ -2408,7 +2432,8 @@ class Network(object):
         self.update_Q_ext_internal()
         self.update_Q_ext_external_upstream()  # b.c., Q_ext[0] = Q[0]
         self.update_Q_ext_external_downstream()   # b.c., Q_ext[-1] = Q[-1]
-        self.update_dQ_ext_upwind()
+        self.update_dQ_ext_2cell()
+        self.update_Qsmear()
         
         # Land area around each conflunece: Special case to help with dz/dt
         self.compute_land_areas_around_confluences()

@@ -28,7 +28,7 @@ z = []
 # Test constant 
 Q_in_list = [5., 5., 10., 10., 20.]
 #Q_in_list = [5., 5., 5., 5, 5.]
-#Q_in_list = [[2.5, 2.5, 2.5, 5, 5], [7.5, 7.5, 7.5, 7.5, 5, 5, 5], 10, 10., 20.]
+Q_in_list = [[2.5, 2.5, 2.5, 5, 5], [7.5, 7.5, 7.5, 7.5, 5, 5, 5], 10, 10., 20.]
 Q = []
 B = []
 print( "" )
@@ -103,7 +103,16 @@ net.get_z_lengths()
 # For plotting
 # WHEN RUN FOR NT=10, GET BACKWARDS SLOPE ON TRIBUTARY
 # THIS IS WHERE WE NEED TO ADD IN CLOSED BASINS AS ANOTHER SEGMENT TYPE
-net.evolve_threshold_width_river_network(nt=36, dt=100*dt)
+#net.evolve_threshold_width_river_network(nt=300, dt=10*dt)
+
+# Moving boundary
+for i in range(40):
+    net.evolve_threshold_width_river_network(nt=5, dt=10*dt)
+    z_bl -= 1
+    x_bl += 100
+    net.update_z_ext_external_downstream(z_bl)
+    net.update_x_ext_external_downstream(x_bl)
+
 
 for lp in net.list_of_LongProfile_objects:
     # If not downstream-most segment

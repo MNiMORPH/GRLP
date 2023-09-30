@@ -128,8 +128,8 @@ net.update_z_ext_external_downstream(-30)
 
 nsteps = 200
 for i in range(nsteps):
-    net.evolve_threshold_width_river_network(nt=1, dt=dt)
-    if i % np.ceil(nsteps/10) == 0:
+    net.evolve_threshold_width_river_network(nt=1, dt=10*dt)
+    if i % np.ceil(nsteps/50) == 0:
         for lp in net.list_of_LongProfile_objects:
             # If not downstream-most segment
             if len( lp.downstream_segment_IDs ) > 0:
@@ -140,7 +140,7 @@ for i in range(nsteps):
                     plt.plot(_xjoin, _zjoin, 'k-', linewidth=1, alpha=1)
             else:
                 plt.plot(lp.x_ext[0][-2:], lp.z_ext[0][-2:], 'k-', linewidth=1, alpha=1)
-            plt.plot(lp.x, lp.z, '-', linewidth=1, alpha=1)#, label=lp.)
+            plt.plot(lp.x, lp.z, 'k-', linewidth=1, alpha=.2)#, label=lp.)
 
 for lp in net.list_of_LongProfile_objects:
     # If not downstream-most segment
@@ -154,6 +154,8 @@ for lp in net.list_of_LongProfile_objects:
         plt.plot(lp.x_ext[0][-2:], lp.z_ext[0][-2:], 'k-', linewidth=3, alpha=.5)
     plt.plot(lp.x, lp.z, 'k-', linewidth=3, alpha=.5)#, label=lp.)
 
+plt.xlabel('Distance downvalley in network [m]', fontsize=16)
+plt.ylabel('Elevation above outlet before\nbase-level fall [m]', fontsize=16)
 plt.tight_layout()
 plt.show()
 #"""

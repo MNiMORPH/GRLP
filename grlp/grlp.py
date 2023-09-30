@@ -425,7 +425,8 @@ class LongProfile(object):
         # Possibly because it is midway through the network
         # Maybe I really do need to update how I pass things here...
         # !!!!!!!!!!!!!!!! JUST MAKE SOMETHING RUN
-        self.z_bl = 0
+        ##self.z_bl = 0
+        
         #sys.exit("ERROR: UNSUPPORTED DQ_EXT_2CELL")
         if type(self.x_ext) is list:
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! HACk to make it work for now
@@ -1915,6 +1916,7 @@ class Network(object):
         # Loop over each 1D array within the list: each trib connection
         for _z_ext in lp.z_ext:
             _z_ext[-1] = z0
+            lp.z_bl = z0
 
         # We should have some code to account for changes in both x and z
         # with base-level change, and remeshes the downstream-most segment,

@@ -402,7 +402,6 @@ class LongProfile(object):
         self.C1 = np.sum(C1_list, axis=0)
 
     def set_z_bl(self, z_bl):
-        raise ValueError('A very specific bad thing happened.')
         """
         Set the right-hand Dirichlet boundary conditions, i.e. the base level,
         given in the variable "z_bl" (elevation, base level)
@@ -413,7 +412,6 @@ class LongProfile(object):
         self.z_ext[-1] = self.z_bl
         
     def set_x_bl(self, x_bl):
-        raise ValueError('A very specific bad thing happened.')
         self.x_bl = x_bl
         self.x_ext[-1] = self.x_bl
 
@@ -525,7 +523,6 @@ class LongProfile(object):
                              * (1/self.dx_ext[0] + 1/self.dx_ext[1])            
 
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
-        raise ValueError('A very specific bad thing happened.')
         """
         Solve the triadiagonal matrix through time, with a given
         number of time steps (nt) and time-step length (dt)
@@ -572,7 +569,6 @@ class LongProfile(object):
                     * self.dt
 
     def build_matrices(self):
-        raise ValueError('A very specific bad thing happened.')
         """
         Build the tridiagonal matrix (LHS) and the RHS matrix for the solution
         """

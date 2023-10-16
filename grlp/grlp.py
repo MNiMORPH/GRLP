@@ -1738,7 +1738,14 @@ class Network(object):
         list).
         """
         
-        if S0 is not None and Q_s_0 is not None:
+        
+        # THIS IS RATHER MESSY AT HANDLING INTERNAL VS EXTERNAL S0, Q_S_0
+        # WORKS BETTER FOR NOW, BUT SHOULD REWRITE
+        if self.S0 is not None and self.Q_s_0 is not None:
+            # Use Q_s_0
+            pass
+                      
+        elif S0 is not None and Q_s_0 is not None:
             sys.exit( "Choose only one of S0, Q_s_0.\n"+
                       "(Q_s_0 is used to generate S0.)" )
                       
@@ -1805,7 +1812,8 @@ class Network(object):
                 if _is_scalar:
                     lp.Q_s_0 = Q_s_0
                 # Otherwise, iterate over the supplied Q_s_0
-                lp.Q_s_0 = Q_s_0[_idx]
+                else:
+                    lp.Q_s_0 = Q_s_0[_idx]
                 _idx += 1
 
         # Fourth, compute the S0 values
@@ -1866,10 +1874,11 @@ class Network(object):
         _idx = 0
         for ID in self.list_of_channel_head_segment_IDs:
             lp = self.list_of_LongProfile_objects[ID]
-            if _is_scalar:
-                lp.S0 = S0
-            else:
-                lp.S0 = S0[_idx]
+            lp.S0 = S0[_idx]
+            # if _is_scalar:
+            #     lp.S0 = S0
+            # else:
+            #     lp.S0 = S0[_idx]
             _idx += 1
             # Hard-coding: Expecting only one segment in list
             # Because this is just for the channel-head segments
@@ -2423,12 +2432,6 @@ class Network(object):
         self.update_dx_2cell()
         self.update_dx_ext_2cell()
         
-        # Generate arrays of z based on externally provided (user-set) values
-        self.create_z_ext_lists()
-        self.update_z_ext_internal()
-        self.update_z_ext_external_upstream( S0 = S0, Q_s_0 = Q_s_0 )  # b.c.
-        self.update_z_ext_external_downstream( z_bl )                   # b.c.
-        
         # Generate arrays of Q based on externally provided (user-set) values
         self.update_Q( Q )
         self.create_Q_ext_lists()
@@ -2437,6 +2440,21 @@ class Network(object):
         self.update_Q_ext_external_upstream()  # b.c., Q_ext[0] = Q[0]
         self.update_Q_ext_external_downstream()   # b.c., Q_ext[-1] = Q[-1]
         self.update_dQ_ext_2cell()
+
+        # Generate arrays of z based on externally provided (user-set) values
+        self.create_z_ext_lists()
+        self.update_z_ext_internal()
+        self.update_z_ext_external_upstream( S0 = S0, Q_s_0 = Q_s_0 )  # b.c.
+        self.update_z_ext_external_downstream( z_bl )                   # b.c.
+        
+        # # Generate arrays of Q based on externally provided (user-set) values
+        # self.update_Q( Q )
+        # self.create_Q_ext_lists()
+        # self.update_Q_ext_from_Q()
+        # self.update_Q_ext_internal()
+        # self.update_Q_ext_external_upstream()  # b.c., Q_ext[0] = Q[0]
+        # self.update_Q_ext_external_downstream()   # b.c., Q_ext[-1] = Q[-1]
+        # self.update_dQ_ext_2cell()
         
         # Land area around each conflunece: Special case to help with dz/dt
         self.compute_land_areas_around_confluences()

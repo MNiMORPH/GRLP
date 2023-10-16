@@ -175,7 +175,7 @@ def set_up_network_object(
         lp.basic_constants()
         lp.bedload_lumped_constants()
         lp.set_hydrologic_constants()
-        lp.set_niter()
+        lp.set_niter(3)
         lp.set_uplift_rate(0)
 
         # Set up x domain
@@ -208,9 +208,9 @@ def set_up_network_object(
             # if not mouth, reset downstream elevation to that of downstream segment
             lp.z += segments[lp.downstream_segment_IDs[0]].z_ext[0]
             lp.z_ext += segments[lp.downstream_segment_IDs[0]].z_ext[0]
-        else:
+        # else:
             # otherwise set network base level to zero
-            lp.set_z_bl(0.)
+            # lp.set_z_bl(0.)
 
         # add LongProfile object to segment list
         segments.append(lp)
@@ -643,7 +643,40 @@ def find_network_hack_parameters(net):
         ds = []
         for up_id in upstream_IDs:
             ds.append(min(net.list_of_LongProfile_objects[up_id].x))
-        d.append(np.mean(lp.x) - min(ds))
+        d.append(np.max(lp.x) - min(ds))
         Q.append(np.mean(lp.Q))
     k, p = optimize_power_law(d, Q)
     return {'k': k, 'p': p, 'd': d, 'Q': Q}
+
+def find_network_hack_parameters_non_dim(net):
+    """
+    Find optimal Hack parameters for a given network object.
+    
+    First get distances downstream from source for each network segment. Then
+    optimise power law describing increasing discharge downstream.
+    """
+    
+    topo_lengths = []
+    upstream_sources = []
+    upstream_segments = []
+    for seg in net.list_of_LongProfile_objects:
+            
+        up_IDs = net.find_upstream_IDs(seg.ID)
+        upstream_segments.append(len(up_IDs))
+        up_sources = [ID for ID in up_IDs if ID in net.sources]
+        upstream_sources.append(len(up_sources))
+        
+        topo_length = 0
+        for s in up_sources:
+            topo_length_i = 0
+            down_IDs = net.find_downstream_IDs(s)
+            for down_ID in down_IDs:
+                topo_length_i += 1
+                if down_ID == seg.ID:
+                    break
+            topo_length = max(topo_length, topo_length_i)
+        topo_lengths.append(topo_length)
+
+    k_src, p_src = optimize_power_law(np.array(topo_lengths), np.array(upstream_sources))
+    k_seg, p_seg = optimize_power_law(np.array(topo_lengths), np.array(upstream_segments))
+    return {'k_src': k_src, 'p_src': p_src, 'k_seg': k_seg, 'p_seg': p_seg, 'lengths': topo_lengths, 'sources': upstream_sources, 'segments': upstream_segments}

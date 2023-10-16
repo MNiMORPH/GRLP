@@ -1738,7 +1738,14 @@ class Network(object):
         list).
         """
         
-        if S0 is not None and Q_s_0 is not None:
+        
+        # THIS IS RATHER MESSY AT HANDLING INTERNAL VS EXTERNAL S0, Q_S_0
+        # WORKS BETTER FOR NOW, BUT SHOULD REWRITE
+        if self.S0 is not None and self.Q_s_0 is not None:
+            # Use Q_s_0
+            pass
+                      
+        elif S0 is not None and Q_s_0 is not None:
             sys.exit( "Choose only one of S0, Q_s_0.\n"+
                       "(Q_s_0 is used to generate S0.)" )
                       

@@ -11,7 +11,7 @@ authors:
   given-names: "Eric"
   orcid: "https://orcid.org/0000-0001-5770-2116"
 title: "GRLP"
-version: 1.8.0
+version: 2.0.0-alpha
 doi: 10.5281/zenodo.3740658
 date-released: 2023-07-04
 url: "https://github.com/MNiMORPH/GRLP"

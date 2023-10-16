@@ -175,7 +175,7 @@ def set_up_network_object(
         lp.basic_constants()
         lp.bedload_lumped_constants()
         lp.set_hydrologic_constants()
-        lp.set_niter()
+        lp.set_niter(3)
         lp.set_uplift_rate(0)
 
         # Set up x domain
@@ -208,9 +208,9 @@ def set_up_network_object(
             # if not mouth, reset downstream elevation to that of downstream segment
             lp.z += segments[lp.downstream_segment_IDs[0]].z_ext[0]
             lp.z_ext += segments[lp.downstream_segment_IDs[0]].z_ext[0]
-        else:
+        # else:
             # otherwise set network base level to zero
-            lp.set_z_bl(0.)
+            # lp.set_z_bl(0.)
 
         # add LongProfile object to segment list
         segments.append(lp)

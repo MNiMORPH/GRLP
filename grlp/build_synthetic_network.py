@@ -322,10 +322,10 @@ def plot_network(net, show=True):
         planform = {}
         for i,seg in enumerate(net.list_of_LongProfile_objects):
             if not seg.downstream_segment_IDs:
-                x = np.hstack(( seg.x, seg.x_ext[-1], seg.x_ext[-1] ))/1000.
+                x = np.hstack(( seg.x, seg.x_ext[0][-1], seg.x_ext[0][-1] ))/1000.
                 y = np.hstack(( np.full(len(seg.x),ys[i]), ys[i], ys[i] ))
             else:
-                x = np.hstack(( seg.x, seg.x_ext[-1], seg.x_ext[-1] ))/1000.
+                x = np.hstack(( seg.x, seg.x_ext[0][-1], seg.x_ext[0][-1] ))/1000.
                 y = np.hstack(( 
                     np.full(len(seg.x),ys[i]), 
                     ys[i], 

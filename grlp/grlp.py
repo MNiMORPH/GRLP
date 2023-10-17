@@ -914,10 +914,22 @@ class LongProfile(object):
     #    self.analytical_threshold_width()
 
     def compute_Q_s(self):
-        self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) /
-                         (self.dx_ext_2cell) ) / self.sinuosity
-        self.Q_s = -np.sign( self.z_ext[2:] - self.z_ext[:-2] ) \
-                   * self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
+        S = []
+        Q_s = []
+        for _z, _dx in zip(self.z_ext, self.dx_ext_2cell):
+            S.append( np.abs( (_z[2:] - _z[:-2]) / _dx) / self.sinuosity )
+            Q_s.append(
+                -np.sign( _z[2:] - _z[:-2] ) \
+                * self.k_Qs * self.intermittency * self.Q * S[-1]**(7/6.)
+                )
+        self.S = np.mean(S, axis=0)
+        self.Q_s = np.mean(Q_s, axis=0)
+        
+        # # old, non-network way
+        # self.S = np.abs( (self.z_ext[0][2:] - self.z_ext[0][:-2]) /
+        #                  (self.dx_ext_2cell[0]) ) / self.sinuosity
+        # self.Q_s = -np.sign( self.z_ext[0][2:] - self.z_ext[0][:-2] ) \
+        #            * self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
 
     def compute_channel_width(self):
         if self.D is not None:

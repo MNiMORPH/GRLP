@@ -218,6 +218,7 @@ def set_up_network_object(
     for _z in z_ls:
         _z += dz_for_bl
 
+    # ---- Initialize network object
     net = Network()
     net.initialize(
         config_file = None,
@@ -235,78 +236,12 @@ def set_up_network_object(
     net.set_niter(3)
     net.get_z_lengths()
 
-    # # ---- Some parameters for use during set up
-    # segments = []
-    # sources = [i for i in range(len(nx_list)) if not upstream_segment_list[i]]
-    # 
-    # # ---- Loop over segments setting up LongProfile objects
-    # for i,nx in enumerate(nx_list):
-    # 
-    #     # Some basic set up
-    #     lp = LongProfile()
-    #     lp.set_ID(i)
-    #     lp.set_upstream_segment_IDs(upstream_segment_list[i])
-    #     lp.set_downstream_segment_IDs(downstream_segment_list[i])
-    #     lp.set_intermittency(1)
-    #     lp.basic_constants()
-    #     lp.bedload_lumped_constants()
-    #     lp.set_hydrologic_constants()
-    #     lp.set_niter(3)
-    #     lp.set_uplift_rate(0)
-    # 
-    #     # Set up x domain
-    #     down_IDs = downstream_IDs(downstream_segment_list, i)[1:]
-    #     down_nx = sum([nx_list[i] for i in down_IDs])
-    #     x0 = - down_nx - nx_list[i]
-    #     x1 = x0 + nx_list[i]
-    #     x = np.arange( (x0-1), (x1+1), 1. ) * dx
-    #     lp.set_x(x_ext=x)
-    # 
-    #     # set width
-    #     lp.set_B(B)
-    # 
-    #     # Set initial z
-    #     S0 = (Qs_in / (lp.k_Qs * Q_in))**(6./7.)
-    #     lp.set_z(S0=-S0, z1=0.)
-    # 
-    #     if i in sources:
-    #         # if segment is a source, set Q and Qs to input values
-    #         lp.set_Q(Q=Q_in)
-    #         lp.set_Qs_input_upstream(Qs_in)
-    #     else:
-    #         # otherwise set Q based on number of upstream sources
-    #         # Qs will be set by input from upstream segments
-    #         up_IDs = upstream_IDs(upstream_segment_list, i)
-    #         num_sources = len([j for j in up_IDs if not upstream_segment_list[j]])
-    #         lp.set_Q(Q=Q_in*num_sources)
-    # 
-    #     if lp.downstream_segment_IDs:
-    #         # if not mouth, reset downstream elevation to that of downstream segment
-    #         lp.z += segments[lp.downstream_segment_IDs[0]].z_ext[0]
-    #         lp.z_ext += segments[lp.downstream_segment_IDs[0]].z_ext[0]
-    #     # else:
-    #         # otherwise set network base level to zero
-    #         # lp.set_z_bl(0.)
-    # 
-    #     # add LongProfile object to segment list
-    #     segments.append(lp)
-    # 
-    # # ---- Update x coordinates to run from 0 at furthest upstream point
-    # x_min = min([min(lp.x_ext)+dx for lp in segments])
-    # for i,seg in enumerate(segments):
-    #     segments[i].set_x(x_ext=segments[i].x_ext-x_min)
-    # 
-    # # ---- Initialise and set up network object with list of LongProfile objects
-    # net = Network(segments)
-    # net.get_z_lengths()
-    # net.set_niter()
-    # net.build_ID_list()
-    # net.compute_network_properties()
-
     # ---- If requested evolve network, aiming for steady state
     if evolve:
         net.evolve_threshold_width_river_network(nt=1000, dt=3.15e10)
-        for seg in net.list_of_LongProfile_objects: seg.compute_Q_s()
+    
+    # ---- Compute Qs
+    for seg in net.list_of_LongProfile_objects: seg.compute_Q_s()
 
     return net
 

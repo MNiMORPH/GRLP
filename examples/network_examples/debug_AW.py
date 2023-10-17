@@ -7,6 +7,13 @@ mean_Q = 10.
 mean_Qs = 0.001
 B = 98.1202038813591
 
+# Basic lp object to get k_Qs
+lp = LongProfile()
+lp.basic_constants()
+lp.bedload_lumped_constants()
+lp.set_hydrologic_constants()
+
+
 # Get random network topology
 net_topo = Shreve_Random_Network(magnitude=10)
 
@@ -90,6 +97,7 @@ net.set_niter(3)
 net.get_z_lengths()
 net.evolve_threshold_width_river_network(nt=10, dt=3.15e11)
 
+
 # Plot
 for lp in net.list_of_LongProfile_objects:
     # If not downstream-most segment
@@ -104,3 +112,6 @@ for lp in net.list_of_LongProfile_objects:
     plt.plot(lp.x, lp.z, '-', linewidth=4, alpha=.5)#, label=lp.)
 
 plt.show()
+
+for seg in net.list_of_LongProfile_objects:
+    seg.compute_Q_s()

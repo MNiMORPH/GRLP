@@ -914,10 +914,22 @@ class LongProfile(object):
     #    self.analytical_threshold_width()
 
     def compute_Q_s(self):
-        self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) /
-                         (self.dx_ext_2cell) ) / self.sinuosity
-        self.Q_s = -np.sign( self.z_ext[2:] - self.z_ext[:-2] ) \
-                   * self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
+        S = []
+        Q_s = []
+        for _z, _dx in zip(self.z_ext, self.dx_ext_2cell):
+            S.append( np.abs( (_z[2:] - _z[:-2]) / _dx) / self.sinuosity )
+            Q_s.append(
+                -np.sign( _z[2:] - _z[:-2] ) \
+                * self.k_Qs * self.intermittency * self.Q * S[-1]**(7/6.)
+                )
+        self.S = np.mean(S, axis=0)
+        self.Q_s = np.mean(Q_s, axis=0)
+        
+        # # old, non-network way
+        # self.S = np.abs( (self.z_ext[0][2:] - self.z_ext[0][:-2]) /
+        #                  (self.dx_ext_2cell[0]) ) / self.sinuosity
+        # self.Q_s = -np.sign( self.z_ext[0][2:] - self.z_ext[0][:-2] ) \
+        #            * self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
 
     def compute_channel_width(self):
         if self.D is not None:
@@ -2624,11 +2636,11 @@ class Network(object):
         _upstream_IDs(ID)
         return IDs
 
-    def find_sources(self):
-        """
-        Find network sources (heads).
-        """
-        self.sources = [i for i in self.IDs if self.list_of_LongProfile_objects[i].Q_s_0]
+    # def find_sources(self):
+    #     """
+    #     Find network sources (heads).
+    #     """
+    #     self.sources = [i for i in self.IDs if self.list_of_LongProfile_objects[i].Q_s_0]
 
     def compute_mean_discharge(self):
         """
@@ -2639,7 +2651,7 @@ class Network(object):
         """
         Q_arr = np.array([])
         heads = [i for i in self.IDs if self.list_of_LongProfile_objects[i].Q_s_0]
-        for i in self.sources:
+        for i in self.list_of_channel_head_segment_IDs:
             downstream_path = self.find_downstream_IDs(i)
             for j in downstream_path:
                 Q_arr = np.hstack(( Q_arr, self.list_of_LongProfile_objects[j].Q))
@@ -2652,7 +2664,7 @@ class Network(object):
         """
         x_max = [self.list_of_LongProfile_objects[i].x[-1] for i in self.IDs if not self.list_of_LongProfile_objects[i].downstream_segment_IDs][0]
         x_arr = np.array([])
-        for i in self.sources:
+        for i in self.list_of_channel_head_segment_IDs:
             x_arr = np.hstack(( x_arr, self.list_of_LongProfile_objects[i].x[0] ))
         # self.mean_downstream_distance = np.sqrt(((x_max - x_arr)**2).mean())
         self.mean_downstream_distance = (x_max - x_arr).mean()
@@ -2662,7 +2674,7 @@ class Network(object):
         Compute various network properties.
         Added: FM, 03/2021.
         """
-        self.find_sources()
+        # self.find_sources()
         self.compute_mean_downstream_distance()
         self.compute_mean_discharge()
 
@@ -2680,7 +2692,7 @@ class Network(object):
         # compute strahler orders, working down from each source
         self.segment_orders = np.zeros(len(self.IDs), dtype=int)
         self.max_topological_length = False
-        for i in self.sources:
+        for i in self.list_of_channel_head_segment_IDs:
             self.topological_length = -1
             _step_down(i)
             self.max_topological_length = max(self.max_topological_length, self.topological_length)

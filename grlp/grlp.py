@@ -39,6 +39,7 @@ class LongProfile(object):
         self.gravel_fractional_loss_per_km = None
         #self.downstream_dx = None # not necessary if x_ext given
         #self.basic_constants()
+        self.L = None
 
     def set_ID(self, ID):
         """
@@ -971,12 +972,24 @@ class LongProfile(object):
         self.diffusivity = (7./6.) * self.k_Qs * self.intermittency * self.Q * self.S**(1./6.) \
             / self.sinuosity**(7./6.) / self.B / (1. - self.lambda_p)
 
+    def compute_length(self):
+        """
+        Compute total segment length.
+        Average over external arrays for each tributary.
+        """
+        Ls = []
+        for x in self.x_ext:
+            Ls.append(x.max() - x.min())
+        self.L = np.mean(Ls, axis=0)
+
     def compute_equilibration_time(self):
         """
         Compute valley equilibration time (sensu Paola et al., 1992).
         From scaling of linearized version of threshold width equation.
         """
         self.compute_diffusivity()
+        if not self.L:
+            self.compute_length()
         self.equilibration_time = self.L**2. / self.diffusivity.mean()
 
     def compute_e_folding_time(self, n):
@@ -992,6 +1005,8 @@ class LongProfile(object):
         Compute wavenumber for series solutions to linearized version of
         threshold width equation.
         """
+        if not self.L:
+            self.compute_length()
         return (2*n + 1) * np.pi / 2. / self.L
 
     def compute_series_coefficient(self, n, period):
@@ -999,6 +1014,8 @@ class LongProfile(object):
         Compute coefficient for series solutions to linearized version of
         threshold width equation.
         """
+        if not self.L:
+            self.compute_length()
         return 4 * np.pi * period / self.L / \
             ((period**2.) * (self.diffusivity.mean()**2.) *
                 (self.compute_wavenumber(n)**4.) + (4.*np.pi**2.))
@@ -1037,6 +1054,8 @@ class LongProfile(object):
         or water supply and response in valley elevation.
         From solving linearized version of threshold width equation.
         """
+        if not self.L:
+            self.compute_length()
         self.compute_diffusivity()
         cos_term, sin_term = self.compute_z_series_terms(period, nsum)
         return (6./7.) * \
@@ -1061,6 +1080,8 @@ class LongProfile(object):
         From solving linearized version of threshold width equation.
         """
         # Basic calculation
+        if not self.L:
+            self.compute_length()
         self.compute_diffusivity()
         cos_term, sin_term = self.compute_z_series_terms(period, nsum)
         lag = -(period/(2.*np.pi)) * \

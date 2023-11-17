@@ -433,10 +433,12 @@ class LongProfile(object):
             # OR JUST REMOVE
             # IS USED, FOR RIVER MOUTH. BUT MAYBE IT DOESN'T MATTER?
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[0][-1] * 7/3. \
-                           * (1/self.dx_ext[0][-2] + 1/self.dx_ext[0][-1])/2. \
-                           + self.dQ_ext_2cell[0][-1]/self.Q[-1] )
-                           #+ self.dQ_ext_2cell[0][-1]/self.Q[-1] )
+            self.bcr = self.z_bl * self.C1[-1] / self.dx_ext_2cell[0][-1] * (
+                         7/3. * ( 1/(self.x_ext[0][-1] - self.x_ext[0][-2]) )
+                         +
+                         self.dQ_ext_2cell[0][-1]/self.Q[-1]
+                         * 1/self.dx_ext_2cell[0][-1]
+                         )
                       # !!!!!!!!!!!!!!!!!
                       # dQ_ext_2cell --> dQ_ext_2cell[0]. Expecting list! HACK.
         else:

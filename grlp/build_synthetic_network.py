@@ -150,7 +150,7 @@ def get_simple_network_setup_params(
     return nxs, dx, Q_in, Qs_in
 
 def set_up_network_object(
-    nx_list, dx, upstream_segment_list, downstream_segment_list, Q_in, Qs_in, B, evolve=False):
+    nx_list, dxs, segment_lengths, upstream_segment_list, downstream_segment_list, discharge_list, sediment_discharge_ratio, B, evolve=False):
     """
     Uses lists of segment length, upstream and downstream segment IDs to build
     instance of grlp.Network.
@@ -160,7 +160,6 @@ def set_up_network_object(
     """
     
     # ---- Some parameters for use during set up
-    segments = []
     sources = [i for i in range(len(nx_list)) if not upstream_segment_list[i]]
     
     # ---- Basic lp object to get k_Qs for later
@@ -173,48 +172,58 @@ def set_up_network_object(
     x_ls = []
     z_ls = []
     Q_ls = []
+    Qs_ssd_ls = []
     B_ls = []
     for i,nx in enumerate(nx_list):
         
         # Set up x domain
         down_IDs = downstream_IDs(downstream_segment_list, i)[1:]
-        down_nx = sum([nx_list[j] for j in down_IDs])
-        x0 = - down_nx - nx_list[i]
-        x1 = x0 + nx_list[i]
-        x = np.arange( x0, x1, 1. ) * dx
+        down_x = sum([segment_lengths[j] for j in down_IDs])
+        x0 = - down_x - segment_lengths[i]
+        x1 = x0 + segment_lengths[i]
+        x = x0 + np.arange( 0, nx_list[i], 1 ) * dxs[i]
         x_ls.append(x)
         
         # set width
         B_ls.append(B)
         
+        # Set discharges
+        if i in sources:
+            max_discharge = discharge_list[i]
+            min_discharge = max_discharge / 1.5
+            Q, dQ = np.linspace(min_discharge, max_discharge, len(x), retstep=True)
+            Q_ls.append(Q)
+            Qs_ssd = dQ/sediment_discharge_ratio/dxs[i]/B_ls[i]/(1.-lp.lambda_p)
+            Qs_ssd = np.full(len(x), Qs_ssd)
+            Qs_ssd_ls.append( Qs_ssd )
+        else:
+            up_IDs = upstream_IDs(upstream_segment_list, i)
+            max_discharge = sum([discharge_list[j] for j in up_IDs])
+            min_discharge = max_discharge - discharge_list[i]
+            Q, dQ = np.linspace(min_discharge, max_discharge, len(x), retstep=True)
+            Q_ls.append(Q)
+            Qs_ssd = dQ/sediment_discharge_ratio/dxs[i]/B_ls[i]/(1.-lp.lambda_p)
+            Qs_ssd = np.full(len(x), Qs_ssd)
+            Qs_ssd_ls.append( Qs_ssd )
+
         # Set initial z
-        S0 = (Qs_in/(lp.k_Qs*Q_in))**(6./7.)
+        S0 = (1./(lp.k_Qs*sediment_discharge_ratio))**(6./7.)
         z = (x.max()-x)*S0
         
         # if not mouth, reset downstream elevation to that of downstream segment
         # needs lists to work backwards from downstream end
         if downstream_segment_list[i]:
-            z += z_ls[downstream_segment_list[i][0]][0] + dx*S0
+            z += z_ls[downstream_segment_list[i][0]][0] + dxs[i]*S0
         z_ls.append(z)
         
-        # Set discharge
-        if i in sources:
-            # if segment is a source, set Q input values
-            Q_ls.append(np.full(len(x), Q_in))
-        else:
-            # otherwise set based on number of upstream sources
-            up_IDs = upstream_IDs(upstream_segment_list, i)
-            num_sources = len([j for j in up_IDs if not upstream_segment_list[j]])
-            Q_ls.append(np.full(len(x), Q_in*num_sources))
-            
     # ---- Update x coordinates to run from 0 at furthest upstream point, record max
     x_min = min([min(x) for x in x_ls])
     for i,nx in enumerate(nx_list):
         x_ls[i] -= x_min
     # AW guess: take max x value and add an increment dx for base-level boundary
-    x_max = max([max(x) for x in x_ls]) + dx
+    x_max = max([max(x) + (x[-1]-x[-2]) for x in x_ls])
     # Then add on some vertical distance to make a straight line to base level
-    dz_for_bl = dx*S0
+    dz_for_bl = dxs[0]*S0
     for _z in z_ls:
         _z += dz_for_bl
 
@@ -235,10 +244,15 @@ def set_up_network_object(
         )
     net.set_niter(3)
     net.get_z_lengths()
+    
+    # ---- Set segment source-sink-distributed term
+    for i,seg in enumerate(net.list_of_LongProfile_objects):
+        seg.set_source_sink_distributed(Qs_ssd_ls[i])
+
 
     # ---- If requested evolve network, aiming for steady state
     if evolve:
-        net.evolve_threshold_width_river_network(nt=1000, dt=3.15e10)
+        net.evolve_threshold_width_river_network(nt=100, dt=3.15e12)
     
     # ---- Compute Qs
     for seg in net.list_of_LongProfile_objects: seg.compute_Q_s()

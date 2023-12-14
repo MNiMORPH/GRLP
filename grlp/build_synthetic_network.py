@@ -492,14 +492,21 @@ class Shreve_Random_Network:
     Creates lists of upstream/downstream segment IDs for us in GRLP.
     """
 
-    def __init__(self, magnitude, topology=None):
+    def __init__(self, magnitude, segment_length=None, segment_length_area_ratio=None, max_length=None, topology=None):
         self.magnitude = magnitude
         self.links = topology
         self.upstream_segment_IDs = None
         self.downstream_segment_IDs = None
+        self.segment_length = segment_length
+        self.segment_length_area_ratio = segment_length_area_ratio
+        self.max_length = max_length
         if not self.links:
             self.build_network_topology()
         self.build_lists()
+        if segment_length or max_length:
+            self.set_segment_lengths()
+        if segment_length_area_ratio:
+            self.set_segment_areas()
 
     @property
     def probability_external(self):
@@ -602,6 +609,67 @@ class Shreve_Random_Network:
                     while len(self.upstream_segment_IDs[down_seg]) > 1:
                         down_seg = down_segs.pop(-1)
                 seg += 1
+
+    def set_segment_lengths(self):
+        
+        if self.max_length:
+            
+            # Find maximum topological length,
+            # i.e. number of downstream segments to outlet
+            max_topo_length = max([
+                len(downstream_IDs(self.downstream_segment_IDs, i))
+                for i in range(len(self.downstream_segment_IDs))])
+                
+            # Find length of each link so that total length equals L
+            link_length = self.max_length / max_topo_length
+            
+            # Fill lists
+            self.segment_lengths = [link_length for i in self.upstream_segment_IDs]
+            
+        elif self.segment_length:
+                            
+            self.segment_lengths = []
+            for i in range(len(self.upstream_segment_IDs)):
+                if not self.upstream_segment_IDs[i]:
+                    try:
+                        segment_length = float(self.segment_length[0])
+                    except TypeError:
+                        segment_length = self.segment_length[0].rvs(size=1)[0]
+                else:
+                    try:
+                        segment_length = float(self.segment_length[1])
+                    except TypeError:
+                        segment_length = self.segment_length[1].rvs(size=1)[0]
+                self.segment_lengths.append(segment_length)
+                
+    def set_segment_areas(self):
+        
+        self.segment_areas = []
+        for i in range(len(self.upstream_segment_IDs)):
+            if not self.upstream_segment_IDs[i]:
+                try:
+                    segment_area = (
+                        self.segment_lengths[i] * 
+                        float(self.segment_length_area_ratio[0])
+                        )
+                except TypeError:
+                    segment_area = (
+                        self.segment_lengths[i] * 
+                        self.segment_length_area_ratio[0].rvs(size=1)[0]
+                        )
+            else:
+                try:
+                    segment_area = (
+                        self.segment_lengths[i] * 
+                        float(self.segment_length_area_ratio[1])
+                        )
+                except TypeError:
+                    segment_area = (
+                        self.segment_lengths[1] * 
+                        self.segment_length_area_ratio[0].rvs(size=1)[0]
+                        )
+            self.segment_areas.append(segment_area)
+
 
 def power_law(x, k, p):
     """

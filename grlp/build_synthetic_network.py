@@ -646,14 +646,14 @@ class Shreve_Random_Network:
             for i in range(len(self.upstream_segment_IDs)):
                 if not self.upstream_segment_IDs[i]:
                     try:
-                        segment_length = float(self.segment_length[0])
+                        segment_length = float(self.segment_length['ext'])
                     except TypeError:
-                        segment_length = self.segment_length[0].rvs(size=1)[0]
+                        segment_length = self.segment_length['ext'].rvs(size=1)[0]
                 else:
                     try:
-                        segment_length = float(self.segment_length[1])
+                        segment_length = float(self.segment_length['int'])
                     except TypeError:
-                        segment_length = self.segment_length[1].rvs(size=1)[0]
+                        segment_length = self.segment_length['int'].rvs(size=1)[0]
                 self.segment_lengths.append(segment_length)
                 
     def set_segment_areas(self):
@@ -664,23 +664,23 @@ class Shreve_Random_Network:
                 try:
                     segment_area = (
                         self.segment_lengths[i] * 
-                        float(self.segment_length_area_ratio[0])
+                        float(self.segment_length_area_ratio['ext'])
                         )
                 except TypeError:
                     segment_area = (
                         self.segment_lengths[i] * 
-                        self.segment_length_area_ratio[0].rvs(size=1)[0]
+                        self.segment_length_area_ratio['ext'].rvs(size=1)[0]
                         )
             else:
                 try:
                     segment_area = (
                         self.segment_lengths[i] * 
-                        float(self.segment_length_area_ratio[1])
+                        float(self.segment_length_area_ratio['int'])
                         )
                 except TypeError:
                     segment_area = (
-                        self.segment_lengths[1] * 
-                        self.segment_length_area_ratio[0].rvs(size=1)[0]
+                        self.segment_lengths[i] * 
+                        self.segment_length_area_ratio['int'].rvs(size=1)[0]
                         )
             self.segment_areas.append(segment_area)
 

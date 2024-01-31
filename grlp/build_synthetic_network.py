@@ -269,10 +269,10 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
             "Exiting.")
         return None
         
-    if not mean_discharge and not effective_rainfall:
+    if not mean_discharge and not effective_rainfall and not supply_discharges:
         print(
             "Error: " +
-            "you must specify mean_discharge or effective_rainfall. " +
+            "you must specify mean_discharge or effective_rainfall or supply_discharges. " +
             "Exiting.")
         return None
     

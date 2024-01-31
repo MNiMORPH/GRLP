@@ -345,7 +345,7 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         evolve=evolve
         )
     
-    return net
+    return net, net_topo
 
 def plot_network(net, show=True):
     """

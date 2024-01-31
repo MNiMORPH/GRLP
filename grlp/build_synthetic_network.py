@@ -259,36 +259,97 @@ def set_up_network_object(
 
     return net
 
-def generate_random_network(magnitude, length, width, mean_Q, mean_Qs, evolve=False, topology=None):
-    """
-    Generate a random network with given magnitude, length, width, and mean
-    discharges.
-    """
+def generate_random_network(magnitude=None, max_length=None, segment_lengths=None,
+    segment_length=None, internal_discharges=None, supply_discharges=None, 
+    segment_length_area_ratio=None, supply_area=None, approx_dx=1.e2,
+    min_nxs=5, mean_discharge=None, effective_rainfall=None,
+    sediment_discharge_ratio=1.e4, width=100., topology=None,
+    evolve=False):
     
-    # Get random network topology
-    net_topo = Shreve_Random_Network(magnitude=magnitude, topology=topology)
-    
-    # Get setup parameters
-    nxs, dx, Q_in, Qs_in = get_simple_network_setup_params(
-        net_topo.upstream_segment_IDs,
-        net_topo.downstream_segment_IDs,
-        length,
-        mean_Q,
-        mean_Qs)
+    if not max_length and not segment_length and not segment_lengths:
+        print(
+            "Error: " +
+            "you must specify max_length, link_length or segment_lengths. " +
+            "Exiting.")
+        return None
         
-    # Set up the object
+    if not mean_discharge and not effective_rainfall:
+        print(
+            "Error: " +
+            "you must specify mean_discharge or effective_rainfall. " +
+            "Exiting.")
+        return None
+    
+    net_topo = Shreve_Random_Network(
+        magnitude=magnitude, 
+        segment_length=segment_length,
+        segment_length_area_ratio=segment_length_area_ratio,
+        supply_area=supply_area,
+        max_length=max_length,
+        topology=topology
+        )
+        
+    if not segment_lengths:
+        segment_lengths = net_topo.segment_lengths
+
+    dxs = []
+    nxs = []
+    for i,L in enumerate(net_topo.segment_lengths):
+        nxs.append(max(min_nxs, int(L/approx_dx)))
+        dxs.append(L / nxs[-1])
+    
+    if not supply_discharges:
+        
+        if mean_discharge:
+        
+            # Find number of sources upstream of each point
+            up_sources = []
+            for i in range(len(net_topo.upstream_segment_IDs)):
+                count = 0
+                up_IDs = upstream_IDs(net_topo.upstream_segment_IDs, i)
+                for ID in up_IDs:
+                    if len(upstream_IDs(net_topo.upstream_segment_IDs, ID)) == 1:
+                        count += 1
+                up_sources.append(count)
+                
+            # Find input sediment and water discharge to give specified means
+            discharge_in = mean_discharge / np.mean(up_sources)
+
+            supply_discharges = []
+            for i in range(len(net_topo.upstream_segment_IDs)):
+                if len(upstream_IDs(net_topo.upstream_segment_IDs, i)) == 1:
+                    supply_discharges.append(discharge_in)
+                else:
+                    supply_discharges.append(0.)
+                                        
+        else:
+            
+            supply_discharges = [
+                area*effective_rainfall for area in net_topo.source_areas
+                ]
+                
+    if not internal_discharges:
+        if mean_discharge:
+            internal_discharges = [0 for i in net_topo.upstream_segment_IDs]
+        else:
+            internal_discharges = [
+                area*effective_rainfall for area in net_topo.segment_areas
+                ]
+
     net = set_up_network_object(
-        nxs,
-        dx,
-        net_topo.upstream_segment_IDs,
-        net_topo.downstream_segment_IDs,
-        Q_in,
-        Qs_in,
-        width,
-        evolve)
-        
-    # Return
-    return net, net_topo
+        nx_list = nxs, 
+        dxs = dxs,
+        segment_lengths = segment_lengths, 
+        upstream_segment_list =  net_topo.upstream_segment_IDs,
+        downstream_segment_list = net_topo.downstream_segment_IDs, 
+        supply_discharge_list = supply_discharges,
+        internal_discharge_list = internal_discharges,
+        sediment_discharge_ratio = sediment_discharge_ratio, 
+        B = width, 
+        evolve=evolve
+        )
+    
+    return net
 
 def plot_network(net, show=True):
     """

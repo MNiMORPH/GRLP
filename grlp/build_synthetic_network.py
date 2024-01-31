@@ -149,8 +149,9 @@ def get_simple_network_setup_params(
     # Return
     return nxs, dx, Q_in, Qs_in
 
-def set_up_network_object(
-    nx_list, dxs, segment_lengths, upstream_segment_list, downstream_segment_list, discharge_list, sediment_discharge_ratio, B, evolve=False):
+def set_up_network_object(nx_list, dxs, segment_lengths, upstream_segment_list,
+    downstream_segment_list, supply_discharge_list, internal_discharge_list,
+    sediment_discharge_ratio, B, evolve=False):
     """
     Uses lists of segment length, upstream and downstream segment IDs to build
     instance of grlp.Network.
@@ -189,22 +190,17 @@ def set_up_network_object(
         
         # Set discharges
         if i in sources:
-            max_discharge = discharge_list[i]
-            min_discharge = max_discharge / 1.5
-            Q, dQ = np.linspace(min_discharge, max_discharge, len(x), retstep=True)
-            Q_ls.append(Q)
-            Qs_ssd = dQ/sediment_discharge_ratio/dxs[i]/B_ls[i]/(1.-lp.lambda_p)
-            Qs_ssd = np.full(len(x), Qs_ssd)
-            Qs_ssd_ls.append( Qs_ssd )
+            min_discharge = supply_discharge_list[i]
+            max_discharge = supply_discharge_list[i] + internal_discharge_list[i]
         else:
             up_IDs = upstream_IDs(upstream_segment_list, i)
-            max_discharge = sum([discharge_list[j] for j in up_IDs])
-            min_discharge = max_discharge - discharge_list[i]
-            Q, dQ = np.linspace(min_discharge, max_discharge, len(x), retstep=True)
-            Q_ls.append(Q)
-            Qs_ssd = dQ/sediment_discharge_ratio/dxs[i]/B_ls[i]/(1.-lp.lambda_p)
-            Qs_ssd = np.full(len(x), Qs_ssd)
-            Qs_ssd_ls.append( Qs_ssd )
+            max_discharge = sum([supply_discharge_list[j] + internal_discharge_list[j] for j in up_IDs])
+            min_discharge = max_discharge - internal_discharge_list[i]
+        Q, dQ = np.linspace(min_discharge, max_discharge, len(x), retstep=True)
+        Q_ls.append(Q)
+        Qs_ssd = dQ/sediment_discharge_ratio/dxs[i]/B_ls[i]/(1.-lp.lambda_p)
+        Qs_ssd = np.full(len(x), Qs_ssd)
+        Qs_ssd_ls.append( Qs_ssd )
 
         # Set initial z
         S0 = (1./(lp.k_Qs*sediment_discharge_ratio))**(6./7.)
@@ -249,7 +245,6 @@ def set_up_network_object(
     for i,seg in enumerate(net.list_of_LongProfile_objects):
         seg.set_source_sink_distributed(Qs_ssd_ls[i])
 
-
     # ---- If requested evolve network, aiming for steady state
     if evolve:
         net.evolve_threshold_width_river_network(nt=100, dt=3.15e12)
@@ -258,6 +253,7 @@ def set_up_network_object(
     for seg in net.list_of_LongProfile_objects: seg.compute_Q_s()
 
     return net
+
 
 def generate_random_network(magnitude=None, max_length=None, segment_lengths=None,
     segment_length=None, internal_discharges=None, supply_discharges=None, 

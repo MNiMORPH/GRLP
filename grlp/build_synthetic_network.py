@@ -504,15 +504,21 @@ class Shreve_Random_Network:
     Create random network of specified magnitude.
     Follows algorithm described in Shreve (1974, Water Resource Res.).
     Creates lists of upstream/downstream segment IDs for us in GRLP.
+    Optionaly assigns segment lengths and drainage areas with constant values
+    or from scipy.stats random number generators.
     """
 
-    def __init__(self, magnitude, segment_length=None, segment_length_area_ratio=None, max_length=None, topology=None):
+    def __init__(self, magnitude, segment_length=None,
+        segment_length_area_ratio=None, supply_area=None, max_length=None,
+        topology=None):
+        
         self.magnitude = magnitude
         self.links = topology
         self.upstream_segment_IDs = None
         self.downstream_segment_IDs = None
         self.segment_length = segment_length
         self.segment_length_area_ratio = segment_length_area_ratio
+        self.supply_area = supply_area
         self.max_length = max_length
         if not self.links:
             self.build_network_topology()
@@ -644,44 +650,36 @@ class Shreve_Random_Network:
                             
             self.segment_lengths = []
             for i in range(len(self.upstream_segment_IDs)):
-                if not self.upstream_segment_IDs[i]:
-                    try:
-                        segment_length = float(self.segment_length['ext'])
-                    except TypeError:
-                        segment_length = self.segment_length['ext'].rvs(size=1)[0]
-                else:
-                    try:
-                        segment_length = float(self.segment_length['int'])
-                    except TypeError:
-                        segment_length = self.segment_length['int'].rvs(size=1)[0]
-                self.segment_lengths.append(segment_length)
+                try:
+                    segment_length = float(self.segment_length)
+                except TypeError:
+                    segment_length = self.segment_length.rvs(size=1)[0]
+                self.segment_lengths.append(segment_length)                
                 
     def set_segment_areas(self):
         
         self.segment_areas = []
+        self.source_areas = []
         for i in range(len(self.upstream_segment_IDs)):
             if not self.upstream_segment_IDs[i]:
                 try:
-                    segment_area = (
-                        self.segment_lengths[i] * 
-                        float(self.segment_length_area_ratio['ext'])
-                        )
+                    source_area = float(self.supply_area)
                 except TypeError:
-                    segment_area = (
-                        self.segment_lengths[i] * 
-                        self.segment_length_area_ratio['ext'].rvs(size=1)[0]
-                        )
+                    source_area = self.supply_area.rvs(size=1)[0]
+                self.source_areas.append(segment_area)
             else:
-                try:
-                    segment_area = (
-                        self.segment_lengths[i] * 
-                        float(self.segment_length_area_ratio['int'])
-                        )
-                except TypeError:
-                    segment_area = (
-                        self.segment_lengths[i] * 
-                        self.segment_length_area_ratio['int'].rvs(size=1)[0]
-                        )
+                self.source_areas.append(0.)
+
+            try:
+                segment_area = (
+                    self.segment_lengths[i] * 
+                    float(self.segment_length_area_ratio)
+                    )
+            except TypeError:
+                segment_area = (
+                    self.segment_lengths[i] * 
+                    self.segment_length_area_ratio.rvs(size=1)[0]
+                    )
             self.segment_areas.append(segment_area)
 
 

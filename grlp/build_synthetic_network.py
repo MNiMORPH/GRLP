@@ -254,7 +254,6 @@ def set_up_network_object(nx_list, dxs, segment_lengths, upstream_segment_list,
 
     return net
 
-
 def generate_random_network(magnitude=None, max_length=None, segment_lengths=None,
     segment_length=None, internal_discharges=None, supply_discharges=None, 
     segment_length_area_ratio=None, supply_area=None, approx_dx=1.e2,
@@ -290,7 +289,7 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
 
     dxs = []
     nxs = []
-    for i,L in enumerate(net_topo.segment_lengths):
+    for i,L in enumerate(segment_lengths):
         nxs.append(max(min_nxs, int(L/approx_dx)))
         dxs.append(L / nxs[-1])
     

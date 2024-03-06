@@ -576,6 +576,9 @@ class Shreve_Random_Network:
         self.segment_length_area_ratio = segment_length_area_ratio
         self.supply_area = supply_area
         self.max_length = max_length
+        self.segment_lengths=None,
+        self.source_areas=None,
+        self.segment_areas=None,
         if not self.links:
             self.build_network_topology()
         self.build_lists()

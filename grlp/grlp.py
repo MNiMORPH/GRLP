@@ -393,12 +393,14 @@ class LongProfile(object):
                       np.abs( (self.z_ext[_idx][2:] - self.z_ext[_idx][:-2])
                                 / self.dx_ext_2cell[_idx] )**(1/6.)
             )
+        # FM: necessary? we compute again below
         
         C1_list = []
         for _idx in range(len( self.z_ext) ):
             # dzdx_2cell ? !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # FM: could use the list from above?
             dzdx_0_16 = np.abs( (self.z_ext[_idx][2:] - self.z_ext[_idx][:-2]) \
-                        / self.dx_ext_2cell[_idx] )**(1/6.)
+                        / self.dx_ext_2cell[_idx] )**(1/6.) 
             C1_list.append( self.C0 * dzdx_0_16 * self.Q / self.B )
         self.C1 = np.sum(C1_list, axis=0)
 
@@ -844,9 +846,9 @@ class LongProfile(object):
         #plt.figure(); plt.imshow(np.log10(self.LHSmatrix.todense()), interpolation='nearest')
         #plt.show()
                             
-        self.RHS = np.hstack(( self.bcl+self.z[0],
-                               self.z[1:-1],
-                               self.bcr+self.z[-1])) \
+        self.RHS = np.hstack(( self.bcl+self.zold[0],
+                               self.zold[1:-1],
+                               self.bcr+self.zold[-1])) \
                                + self.ssd * self.dt \
                                + self.downstream_fining_subsidence_equivalent \
                                       *self.dt \
@@ -2511,7 +2513,7 @@ class Network(object):
         """
         self.nt = nt
         self.dt = dt
-        self.update_z_ext_internal()
+        self.update_z_ext_internal() # FM: set again later inside iteration?
         # self.dt is decided earlier
         
         for ti in range(int(self.nt)):

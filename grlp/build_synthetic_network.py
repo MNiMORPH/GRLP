@@ -264,7 +264,7 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
     if not max_length and not segment_length and not segment_lengths:
         print(
             "Error: " +
-            "you must specify max_length, link_length or segment_lengths. " +
+            "you must specify max_length, segment_length or segment_lengths. " +
             "Exiting.")
         return None
         
@@ -286,7 +286,7 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         
     if not segment_lengths:
         segment_lengths = net_topo.segment_lengths
-
+        
     dxs = []
     nxs = []
     for i,L in enumerate(segment_lengths):
@@ -295,41 +295,54 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
     
     if not supply_discharges:
         
-        if mean_discharge:
-        
-            # Find number of sources upstream of each point
-            up_sources = []
-            for i in range(len(net_topo.upstream_segment_IDs)):
-                count = 0
-                up_IDs = upstream_IDs(net_topo.upstream_segment_IDs, i)
-                for ID in up_IDs:
-                    if len(upstream_IDs(net_topo.upstream_segment_IDs, ID)) == 1:
-                        count += 1
-                up_sources.append(count)
-                
-            # Find input sediment and water discharge to give specified means
-            discharge_in = mean_discharge / np.mean(up_sources)
-
-            supply_discharges = []
-            for i in range(len(net_topo.upstream_segment_IDs)):
-                if len(upstream_IDs(net_topo.upstream_segment_IDs, i)) == 1:
-                    supply_discharges.append(discharge_in)
-                else:
-                    supply_discharges.append(0.)
-                                        
-        else:
-            
+        if net_topo.source_areas:
             supply_discharges = [
                 area*effective_rainfall for area in net_topo.source_areas
                 ]
-                
-    if not internal_discharges:
-        if mean_discharge:
-            internal_discharges = [0 for i in net_topo.upstream_segment_IDs]
         else:
+            supply_discharges = []
+            for i in range(len(net_topo.upstream_segment_IDs)):
+                if len(upstream_IDs(net_topo.upstream_segment_IDs, i)) == 1:
+                    supply_discharges.append(1.)
+                else:
+                    supply_discharges.append(0.)
+                    
+    if not internal_discharges:
+        if net_topo.segment_areas:
             internal_discharges = [
                 area*effective_rainfall for area in net_topo.segment_areas
                 ]
+        else:
+            internal_discharges = [0 for i in net_topo.upstream_segment_IDs]
+        
+    if mean_discharge:
+    
+        # Find total length, for normalising
+        total_length = sum(net_topo.segment_lengths)
+    
+        # Find number of sources upstream of each point
+        # Weighted by segment length relative to total length
+        discharges = []
+        for i in range(len(net_topo.upstream_segment_IDs)):
+            discharge = 0
+            up_IDs = upstream_IDs(net_topo.upstream_segment_IDs, i)
+            for ID in up_IDs:
+                discharge += supply_discharges[ID] + internal_discharges[ID]
+            discharge -= internal_discharges[i]/2.
+            discharges.append(discharge * net_topo.segment_lengths[i] / total_length)
+            
+        # Find input sediment and water discharge to give specified means
+        discharge_scl = mean_discharge / np.sum(discharges)
+        supply_discharges = np.array(supply_discharges)*discharge_scl
+        internal_discharges = np.array(internal_discharges)*discharge_scl
+
+        # supply_discharges = []
+        # for i in range(len(net_topo.upstream_segment_IDs)):
+        #     if len(upstream_IDs(net_topo.upstream_segment_IDs, i)) == 1:
+        #         supply_discharges.append(discharge_in)
+        #     else:
+        #         supply_discharges.append(0.)
+                                        
 
     net = set_up_network_object(
         nx_list = nxs, 
@@ -576,9 +589,9 @@ class Shreve_Random_Network:
         self.segment_length_area_ratio = segment_length_area_ratio
         self.supply_area = supply_area
         self.max_length = max_length
-        self.segment_lengths=None,
-        self.source_areas=None,
-        self.segment_areas=None,
+        self.segment_lengths = None
+        self.source_areas = None
+        self.segment_areas = None
         if not self.links:
             self.build_network_topology()
         self.build_lists()

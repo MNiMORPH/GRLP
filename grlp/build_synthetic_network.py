@@ -257,7 +257,7 @@ def set_up_network_object(nx_list, dxs, segment_lengths, upstream_segment_list,
 def generate_random_network(magnitude=None, max_length=None, segment_lengths=None,
     segment_length=None, internal_discharges=None, supply_discharges=None, 
     segment_length_area_ratio=None, supply_area=None, approx_dx=1.e2,
-    min_nxs=5, mean_discharge=None, effective_rainfall=None,
+    min_nxs=5, mean_discharge=None, effective_rainfall=1.,
     sediment_discharge_ratio=1.e4, width=100., topology=None,
     evolve=False):
     
@@ -318,7 +318,7 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
     if mean_discharge:
     
         # Find total length, for normalising
-        total_length = sum(net_topo.segment_lengths)
+        total_length = sum(segment_lengths)
     
         # Find number of sources upstream of each point
         # Weighted by segment length relative to total length
@@ -329,20 +329,12 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
             for ID in up_IDs:
                 discharge += supply_discharges[ID] + internal_discharges[ID]
             discharge -= internal_discharges[i]/2.
-            discharges.append(discharge * net_topo.segment_lengths[i] / total_length)
+            discharges.append(discharge * segment_lengths[i] / total_length)
             
         # Find input sediment and water discharge to give specified means
         discharge_scl = mean_discharge / np.sum(discharges)
         supply_discharges = np.array(supply_discharges)*discharge_scl
         internal_discharges = np.array(internal_discharges)*discharge_scl
-
-        # supply_discharges = []
-        # for i in range(len(net_topo.upstream_segment_IDs)):
-        #     if len(upstream_IDs(net_topo.upstream_segment_IDs, i)) == 1:
-        #         supply_discharges.append(discharge_in)
-        #     else:
-        #         supply_discharges.append(0.)
-                                        
 
     net = set_up_network_object(
         nx_list = nxs, 

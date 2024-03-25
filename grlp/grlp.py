@@ -2701,7 +2701,7 @@ class Network(object):
         """
         # self.find_sources()
         self.compute_mean_downstream_distance()
-        self.compute_mean_discharge()
+        # self.compute_mean_discharge()
 
         # recursive function to step through network
         def _step_down(i):
@@ -2795,6 +2795,22 @@ class Network(object):
             1)
         self.discharge_ratio = 10.**fit[0]
         self.discharge_scale = 10.**(fit[0] + fit[1])    
+
+        # compute some mean properties, weighted by dx
+        dxs = np.hstack(
+            [seg.dx_ext[0][1:] for seg in self.list_of_LongProfile_objects]
+            )
+        Q_stack = np.hstack([seg.Q for seg in self.list_of_LongProfile_objects])
+        self.mean_Q = (Q_stack * dxs).sum() / dxs.sum()
+        B_stack = np.hstack([seg.B for seg in self.list_of_LongProfile_objects])
+        self.mean_B = (B_stack * dxs).sum() / dxs.sum()
+        S_stack = np.hstack([seg.S for seg in self.list_of_LongProfile_objects])
+        self.mean_S = (S_stack * dxs).sum() / dxs.sum()
+        for seg in self.list_of_LongProfile_objects: seg.compute_diffusivity()
+        diff_stack = np.hstack(
+            [seg.diffusivity for seg in self.list_of_LongProfile_objects])
+        self.mean_diffusivity = (diff_stack * dxs).sum() / dxs.sum()
+        
 
         # # count number of streams in each order
         # self.order_counts = np.zeros(max(self.segment_orders)+1)

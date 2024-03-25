@@ -691,29 +691,33 @@ class Shreve_Random_Network:
 
     def set_segment_lengths(self):
         
-        if self.max_length:
-            
-            # Find maximum topological length,
-            # i.e. number of downstream segments to outlet
-            max_topo_length = max([
-                len(downstream_IDs(self.downstream_segment_IDs, i))
-                for i in range(len(self.downstream_segment_IDs))])
-                
-            # Find length of each link so that total length equals L
-            link_length = self.max_length / max_topo_length
-            
-            # Fill lists
-            self.segment_lengths = [link_length for i in self.upstream_segment_IDs]
-            
-        elif self.segment_length:
-                            
+        if self.segment_length:
             self.segment_lengths = []
             for i in range(len(self.upstream_segment_IDs)):
                 try:
                     segment_length = float(self.segment_length)
                 except TypeError:
                     segment_length = self.segment_length.rvs(size=1)[0]
-                self.segment_lengths.append(segment_length)                
+                self.segment_lengths.append(segment_length)
+                
+        else:
+            self.segment_lengths = np.ones(len(self.upstream_segment_IDs))
+            
+        if self.max_length:
+            
+            # Find maximum length
+            lengths = []
+            for i in range(len(self.upstream_segment_IDs)):
+                length = 0
+                down_IDs = downstream_IDs(self.downstream_segment_IDs, i)
+                for j in down_IDs:
+                    length += self.segment_lengths[j]
+                lengths.append(length)
+            max_length_pre_scale = max(lengths)
+            
+            # Rescale segment lengths
+            scale = self.max_length / max_length_pre_scale
+            self.segment_lengths = [length*scale for length in self.segment_lengths]
                 
     def set_segment_areas(self):
         

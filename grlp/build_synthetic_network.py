@@ -271,10 +271,11 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
     if not mean_discharge and not effective_rainfall and not supply_discharges:
         print(
             "Error: " +
-            "you must specify mean_discharge or effective_rainfall or supply_discharges. " +
-            "Exiting.")
+            "you must specify mean_discharge or effective_rainfall or " +
+            "supply_discharges. Exiting.")
         return None
     
+    # ---- Generate network topology
     net_topo = Shreve_Random_Network(
         magnitude=magnitude, 
         segment_length=segment_length,
@@ -283,16 +284,21 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         max_length=max_length,
         topology=topology
         )
-        
+    
+    # ---- If segment lengths are not provided, set to those from topology
     if not segment_lengths:
         segment_lengths = net_topo.segment_lengths
-        
+    
+    # ---- Generate lists of dx and nx for each segment
     dxs = []
     nxs = []
     for i,L in enumerate(segment_lengths):
         nxs.append(max(min_nxs, int(L/approx_dx)))
         dxs.append(L / nxs[-1])
     
+    # ---- Set channel head supply areas
+    # If not present in topology object, set to one for channel heads and zero
+    # for internal segments
     if net_topo.source_areas:
         supply_areas = net_topo.source_areas
     else:
@@ -303,59 +309,42 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
             else:
                 supply_areas.append(0.)
     
+    # ---- Set internal supply areas
+    # If not present in topology object, set to zero for all segments
     if net_topo.segment_areas:
         internal_areas = net_topo.segment_areas
     else:
         internal_areas = [0 for i in net_topo.upstream_segment_IDs]
     
-    # if not supply_discharges:
-    # 
-    #     if net_topo.source_areas:
-    #         supply_discharges = [
-    #             area*effective_rainfall for area in net_topo.source_areas
-    #             ]
-    #     else:
-    #         supply_discharges = []
-    #         for i in range(len(net_topo.upstream_segment_IDs)):
-    #             if len(upstream_IDs(net_topo.upstream_segment_IDs, i)) == 1:
-    #                 supply_discharges.append(1.)
-    #             else:
-    #                 supply_discharges.append(0.)
-    # 
-    # if not internal_discharges:
-    #     if net_topo.segment_areas:
-    #         internal_discharges = [
-    #             area*effective_rainfall for area in net_topo.segment_areas
-    #             ]
-    #     else:
-    #         internal_discharges = [0 for i in net_topo.upstream_segment_IDs]
-    
+    # ---- If mean discharge is provided, need to find effective rainfall
     if mean_discharge:
     
         # Find total length, for normalising
         total_length = sum(segment_lengths)
     
-        # Find number of sources upstream of each point
+        # Find area upstream of each segment
         # Weighted by segment length relative to total length
-        areas = []
+        scl_areas = []
         for i in range(len(net_topo.upstream_segment_IDs)):
             area = 0
             up_IDs = upstream_IDs(net_topo.upstream_segment_IDs, i)
             for ID in up_IDs:
                 area += supply_areas[ID] + internal_areas[ID]
             area -= internal_areas[i]/2.
-            areas.append(area * segment_lengths[i] / total_length)
+            scl_areas.append(area * segment_lengths[i] / total_length)
+        mean_area = np.sum(scl_areas)
             
-        # Find input sediment and water discharge to give specified means
-        effective_rainfall = mean_discharge / np.sum(areas)
-        # supply_discharges = np.array(supply_discharges)*discharge_scl
-        # internal_discharges = np.array(internal_discharges)*discharge_scl
+        # Find effective rainfall to give specified mean discharge
+        effective_rainfall = mean_discharge / mean_area
 
+    # ---- Set supply and internal discharges
+    # If not provided, set using areas and effective rainfall
     if not supply_discharges:
         supply_discharges = np.array(supply_areas) * effective_rainfall
     if not internal_discharges:
         internal_discharges = np.array(internal_areas) * effective_rainfall
 
+    # ---- Generate the network object
     net = set_up_network_object(
         nx_list = nxs, 
         dxs = dxs,

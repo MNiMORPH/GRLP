@@ -293,28 +293,43 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         nxs.append(max(min_nxs, int(L/approx_dx)))
         dxs.append(L / nxs[-1])
     
-    if not supply_discharges:
-        
-        if net_topo.source_areas:
-            supply_discharges = [
-                area*effective_rainfall for area in net_topo.source_areas
-                ]
-        else:
-            supply_discharges = []
-            for i in range(len(net_topo.upstream_segment_IDs)):
-                if len(upstream_IDs(net_topo.upstream_segment_IDs, i)) == 1:
-                    supply_discharges.append(1.)
-                else:
-                    supply_discharges.append(0.)
-                    
-    if not internal_discharges:
-        if net_topo.segment_areas:
-            internal_discharges = [
-                area*effective_rainfall for area in net_topo.segment_areas
-                ]
-        else:
-            internal_discharges = [0 for i in net_topo.upstream_segment_IDs]
-        
+    if net_topo.source_areas:
+        supply_areas = net_topo.source_areas
+    else:
+        supply_areas = []
+        for i in range(len(net_topo.upstream_segment_IDs)):
+            if len(upstream_IDs(net_topo.upstream_segment_IDs, i)) == 1:
+                supply_areas.append(1.)
+            else:
+                supply_areas.append(0.)
+    
+    if net_topo.segment_areas:
+        internal_areas = net_topo.segment_areas
+    else:
+        internal_areas = [0 for i in net_topo.upstream_segment_IDs]
+    
+    # if not supply_discharges:
+    # 
+    #     if net_topo.source_areas:
+    #         supply_discharges = [
+    #             area*effective_rainfall for area in net_topo.source_areas
+    #             ]
+    #     else:
+    #         supply_discharges = []
+    #         for i in range(len(net_topo.upstream_segment_IDs)):
+    #             if len(upstream_IDs(net_topo.upstream_segment_IDs, i)) == 1:
+    #                 supply_discharges.append(1.)
+    #             else:
+    #                 supply_discharges.append(0.)
+    # 
+    # if not internal_discharges:
+    #     if net_topo.segment_areas:
+    #         internal_discharges = [
+    #             area*effective_rainfall for area in net_topo.segment_areas
+    #             ]
+    #     else:
+    #         internal_discharges = [0 for i in net_topo.upstream_segment_IDs]
+    
     if mean_discharge:
     
         # Find total length, for normalising
@@ -322,19 +337,24 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
     
         # Find number of sources upstream of each point
         # Weighted by segment length relative to total length
-        discharges = []
+        areas = []
         for i in range(len(net_topo.upstream_segment_IDs)):
-            discharge = 0
+            area = 0
             up_IDs = upstream_IDs(net_topo.upstream_segment_IDs, i)
             for ID in up_IDs:
-                discharge += supply_discharges[ID] + internal_discharges[ID]
-            discharge -= internal_discharges[i]/2.
-            discharges.append(discharge * segment_lengths[i] / total_length)
+                area += supply_areas[ID] + internal_areas[ID]
+            area -= internal_areas[i]/2.
+            areas.append(area * segment_lengths[i] / total_length)
             
         # Find input sediment and water discharge to give specified means
-        discharge_scl = mean_discharge / np.sum(discharges)
-        supply_discharges = np.array(supply_discharges)*discharge_scl
-        internal_discharges = np.array(internal_discharges)*discharge_scl
+        effective_rainfall = mean_discharge / np.sum(areas)
+        # supply_discharges = np.array(supply_discharges)*discharge_scl
+        # internal_discharges = np.array(internal_discharges)*discharge_scl
+
+    if not supply_discharges:
+        supply_discharges = np.array(supply_areas) * effective_rainfall
+    if not internal_discharges:
+        internal_discharges = np.array(internal_areas) * effective_rainfall
 
     net = set_up_network_object(
         nx_list = nxs, 

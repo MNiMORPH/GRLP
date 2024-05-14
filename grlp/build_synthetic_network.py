@@ -151,7 +151,7 @@ def get_simple_network_setup_params(
 
 def set_up_network_object(nx_list, dxs, segment_lengths, upstream_segment_list,
     downstream_segment_list, supply_discharge_list, internal_discharge_list,
-    sediment_discharge_ratio, B, evolve=False):
+    sediment_discharge_ratio, width_list, evolve=False):
     """
     Uses lists of segment length, upstream and downstream segment IDs to build
     instance of grlp.Network.
@@ -185,9 +185,6 @@ def set_up_network_object(nx_list, dxs, segment_lengths, upstream_segment_list,
         x = x0 + np.arange( 0, nx_list[i], 1 ) * dxs[i]
         x_ls.append(x)
         
-        # set width
-        B_ls.append(B)
-        
         # Set discharges
         if i in sources:
             min_discharge = supply_discharge_list[i]
@@ -198,7 +195,14 @@ def set_up_network_object(nx_list, dxs, segment_lengths, upstream_segment_list,
             min_discharge = max_discharge - internal_discharge_list[i]
         Q, dQ = np.linspace(min_discharge, max_discharge, len(x), retstep=True)
         Q_ls.append(Q)
-        Qs_ssd = dQ/sediment_discharge_ratio/dxs[i]/B_ls[i]/(1.-lp.lambda_p)
+        mean_discharge = (min_discharge + max_discharge)/2.
+        B = np.linspace(
+            width_list[i]*min_discharge/mean_discharge,
+            width_list[i]*max_discharge/mean_discharge,
+            len(x)
+            )
+        B_ls.append(B)
+        Qs_ssd = dQ/sediment_discharge_ratio/dxs[i]/B/(1.-lp.lambda_p)
         Qs_ssd = np.full(len(x), Qs_ssd)
         Qs_ssd_ls.append( Qs_ssd )
 
@@ -258,8 +262,8 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
     segment_length=None, internal_discharges=None, supply_discharges=None, 
     segment_length_area_ratio=None, supply_area=None, approx_dx=1.e2,
     min_nxs=5, mean_discharge=None, effective_rainfall=1.,
-    sediment_discharge_ratio=1.e4, width=100., topology=None,
-    evolve=False):
+    sediment_discharge_ratio=1.e4, mean_width=100., variable_width=False,
+    topology=None, evolve=False):
     
     if not max_length and not segment_length and not segment_lengths:
         print(
@@ -344,6 +348,19 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
     if not internal_discharges:
         internal_discharges = np.array(internal_areas) * effective_rainfall
 
+    # ---- Set widths
+    if variable_width:
+        widths = []
+        for i in range(len(net_topo.upstream_segment_IDs)):
+            Q = 0
+            up_IDs = upstream_IDs(net_topo.upstream_segment_IDs, i)
+            for ID in up_IDs:
+                Q += supply_discharges[ID] + internal_discharges[ID]
+            Q -= internal_discharges[i]/2.
+            widths.append(Q * mean_width / mean_discharge)
+    else:
+        widths = [mean_width for i in range(len(segment_lengths))]
+
     # ---- Generate the network object
     net = set_up_network_object(
         nx_list = nxs, 
@@ -354,7 +371,7 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         supply_discharge_list = supply_discharges,
         internal_discharge_list = internal_discharges,
         sediment_discharge_ratio = sediment_discharge_ratio, 
-        B = width, 
+        width_list = widths, 
         evolve=evolve
         )
     

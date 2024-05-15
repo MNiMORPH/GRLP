@@ -375,7 +375,14 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
             "you must specify mean_discharge or effective_rainfall or " +
             "supply_discharges. Exiting.")
         return None
-    
+
+    # ---- Basic lp object to get properties later
+    lp = LongProfile()
+    lp.basic_constants()
+    lp.bedload_lumped_constants()
+    lp.set_hydrologic_constants()
+
+
     # ---- Generate network topology
     net_topo = Shreve_Random_Network(
         magnitude=magnitude, 

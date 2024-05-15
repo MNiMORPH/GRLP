@@ -94,169 +94,266 @@ def plot_network_deprecated(net, show=True):
 
     return DICT
 
-def get_simple_network_setup_params(
-    upstream_segment_list,
-    downstream_segment_list,
-    L,
-    mean_Q,
-    mean_Qs,
-    min_nxs=5,
-    approx_dx=5.e2):
-    """
-    Find spatial discretisation and input discharges for given network
-    geometry and desired length, approximate discretisation, mean discharges.
-    """
-    
-    # ---- Spatial discretisation
-    
-    # Number of links
-    num_links = len(upstream_segment_list)
-    
-    # Find sources
-    sources = [
-        i for i,up_ids in enumerate(upstream_segment_list) if len(up_ids)==0]
-    
-    # Find maximum topological length,
-    # i.e. number of downstream segments to outlet
-    max_topo_length = max([
-        len(downstream_IDs(downstream_segment_list, i))
-        for i in range(num_links)])
-        
-    # Find length of each link so that total length equals L
-    link_length = L / max_topo_length
-    
-    # Find how many nodes for each link, set dx
-    link_n = max(min_nxs, int(link_length/approx_dx))
-    nxs = [link_n for i in range(num_links)]
-    dx = link_length / link_n
-    
-    # ---- Sediment & water discharge
-    
-    # Find number of sources upstream of each point
-    up_sources = []
-    for i in range(num_links):
-        count = 0
-        up_IDs = upstream_IDs(upstream_segment_list, i)
-        for ID in up_IDs:
-            if len(upstream_IDs(upstream_segment_list, ID)) == 1:
-                count += 1
-        up_sources.append(count)
-        
-    # Find input sediment and water discharge to give specified means
-    Q_in = mean_Q / np.mean(up_sources)
-    Qs_in = mean_Qs / np.mean(up_sources)
-    
-    # Return
-    return nxs, dx, Q_in, Qs_in
+# def get_simple_network_setup_params(
+#     upstream_segment_list,
+#     downstream_segment_list,
+#     L,
+#     mean_Q,
+#     mean_Qs,
+#     min_nxs=5,
+#     approx_dx=5.e2):
+#     """
+#     Find spatial discretisation and input discharges for given network
+#     geometry and desired length, approximate discretisation, mean discharges.
+#     """
+# 
+#     # ---- Spatial discretisation
+# 
+#     # Number of links
+#     num_links = len(upstream_segment_list)
+# 
+#     # Find sources
+#     sources = [
+#         i for i,up_ids in enumerate(upstream_segment_list) if len(up_ids)==0]
+# 
+#     # Find maximum topological length,
+#     # i.e. number of downstream segments to outlet
+#     max_topo_length = max([
+#         len(downstream_IDs(downstream_segment_list, i))
+#         for i in range(num_links)])
+# 
+#     # Find length of each link so that total length equals L
+#     link_length = L / max_topo_length
+# 
+#     # Find how many nodes for each link, set dx
+#     link_n = max(min_nxs, int(link_length/approx_dx))
+#     nxs = [link_n for i in range(num_links)]
+#     dx = link_length / link_n
+# 
+#     # ---- Sediment & water discharge
+# 
+#     # Find number of sources upstream of each point
+#     up_sources = []
+#     for i in range(num_links):
+#         count = 0
+#         up_IDs = upstream_IDs(upstream_segment_list, i)
+#         for ID in up_IDs:
+#             if len(upstream_IDs(upstream_segment_list, ID)) == 1:
+#                 count += 1
+#         up_sources.append(count)
+# 
+#     # Find input sediment and water discharge to give specified means
+#     Q_in = mean_Q / np.mean(up_sources)
+#     Qs_in = mean_Qs / np.mean(up_sources)
+# 
+#     # Return
+#     return nxs, dx, Q_in, Qs_in
 
-def set_up_network_object(nx_list, dxs, segment_lengths, upstream_segment_list,
-    downstream_segment_list, supply_discharge_list, internal_discharge_list,
-    sediment_discharge_ratio, width_list, evolve=False):
-    """
-    Uses lists of segment length, upstream and downstream segment IDs to build
-    instance of grlp.Network.
-    As well as configuration lists requires network total discharge and
-    sediment supply.
-    Optionally evolve for a while (aiming for steady-state).
-    """
-    
-    # ---- Some parameters for use during set up
-    sources = [i for i in range(len(nx_list)) if not upstream_segment_list[i]]
-    
-    # ---- Basic lp object to get k_Qs for later
-    lp = LongProfile()
-    lp.basic_constants()
-    lp.bedload_lumped_constants()
-    lp.set_hydrologic_constants()
+# def set_up_network_object(nx_list, dxs, segment_lengths, upstream_segment_list,
+#     downstream_segment_list, supply_discharge_list, internal_discharge_list,
+#     sediment_discharge_ratio, width_list, evolve=False):
+#     """
+#     Uses lists of segment length, upstream and downstream segment IDs to build
+#     instance of grlp.Network.
+#     As well as configuration lists requires network total discharge and
+#     sediment supply.
+#     Optionally evolve for a while (aiming for steady-state).
+#     """
+# 
+#     # ---- Some parameters for use during set up
+#     sources = [i for i in range(len(nx_list)) if not upstream_segment_list[i]]
+# 
+#     # ---- Basic lp object to get k_Qs for later
+#     lp = LongProfile()
+#     lp.basic_constants()
+#     lp.bedload_lumped_constants()
+#     lp.set_hydrologic_constants()
+# 
+#     # ---- Loop over segments filling lists for network
+#     x_ls = []
+#     z_ls = []
+#     Q_ls = []
+#     Qs_ssd_ls = []
+#     B_ls = []
+#     for i,nx in enumerate(nx_list):
+# 
+#         # Set up x domain
+#         down_IDs = downstream_IDs(downstream_segment_list, i)[1:]
+#         down_x = sum([segment_lengths[j] for j in down_IDs])
+#         x0 = - down_x - segment_lengths[i]
+#         x1 = x0 + segment_lengths[i]
+#         x = x0 + np.arange( 0, nx_list[i], 1 ) * dxs[i]
+#         x_ls.append(x)
+# 
+#         # Set discharges
+#         if i in sources:
+#             min_discharge = supply_discharge_list[i]
+#             max_discharge = supply_discharge_list[i] + internal_discharge_list[i]
+#         else:
+#             up_IDs = upstream_IDs(upstream_segment_list, i)
+#             max_discharge = sum([supply_discharge_list[j] + internal_discharge_list[j] for j in up_IDs])
+#             min_discharge = max_discharge - internal_discharge_list[i]
+#         Q, dQ = np.linspace(min_discharge, max_discharge, len(x), retstep=True)
+#         Q_ls.append(Q)
+#         mean_discharge = (min_discharge + max_discharge)/2.
+#         B = np.linspace(
+#             width_list[i]*min_discharge/mean_discharge,
+#             width_list[i]*max_discharge/mean_discharge,
+#             len(x)
+#             )
+#         B_ls.append(B)
+#         Qs_ssd = dQ/sediment_discharge_ratio/dxs[i]/B/(1.-lp.lambda_p)
+#         Qs_ssd = np.full(len(x), Qs_ssd)
+#         Qs_ssd_ls.append( Qs_ssd )
+# 
+#         # Set initial z
+#         S0 = (1./(lp.k_Qs*sediment_discharge_ratio))**(6./7.)
+#         z = (x.max()-x)*S0
+# 
+#         # if not mouth, reset downstream elevation to that of downstream segment
+#         # needs lists to work backwards from downstream end
+#         if downstream_segment_list[i]:
+#             z += z_ls[downstream_segment_list[i][0]][0] + dxs[i]*S0
+#         z_ls.append(z)
+# 
+#     # ---- Update x coordinates to run from 0 at furthest upstream point, record max
+#     x_min = min([min(x) for x in x_ls])
+#     for i,nx in enumerate(nx_list):
+#         x_ls[i] -= x_min
+#     # AW guess: take max x value and add an increment dx for base-level boundary
+#     x_max = max([max(x) + (x[-1]-x[-2]) for x in x_ls])
+#     # Then add on some vertical distance to make a straight line to base level
+#     dz_for_bl = dxs[0]*S0
+#     for _z in z_ls:
+#         _z += dz_for_bl
+# 
+#     # ---- Initialize network object
+#     net = Network()
+#     net.initialize(
+#         config_file = None,
+#         x_bl = x_max,
+#         z_bl = 0.,
+#         S0 = S0 * np.ones(len(nx_list)),
+#         upstream_segment_IDs = upstream_segment_list,
+#         downstream_segment_IDs = downstream_segment_list,
+#         x = x_ls,
+#         z = z_ls,
+#         Q = Q_ls,
+#         B = B_ls,
+#         overwrite = False
+#         )
+#     net.set_niter(3)
+#     net.get_z_lengths()
+# 
+#     # ---- Set segment source-sink-distributed term
+#     for i,seg in enumerate(net.list_of_LongProfile_objects):
+#         seg.set_source_sink_distributed(Qs_ssd_ls[i])
+# 
+#     # ---- If requested evolve network, aiming for steady state
+#     if evolve:
+#         net.evolve_threshold_width_river_network(nt=100, dt=3.15e12)
+# 
+#     # ---- Compute Qs
+#     for seg in net.list_of_LongProfile_objects: seg.compute_Q_s()
+# 
+#     return net
 
-    # ---- Loop over segments filling lists for network
+def generate_x_domain(segment_lengths, downstream_segments, min_nxs, approx_dx):
+
+    # Generate x list
     x_ls = []
-    z_ls = []
-    Q_ls = []
-    Qs_ssd_ls = []
-    B_ls = []
-    for i,nx in enumerate(nx_list):
-        
-        # Set up x domain
-        down_IDs = downstream_IDs(downstream_segment_list, i)[1:]
+    for i,L in enumerate(segment_lengths):
+        nx = max(min_nxs, int(L/approx_dx))
+        dx = L / nx
+        down_IDs = downstream_IDs(downstream_segments, i)[1:]
         down_x = sum([segment_lengths[j] for j in down_IDs])
         x0 = - down_x - segment_lengths[i]
         x1 = x0 + segment_lengths[i]
-        x = x0 + np.arange( 0, nx_list[i], 1 ) * dxs[i]
+        x = x0 + np.arange( 0, nx, 1 ) * dx
         x_ls.append(x)
+    
+    # Update x coordinates to run from 0 at furthest upstream point, record max
+    x_min = min([min(x) for x in x_ls])
+    for i,L in enumerate(segment_lengths):
+        x_ls[i] -= x_min
         
-        # Set discharges
-        if i in sources:
-            min_discharge = supply_discharge_list[i]
-            max_discharge = supply_discharge_list[i] + internal_discharge_list[i]
-        else:
-            up_IDs = upstream_IDs(upstream_segment_list, i)
-            max_discharge = sum([supply_discharge_list[j] + internal_discharge_list[j] for j in up_IDs])
-            min_discharge = max_discharge - internal_discharge_list[i]
-        Q, dQ = np.linspace(min_discharge, max_discharge, len(x), retstep=True)
-        Q_ls.append(Q)
-        mean_discharge = (min_discharge + max_discharge)/2.
-        B = np.linspace(
-            width_list[i]*min_discharge/mean_discharge,
-            width_list[i]*max_discharge/mean_discharge,
-            len(x)
-            )
-        B_ls.append(B)
-        Qs_ssd = dQ/sediment_discharge_ratio/dxs[i]/B/(1.-lp.lambda_p)
-        Qs_ssd = np.full(len(x), Qs_ssd)
-        Qs_ssd_ls.append( Qs_ssd )
+    # Take max x value and add an increment dx for base-level boundary
+    x_max = max([max(x) + (x[-1]-x[-2]) for x in x_ls])
 
-        # Set initial z
-        S0 = (1./(lp.k_Qs*sediment_discharge_ratio))**(6./7.)
-        z = (x.max()-x)*S0
+    return x_ls, x_max
+
+
+def generate_discharges(supply_discharges, internal_discharges, sources,
+    upstream_segments, xs):
+
+    Q_ls = []
+    for i,L in enumerate(supply_discharges):
         
+        nx = len(xs[i])
+        dx = xs[i][1] - xs[i][0]
+        
+        # Set discharge
+        if i in sources:
+            min_discharge = supply_discharges[i]
+            max_discharge = supply_discharges[i] + internal_discharges[i]
+        else:
+            up_IDs = upstream_IDs(upstream_segments, i)
+            max_discharge = sum([supply_discharges[j] + internal_discharges[j] for j in up_IDs])
+            min_discharge = max_discharge - internal_discharges[i]
+        Q, dQ = np.linspace(min_discharge, max_discharge, nx, retstep=True)
+        Q_ls.append(Q)
+        
+    return Q_ls
+
+
+def generate_ssds(discharges, sediment_discharge_ratio, xs, widths, lambda_p):
+    
+    Qs_ssd_ls = []
+    for i,Q in enumerate(discharges):
+
+        mean_discharge = (Q[0] + Q[-1])/2.
+        dQ = Q[1] - Q[0]
+        dx = xs[i][1] - xs[i][0]
+        Qs_ssd = dQ/sediment_discharge_ratio/dx/widths[i]/(1.-lambda_p)
+        Qs_ssd = np.full(len(xs[i]), Qs_ssd)
+        Qs_ssd_ls.append( Qs_ssd )
+    
+    return Qs_ssd_ls
+    
+def generate_variable_widths(mean_width, mean_discharge, discharges):
+    
+    widths = []
+    for i,Q in enumerate(discharges):
+        widths.append( Q * mean_width / mean_discharge )
+    
+    min_width = np.concatenate(widths).min()
+    max_width = np.concatenate(widths).max()
+    width_range = max_width - min_width
+    
+    return widths
+
+def generate_zs(xs, x_max, S0, downstream_segments):
+    
+    zs = []
+    for i,x in enumerate(xs):
+        
+        z = (x.max()-x)*S0
+
         # if not mouth, reset downstream elevation to that of downstream segment
         # needs lists to work backwards from downstream end
-        if downstream_segment_list[i]:
-            z += z_ls[downstream_segment_list[i][0]][0] + dxs[i]*S0
-        z_ls.append(z)
-        
-    # ---- Update x coordinates to run from 0 at furthest upstream point, record max
-    x_min = min([min(x) for x in x_ls])
-    for i,nx in enumerate(nx_list):
-        x_ls[i] -= x_min
-    # AW guess: take max x value and add an increment dx for base-level boundary
-    x_max = max([max(x) + (x[-1]-x[-2]) for x in x_ls])
-    # Then add on some vertical distance to make a straight line to base level
-    dz_for_bl = dxs[0]*S0
-    for _z in z_ls:
-        _z += dz_for_bl
+        if downstream_segments[i]:
+            dx = x[1] - x[0]
+            z += zs[downstream_segments[i][0]][0] + dx*S0
+            
+        zs.append(z)
 
-    # ---- Initialize network object
-    net = Network()
-    net.initialize(
-        config_file = None,
-        x_bl = x_max,
-        z_bl = 0.,
-        S0 = S0 * np.ones(len(nx_list)),
-        upstream_segment_IDs = upstream_segment_list,
-        downstream_segment_IDs = downstream_segment_list,
-        x = x_ls,
-        z = z_ls,
-        Q = Q_ls,
-        B = B_ls,
-        overwrite = False
-        )
-    net.set_niter(3)
-    net.get_z_lengths()
-    
-    # ---- Set segment source-sink-distributed term
-    for i,seg in enumerate(net.list_of_LongProfile_objects):
-        seg.set_source_sink_distributed(Qs_ssd_ls[i])
+    # Then add on some vertical distance to make a straight line to base level        
+    for z in zs:
+        dz_for_bl = (x_max-xs[0][-1])*S0
+        z += dz_for_bl
 
-    # ---- If requested evolve network, aiming for steady state
-    if evolve:
-        net.evolve_threshold_width_river_network(nt=100, dt=3.15e12)
-    
-    # ---- Compute Qs
-    for seg in net.list_of_LongProfile_objects: seg.compute_Q_s()
+    return zs
 
-    return net
 
 def generate_random_network(magnitude=None, max_length=None, segment_lengths=None,
     segment_length=None, internal_discharges=None, supply_discharges=None, 
@@ -288,18 +385,22 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         max_length=max_length,
         topology=topology
         )
+
+
+    # ---- Set up x-domain
     
-    # ---- If segment lengths are not provided, set to those from topology
+    # If segment lengths are not provided, set to those from topology
     if not segment_lengths:
         segment_lengths = net_topo.segment_lengths
     
-    # ---- Generate lists of dx and nx for each segment
-    dxs = []
-    nxs = []
-    for i,L in enumerate(segment_lengths):
-        nxs.append(max(min_nxs, int(L/approx_dx)))
-        dxs.append(L / nxs[-1])
-    
+    # Generate x list
+    x_ls, x_max = generate_x_domain(
+        segment_lengths,
+        net_topo.downstream_segment_IDs,
+        min_nxs,
+        approx_dx)
+
+
     # ---- Set channel head supply areas
     # If not present in topology object, set to one for channel heads and zero
     # for internal segments
@@ -313,12 +414,14 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
             else:
                 supply_areas.append(0.)
     
+    
     # ---- Set internal supply areas
     # If not present in topology object, set to zero for all segments
     if net_topo.segment_areas:
         internal_areas = net_topo.segment_areas
     else:
         internal_areas = [0 for i in net_topo.upstream_segment_IDs]
+    
     
     # ---- If mean discharge is provided, need to find effective rainfall
     if mean_discharge:
@@ -341,6 +444,7 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         # Find effective rainfall to give specified mean discharge
         effective_rainfall = mean_discharge / mean_area
 
+
     # ---- Set supply and internal discharges
     # If not provided, set using areas and effective rainfall
     if not supply_discharges:
@@ -348,34 +452,68 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
     if not internal_discharges:
         internal_discharges = np.array(internal_areas) * effective_rainfall
 
+
+    # ---- Generate discharge list
+    sources = [
+        i for i in range(len(net_topo.upstream_segment_IDs))
+            if not net_topo.upstream_segment_IDs[i]
+        ]
+    Q_ls = generate_discharges(
+        supply_discharges,
+        internal_discharges,
+        sources,
+        net_topo.upstream_segment_IDs,
+        x_ls
+        )
+
+
     # ---- Set widths
     if variable_width:
-        widths = []
-        for i in range(len(net_topo.upstream_segment_IDs)):
-            Q = 0
-            up_IDs = upstream_IDs(net_topo.upstream_segment_IDs, i)
-            for ID in up_IDs:
-                Q += supply_discharges[ID] + internal_discharges[ID]
-            Q -= internal_discharges[i]/2.
-            widths.append(Q * mean_width / mean_discharge)
+        B_ls = generate_variable_widths(mean_width, mean_discharge, Q_ls)
     else:
-        widths = [mean_width for i in range(len(segment_lengths))]
+        B_ls = [np.full(len(x), mean_width) for x in x_ls]
 
-    # ---- Generate the network object
-    net = set_up_network_object(
-        nx_list = nxs, 
-        dxs = dxs,
-        segment_lengths = segment_lengths, 
-        upstream_segment_list =  net_topo.upstream_segment_IDs,
-        downstream_segment_list = net_topo.downstream_segment_IDs, 
-        supply_discharge_list = supply_discharges,
-        internal_discharge_list = internal_discharges,
-        sediment_discharge_ratio = sediment_discharge_ratio, 
-        width_list = widths, 
-        evolve=evolve
+
+    # ---- Generate ssd list
+    Qs_ssd_ls = generate_ssds(Q_ls, sediment_discharge_ratio, x_ls, B_ls, lp.lambda_p)
+
+
+    # ---- Set initial z
+    S0 = (1./(lp.k_Qs*sediment_discharge_ratio))**(6./7.)
+    z_ls = generate_zs(x_ls, x_max, S0, net_topo.downstream_segment_IDs)
+
+
+    # ---- Initialize network object
+    net = Network()
+    net.initialize(
+        config_file = None,
+        x_bl = x_max,
+        z_bl = 0.,
+        S0 = S0 * np.ones(len(sources)),
+        upstream_segment_IDs = net_topo.upstream_segment_IDs,
+        downstream_segment_IDs = net_topo.downstream_segment_IDs,
+        x = x_ls,
+        z = z_ls,
+        Q = Q_ls,
+        B = B_ls,
+        overwrite = False
         )
+    net.set_niter(3)
+    net.get_z_lengths()
+    
+    # ---- Set segment source-sink-distributed term
+    for i,seg in enumerate(net.list_of_LongProfile_objects):
+        seg.set_source_sink_distributed(Qs_ssd_ls[i])
+
+    # ---- If requested evolve network, aiming for steady state
+    if evolve:
+        net.evolve_threshold_width_river_network(nt=100, dt=3.15e12)
+    
+    # ---- Compute Qs
+    for seg in net.list_of_LongProfile_objects: seg.compute_Q_s()
     
     return net, net_topo
+
 
 def plot_network(net, show=True):
     """
@@ -513,77 +651,77 @@ def plot_network(net, show=True):
 
     return planform
 
-class Simple_Network:
-    """
-    Set up simple network with specified total length and segment length.
-    Single-segment tributaries added between each trunk segment.
-    Optionally specify different length for tributaries.
-    """
-
-
-    def __init__(self, nx_total, nx_trunk_seg, nx_trib_seg=None):
-        self.nx_total = nx_total
-        self.nx_trunk_seg = nx_trunk_seg
-        if nx_trib_seg:
-            self.nx_trib_seg = nx_trib_seg
-        else:
-            self.nx_trib_seg = nx_trunk_seg
-
-        self.upstream_segment_IDs = None
-        self.downstream_segment_IDs = None
-        self.nxs = None
-
-        self.build_network()
-
-    def add_segment(self, down_ID, trunk=False):
-        """
-        Add segment to network.
-        """
-
-        # ID number for new segment
-        ID = len(self.nxs)
-
-        # Check whether trunk or tributary, assign length
-        if trunk:
-            nx = self.nx_trunk_seg
-        else:
-            nx = self.nx_trib_seg
-
-        # Make sure length won't leave floating point at end
-        # Can't make a segment with only one point...
-        # Instead add one to final segment
-        if self.nx_total - sum(self.trunk_nxs) <= nx + 1:
-            nx = self.nx_total - sum(self.trunk_nxs)
-
-        # Update nx lists
-        self.nxs.append(nx)
-        if trunk:
-            self.trunk_nxs.append(nx)
-
-        # Update topology lists
-        self.downstream_segment_IDs.append([down_ID])
-        self.upstream_segment_IDs[down_ID].append(ID)
-        self.upstream_segment_IDs.append([])
-
-        # Return ID for future use
-        return ID
-
-    def build_network(self):
-        """
-        Generate network topology.
-        """
-
-        # initialise lists
-        self.upstream_segment_IDs = [[]]
-        self.downstream_segment_IDs = [[]]
-        self.nxs = [self.nx_trunk_seg]
-        self.trunk_nxs = []
-        trunk_ID = 0
-
-        # add segments until total length is reached
-        while self.nx_total - sum(self.trunk_nxs) > 0:
-            __ = self.add_segment(trunk_ID)
-            trunk_ID = self.add_segment(trunk_ID, trunk=True)
+# class Simple_Network:
+#     """
+#     Set up simple network with specified total length and segment length.
+#     Single-segment tributaries added between each trunk segment.
+#     Optionally specify different length for tributaries.
+#     """
+# 
+# 
+#     def __init__(self, nx_total, nx_trunk_seg, nx_trib_seg=None):
+#         self.nx_total = nx_total
+#         self.nx_trunk_seg = nx_trunk_seg
+#         if nx_trib_seg:
+#             self.nx_trib_seg = nx_trib_seg
+#         else:
+#             self.nx_trib_seg = nx_trunk_seg
+# 
+#         self.upstream_segment_IDs = None
+#         self.downstream_segment_IDs = None
+#         self.nxs = None
+# 
+#         self.build_network()
+# 
+#     def add_segment(self, down_ID, trunk=False):
+#         """
+#         Add segment to network.
+#         """
+# 
+#         # ID number for new segment
+#         ID = len(self.nxs)
+# 
+#         # Check whether trunk or tributary, assign length
+#         if trunk:
+#             nx = self.nx_trunk_seg
+#         else:
+#             nx = self.nx_trib_seg
+# 
+#         # Make sure length won't leave floating point at end
+#         # Can't make a segment with only one point...
+#         # Instead add one to final segment
+#         if self.nx_total - sum(self.trunk_nxs) <= nx + 1:
+#             nx = self.nx_total - sum(self.trunk_nxs)
+# 
+#         # Update nx lists
+#         self.nxs.append(nx)
+#         if trunk:
+#             self.trunk_nxs.append(nx)
+# 
+#         # Update topology lists
+#         self.downstream_segment_IDs.append([down_ID])
+#         self.upstream_segment_IDs[down_ID].append(ID)
+#         self.upstream_segment_IDs.append([])
+# 
+#         # Return ID for future use
+#         return ID
+# 
+#     def build_network(self):
+#         """
+#         Generate network topology.
+#         """
+# 
+#         # initialise lists
+#         self.upstream_segment_IDs = [[]]
+#         self.downstream_segment_IDs = [[]]
+#         self.nxs = [self.nx_trunk_seg]
+#         self.trunk_nxs = []
+#         trunk_ID = 0
+# 
+#         # add segments until total length is reached
+#         while self.nx_total - sum(self.trunk_nxs) > 0:
+#             __ = self.add_segment(trunk_ID)
+#             trunk_ID = self.add_segment(trunk_ID, trunk=True)
 
 
 class Shreve_Random_Network:

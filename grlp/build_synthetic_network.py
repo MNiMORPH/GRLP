@@ -532,32 +532,46 @@ def plot_network(net, show=True):
         Check for segments that overlap with the given segment.
         """
         
-        topo_length = len(net.find_downstream_IDs(ID))
-        
-        for nearby_ID in segs_by_topo_length[topo_length]:
-            if nearby_ID != ID:
-                if ys[ID] == ys[nearby_ID]:
-                    return nearby_ID
-                                
-        for nearby_ID in segs_by_topo_length[topo_length+1]:
-            if (
-                nearby_ID != ID and
-                net.list_of_LongProfile_objects[nearby_ID]. \
-                downstream_segment_IDs):
-                down_ID = (
-                    net.list_of_LongProfile_objects[nearby_ID]. \
-                    downstream_segment_IDs[0])
-                if (
-                    ys[ID] >= min(ys[nearby_ID], ys[down_ID]) and 
-                    ys[ID] <= max(ys[nearby_ID], ys[down_ID])
-                    ):
-                    return nearby_ID
+        seg = net.list_of_LongProfile_objects[ID]
+        x_max = seg.x_ext[0].max()
+        x_min = seg.x_ext[0].min()
+        y = ys[ID]
+
+        for other_topo_length in segs_by_topo_length.keys():
+            for other_ID in segs_by_topo_length[other_topo_length]:
+                if other_ID != ID:
                     
-        for nearby_ID in segs_by_topo_length[topo_length-1]:
-            if nearby_ID != ID:
-                if ys[ID] == ys[nearby_ID]:
-                    return nearby_ID
+                    other_seg = net.list_of_LongProfile_objects[other_ID]
+                    other_x_max = other_seg.x_ext[0].max()
+                    other_x_min = other_seg.x_ext[0].min()
+                    other_y = ys[other_ID]
                     
+                    if (
+                        (other_x_min <= x_min <= other_x_max) or 
+                        (other_x_min <= x_max <= other_x_max)
+                        ):
+                        if y == other_y:
+                            return other_ID
+                    
+                    if other_seg.downstream_segment_IDs:
+                        down_y = ys[other_seg.downstream_segment_IDs[0]]
+                        if (
+                            (x_min <= other_x_max <= x_max) and
+                            (min(other_y,down_y) <= y <= max(other_y,down_y))
+                            ):
+                            return other_ID
+                    
+                    # # Don't think I need this bit...
+                    # if seg.downstream_segment_IDs:
+                    #     down_ID = seg.downstream_segment_IDs[0]
+                    #     if down_ID != other_ID:
+                    #         down_y = ys[down_ID]
+                    #         if (
+                    #             (other_x_min <= x_max <= other_x_max) and 
+                    #             (min(y,down_y) <= other_y <= max(y,down_y))
+                    #             ):
+                    #             return other_ID
+                            
         return False
 
     def create_planform(net, ys):
@@ -636,10 +650,17 @@ def plot_network(net, show=True):
             # with the right direction to fix the conflict
             if conflicting_id:
                 seg_to_adjust = seg.ID
-                while sides[conflicting_id] != sides[seg_to_adjust]:
-                    seg_to_adjust = (
-                        net.list_of_LongProfile_objects[seg_to_adjust]. \
-                        downstream_segment_IDs[0])
+                if seg.x.max() >= \
+                    net.list_of_LongProfile_objects[conflicting_id].x.max():
+                    while sides[conflicting_id] != sides[seg_to_adjust]:
+                        seg_to_adjust = (
+                            net.list_of_LongProfile_objects[seg_to_adjust]. \
+                            downstream_segment_IDs[0])
+                else:
+                    while sides[seg.ID] == sides[seg_to_adjust]:
+                        seg_to_adjust = (
+                            net.list_of_LongProfile_objects[seg_to_adjust]. \
+                            downstream_segment_IDs[0])
             
             # Move everything upstream of that segment out the way until the
             # conflict is addressed

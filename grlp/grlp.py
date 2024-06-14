@@ -2692,7 +2692,8 @@ class Network(object):
         for i in self.list_of_channel_head_segment_IDs:
             x_arr = np.hstack(( x_arr, self.list_of_LongProfile_objects[i].x[0] ))
         # self.mean_downstream_distance = np.sqrt(((x_max - x_arr)**2).mean())
-        self.mean_downstream_distance = (x_max - x_arr).mean()
+        self.mean_downstream_distance = np.mean(x_max - x_arr)
+        self.median_downstream_distance = np.median(x_max - x_arr)
 
     def compute_network_properties(self):
         """

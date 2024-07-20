@@ -345,7 +345,7 @@ class LongProfile(object):
         # Q[0] is centerpoint of S?
         self.S0 = np.sign(self.Q[0]) * self.sinuosity * \
                       ( np.abs(Q_s_0) / 
-                        ( self.k_Qs * self.intermittency 
+                        ( self.k_Qs 
                               * np.abs(self.Q[0])) )**(6/7.)
         # Give upstream cell the same width as the first cell in domain
         self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]

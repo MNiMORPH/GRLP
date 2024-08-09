@@ -847,6 +847,9 @@ class LongProfile(object):
         #plt.figure(); plt.imshow(np.log10(self.LHSmatrix.todense()), interpolation='nearest')
         #plt.show()
                             
+        # zold: should be initial state rather than updating with each
+        # iteration for A * x_new = x_old
+        # just the nonlinear coeff should update between iterations.
         self.RHS = np.hstack(( self.bcl+self.zold[0],
                                self.zold[1:-1],
                                self.bcr+self.zold[-1])) \

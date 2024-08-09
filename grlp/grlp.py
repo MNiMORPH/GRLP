@@ -645,6 +645,11 @@ class LongProfile(object):
         #self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
         # NEXT TEST
                 
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # AW NOTE: 2024.08.09
+        # Looks like I am just taking one side of the dx, dQ
+        # Is this a problem?
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         self.left = -self.C1 / self.dx_ext_2cell[0] \
                         * ( (7/3.)/self.dx_ext[0][:-1]
                         - self.dQ_ext_2cell[0]/self.Q/self.dx_ext_2cell[0] )

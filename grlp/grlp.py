@@ -345,7 +345,7 @@ class LongProfile(object):
         # Q[0] is centerpoint of S?
         self.S0 = np.sign(self.Q[0]) * self.sinuosity * \
                       ( np.abs(Q_s_0) / 
-                        ( self.k_Qs 
+                        ( self.k_Qs * self.intermittency 
                               * np.abs(self.Q[0])) )**(6/7.)
         # Give upstream cell the same width as the first cell in domain
         self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
@@ -487,23 +487,15 @@ class LongProfile(object):
             # YES! IS USED, WHEN THERE ARE NO UPSTREAM SEGMENTS
             # SHOULD IT STILL BE, OR SHOULD NEW METHOD BE USED?
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            #self.bcl = self.dx_ext_2cell[0][0] * -self.S0 * \
-            #                    self.C1[0] / self.dx_ext_2cell[0][0] \
-            #                    * ( 7/3./self.dx_ext[0][0]
-            #                    - self.dQ_ext_2cell[0][0]/self.Q[0]/self.dx_ext_2cell[0][0] )
-            self.bcl = -self.S0 * \
-                                self.C1[0] \
+            self.bcl = self.dx_ext_2cell[0][0] * self.S0 * \
+                                self.C1[0] / self.dx_ext_2cell[0][0] \
                                 * ( 7/3./self.dx_ext[0][0]
                                 - self.dQ_ext_2cell[0][0]/self.Q[0]/self.dx_ext_2cell[0][0] )
                                 # !!!!!!!!!!!!!!!!!
                                 # dQ_ext_2cell --> dQ_ext_2cell[0]. Expecting list! HACK.
         else:
-            #self.bcl = self.dx_ext_2cell[0] * -self.S0 * \
-            #                    -self.C1[0] / self.dx_ext_2cell[0] \
-            #                    * ( 7/3./self.dx_ext[0]
-            #                    - self.dQ_ext_2cell[0]/self.Q[0]/self.dx_ext_2cell[0] )
-            self.bcl = -self.S0 * \
-                                -self.C1[0] \
+            self.bcl = self.dx_ext_2cell[0] * self.S0 * \
+                                -self.C1[0] / self.dx_ext_2cell[0] \
                                 * ( 7/3./self.dx_ext[0]
                                 - self.dQ_ext_2cell[0]/self.Q[0]/self.dx_ext_2cell[0] )
 
@@ -2871,4 +2863,5 @@ for lp in self.list_of_LongProfile_objects: print(lp.x_ext)
 print("")
 for lp in self.list_of_LongProfile_objects: print(lp.z_ext)
 """
+
 

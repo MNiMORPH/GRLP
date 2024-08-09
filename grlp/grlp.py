@@ -620,6 +620,7 @@ class LongProfile(object):
     def network__build_matrix_inner(self):
         """
         Build the tridiagonal matrix (LHS) and the RHS matrix for the solution
+        Well, not the RHS here. Just the LHS.
         """
         self.network__compute_coefficient_time_varying()
         # !!!C0!!!

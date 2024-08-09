@@ -696,6 +696,7 @@ class LongProfile(object):
                                   + dQ_ext_2cell/self.Q/self.dx_ext_2cell[0] )
         """
 
+        """
         # dQs/dx = self.C0 * d/dx (Q S^(7/6))
         self.C0 = self.k_Qs * self.intermittency \
                     / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \

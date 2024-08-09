@@ -675,7 +675,25 @@ class LongProfile(object):
         # as in, for any number of tribs.
         # Maybe that would be cleaner, even if it provides a different
         # way of making boundary calculations
-        
+
+        """
+        # Test here. Those on the bounaries should get overwritten except for
+        # the downstream-most cell's
+        dQ_ext_2cell = np.mean(self.dQ_ext_2cell, axis=0)
+        dQ_ext_2cell[0] = -999999
+        dQ_ext_2cell[-1] = -9999999
+                
+        self.left = -self.C1 / self.dx_ext_2cell[0] \
+                        * ( (7/3.)/self.dx_ext[0][:-1]
+                        - dQ_ext_2cell/self.Q/self.dx_ext_2cell[0] )
+        self.center = -self.C1 / self.dx_ext_2cell[0] \
+                              * ( (7/3.)
+                              * (-1/self.dx_ext[0][:-1]
+                                 -1/self.dx_ext[0][1:]) ) \
+                                 + 1.
+        self.right = -self.C1 / self.dx_ext_2cell[0] \
+                              * ( (7/3.)/self.dx_ext[0][1:] # REALLY?
+                                  + dQ_ext_2cell/self.Q/self.dx_ext_2cell[0] )
         """
         # dQs/dx = self.C0 * d/dx (Q S^(7/6))
         self.C0 = self.k_Qs * self.intermittency \

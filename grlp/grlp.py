@@ -421,7 +421,7 @@ class LongProfile(object):
         # Nope! It definitely does something.
 
         # For Fergus' example exactly -- will need to generalize later
-        _dQ = 0.00190235 # Uniform
+        _dQ = 0.00192156 # Uniform
         _B = 98.12020388 # Uniform
 
         if len(self.upstream_segment_IDs) > 1:
@@ -443,12 +443,16 @@ class LongProfile(object):
             C1_down = self.C0 * dzdx_down**(1/6.) * Q_down / _B
 
             # Straight mean
-            #self.C1[0] = ( (C1_up1 + C1_up2) + C1_down ) / 2.
 
+            self.C1[0] = ( (C1_up1 + C1_up2) + C1_down ) / 2.
             # Harmonic mean
             #self.C1[0] = 2. / ( 1./(C1_up1 + C1_up2) + 1./C1_down )
-            self.C1[0] = (C1_up1 + C1_up2)
+
+            # Trying other things
+            #self.C1[0] = (C1_up1 + C1_up2)
+            #self.C1[0] = ( (C1_up1 + C1_up2) + C1_down ) / 6.
             ##print(self.C1[:2])
+
 
     def set_z_bl(self, z_bl):
         """
@@ -712,6 +716,9 @@ class LongProfile(object):
         if len(self.upstream_segment_IDs) > 1:
             # UPSTREAM DEOSN'T SEEM TO DO ANYTHING
             _dQ_2cell = 0#self.Q[1] - (self.Q_ext[0][0] + self.Q_ext[1][0])
+            # Hard-code for Fergus' code
+            _dQ_2cell = 0.00192156 * 2 # Maybe this is my last little discrepancy (self.C0[0] = ...)
+            _dQ_2cell = np.nan # Test if it matters. Nope.
             self.right[0] = -self.C1[0] / self.dx_ext_2cell[0][0] \
                                   * ( (7/3.)/self.dx_ext[0][1] # REALLY?
                                        + _dQ_2cell/self.Q[0]/self.dx_ext_2cell[0][0] )
@@ -728,7 +735,9 @@ class LongProfile(object):
             self.right[-1] = np.nan # Does not and should not matter: off array in roll
             # DOWNSTREAM?
             #_dQ_2cell = (self.Q_ext[0][-1] - *(self.Q_ext[1][0])
-            _dQ_2cell = 0.00388234 # hard-code for now: what if we just take local?
+            # THESE ARE TOO LATE TO DO ANYTHING
+            #_dQ_2cell = 0.00388234 # hard-code for now: what if we just take local?
+            #_dQ_2cell = 0.00192156 * 2 # Maybe this is my last little discrepancy (self.C0[0] = ...)
             """
             self.right[-1] = -self.C1[-1] / self.dx_ext_2cell[0][-1] \
                                   * ( (7/3.)/self.dx_ext[0][-1] # REALLY?

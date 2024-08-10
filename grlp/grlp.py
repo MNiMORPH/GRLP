@@ -713,7 +713,10 @@ class LongProfile(object):
                                   + self.dQ_ext_2cell[0]/self.Q/self.dx_ext_2cell[0] )
         # Maybe left isn't used, but right will be
         # HACKING WITH SOME ASSUPMTIONS
+        # DOES NOTHING. TOTALLY COMMENTED OUT.
         if len(self.upstream_segment_IDs) > 1:
+            pass
+            """
             # UPSTREAM DEOSN'T SEEM TO DO ANYTHING
             _dQ_2cell = 0#self.Q[1] - (self.Q_ext[0][0] + self.Q_ext[1][0])
             # Hard-code for Fergus' code
@@ -738,6 +741,7 @@ class LongProfile(object):
             # THESE ARE TOO LATE TO DO ANYTHING
             #_dQ_2cell = 0.00388234 # hard-code for now: what if we just take local?
             #_dQ_2cell = 0.00192156 * 2 # Maybe this is my last little discrepancy (self.C0[0] = ...)
+            """
             """
             self.right[-1] = -self.C1[-1] / self.dx_ext_2cell[0][-1] \
                                   * ( (7/3.)/self.dx_ext[0][-1] # REALLY?

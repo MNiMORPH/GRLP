@@ -443,14 +443,17 @@ class LongProfile(object):
             C1_down = self.C0 * dzdx_down**(1/6.) * Q_down / _B
 
             # Straight mean
-
             self.C1[0] = ( (C1_up1 + C1_up2) + C1_down ) / 2.
             # Harmonic mean
-            #self.C1[0] = 2. / ( 1./(C1_up1 + C1_up2) + 1./C1_down )
+            self.C1[0] = 2. / ( 1./(C1_up1 + C1_up2) + 1./C1_down )
 
             # Trying other things
-            #self.C1[0] = (C1_up1 + C1_up2)
+            # !!!!!!
+            # This gives a better answer!
+            # But I don't know why
+            self.C1[0] = (C1_up1 + C1_up2)
             #self.C1[0] = ( (C1_up1 + C1_up2) + C1_down ) / 6.
+            #self.C1[0] = C1_up1 + C1_up2 + C1_down
             ##print(self.C1[:2])
 
 

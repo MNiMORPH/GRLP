@@ -425,8 +425,8 @@ class LongProfile(object):
         _B = 98.12020388 # Uniform
 
         if len(self.upstream_segment_IDs) > 1:
-            print(self.C1[:2], end="")
-            print(" ", end="")
+            ##print(self.C1[:2], end="")
+            ##print(" ", end="")
             # Left TRIBUTARY
             Q_up1 = self.Q_ext[0][0] + _dQ/2
             dzdx_up_1 = (self.z_ext[0][0] - self.z_ext[0][1]) / self.dx_ext[0][0]
@@ -448,7 +448,7 @@ class LongProfile(object):
             # Harmonic mean
             #self.C1[0] = 2. / ( 1./(C1_up1 + C1_up2) + 1./C1_down )
             self.C1[0] = (C1_up1 + C1_up2)
-            print(self.C1[:2])
+            ##print(self.C1[:2])
 
     def set_z_bl(self, z_bl):
         """
@@ -890,7 +890,6 @@ class LongProfile(object):
             self.center[0] = self.C0 * ( _trib_cent + _mainstem_cent_right ) \
                               + 1
 
-            C1_local = self.C0 * _trib_cent
             # Right needs to be changed too
             # This should be positive... but I get something that looks right
             # when I make it negative
@@ -911,6 +910,71 @@ class LongProfile(object):
             print("L-R balance!")
             print( np.sum(self.upseg_trib_coeffs) - self.right[0] )
             """
+
+
+            # AW 20240810
+            # Let's break this down in a way that makes more sense compared to
+            # our other methods
+            # _TRIBI, 0, ... DOESN'T REALLY MATTER
+            dzdx_0_16 = ( np.abs( self.z_ext[0][1] -
+                                  self.z_ext[0][2] )
+                          / self.dx[0] )**(1/6.)
+            #dzdx_0_16 = 1 # DEBUG TEST
+            #self.DEBUG_dzdx_0_16__downstream = dzdx_0_16.copy()
+            # Positive for right, negative for center
+            #_mainstem_cent_right = 1 * \
+            # 1E0 to play with coefficients and check them
+            # ALREADY IS AVERAGING Q !!!!!!!!!!! (SEE FERGUS NOTE FOR ABOVE)
+            _mainstem_cent_right = dzdx_0_16 * 1E0 * \
+                                   (self.Q[0] + self.Q[1])/2. / self.dx[0] \
+                                   / self.land_area_around_confluence
+
+                                   # Replacing this with just exactly the Q
+                                   # at the confluence
+            _C1_upstream = 0
+            for _tribi in range( len(self.upstream_segment_IDs) ):
+                # Upstream of junction
+                # self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
+                # We can just allow self.B to be that for the area above the
+                # junction here -- this might be the cause of the
+                # above need for the sum instead of sum/2
+                dzdx_0_16 = ( np.abs( self.z_ext[_tribi][0] -
+                                      self.z_ext[_tribi][1] )
+                              / self.dx_ext[_tribi][0] )**(1/6.)
+                _dQ = 0.00192156 # Hard-coded for Fergus' example
+                _B = 98.12020388 # Hard-coded for Fergus' example
+                Q_mid = (self.Q_ext[_tribi][0] + _dQ/2.)
+                _C1_partial = self.C0 * dzdx_0_16 * Q_mid / _B
+                _C1_upstream += _C1_partial
+                #_trib_coeff *= -1
+                _trib_cent += _trib_coeff
+            Q_mid = (self.Q[0] + self.Q[1])/2.
+            dzdx_0_16 = ( np.abs( self.z[0] -
+                                  self.z[1] )
+                          / self.dx[0] )**(1/6.)
+            _C1_downstream = self.C0 * dzdx_0_16 * Q_mid / _B
+
+            # Divide by 3.5 because it looks like this is the factor
+            # that I am missing compared to the other coeffs
+            """
+            self.C1[0] = (_C1_upstream + _C1_downstream) / 3.5
+
+            # LET'S SEE IF THIS WORKS!
+            # AGAIN, ASSUMING UNIFORM SPACING
+            print(self.center[0], self.right[0], end="")
+            self.center[0] = -self.C1[0] / self.dx_ext_2cell[0][0] \
+                                  * ( (7/3.)
+                                  * (-1/self.dx_ext[0][0]
+                                     - 1/self.dx_ext[0][1]) ) \
+                                     + 1.
+            _dQ_2cell = self.Q[0] - (self.Q_ext[0][0] + self.Q_ext[1][0])
+            self.right[0] = -self.C1[0] / self.dx_ext_2cell[0][0] \
+                                  * ( (7/3.)/self.dx_ext[0][1] # REALLY?
+                                      + _dQ_2cell/self.Q[0]/self.dx_ext_2cell[0][0] )
+            print(" -- ", self.center[0], self.right[0])
+            """
+
+
 
         # As long as the network is convergent and based on Dirichlet boundary
         # conditions on the downstream end, the single downstream segment

@@ -410,6 +410,45 @@ class LongProfile(object):
         # entering them. This led us to need a factor of "2" to multiply
         # the added sediment by to keep an equilibrium slope
         self.C1 = np.mean(C1_list, axis=0)
+        # But "mean" really is not the answer either, becuase there
+        # are different discharges associated wtih each of the two upstream
+        # slopes.
+
+        # PERHAPS THE UPSTREAM-MOST C1 LITERALLY DOES NOT MATTER
+        # PERHAPS THIS IS BECASUE WE USE THE TWO FURHTER-UPSTREAM
+        # CELLS TO SET THE C0 FOR HERE
+        #self.C1[0] = np.nan
+        # Nope! It definitely does something.
+
+        # For Fergus' example exactly -- will need to generalize later
+        _dQ = 0.00190235 # Uniform
+        _B = 98.12020388 # Uniform
+
+        if len(self.upstream_segment_IDs) > 1:
+            print(self.C1[:2], end="")
+            print(" ", end="")
+            # Left TRIBUTARY
+            Q_up1 = self.Q_ext[0][0] + _dQ/2
+            dzdx_up_1 = (self.z_ext[0][0] - self.z_ext[0][1]) / self.dx_ext[0][0]
+            C1_up1 = self.C0 * dzdx_up_1**(1/6.) * Q_up1 / _B
+
+            # Right tributary
+            Q_up2 = self.Q_ext[1][0] + _dQ/2
+            dzdx_up_2 = (self.z_ext[1][0] - self.z_ext[1][1]) / self.dx_ext[1][0]
+            C1_up2 = self.C0 * dzdx_up_2**(1/6.) * Q_up2 / _B
+
+            # Downstream -- use ext in all generalized cases?
+            Q_down = self.Q[0] + _dQ/2
+            dzdx_down = (self.z[0] - self.z[1]) / self.dx[0]
+            C1_down = self.C0 * dzdx_down**(1/6.) * Q_down / _B
+
+            # Straight mean
+            #self.C1[0] = ( (C1_up1 + C1_up2) + C1_down ) / 2.
+
+            # Harmonic mean
+            #self.C1[0] = 2. / ( 1./(C1_up1 + C1_up2) + 1./C1_down )
+            self.C1[0] = (C1_up1 + C1_up2)
+            print(self.C1[:2])
 
     def set_z_bl(self, z_bl):
         """
@@ -668,6 +707,41 @@ class LongProfile(object):
         self.right = -self.C1 / self.dx_ext_2cell[0] \
                               * ( (7/3.)/self.dx_ext[0][1:] # REALLY?
                                   + self.dQ_ext_2cell[0]/self.Q/self.dx_ext_2cell[0] )
+        # Maybe left isn't used, but right will be
+        # HACKING WITH SOME ASSUPMTIONS
+        if len(self.upstream_segment_IDs) > 1:
+            # UPSTREAM DEOSN'T SEEM TO DO ANYTHING
+            _dQ_2cell = 0#self.Q[1] - (self.Q_ext[0][0] + self.Q_ext[1][0])
+            self.right[0] = -self.C1[0] / self.dx_ext_2cell[0][0] \
+                                  * ( (7/3.)/self.dx_ext[0][1] # REALLY?
+                                       + _dQ_2cell/self.Q[0]/self.dx_ext_2cell[0][0] )
+            self.left[0] = -self.C1[0] / self.dx_ext_2cell[0][0] \
+                                  * ( (7/3.)/self.dx_ext[0][0] # REALLY?
+                                       + _dQ_2cell/self.Q[0]/self.dx_ext_2cell[0][0] )
+            # Does not appear in the matrix, but seems not to matter
+            self.left[0] = np.nan # Confirmed: does not matter.
+            # Does appear in the matrix and nonetheless appears not to matter.
+            # Later overwritten?
+            self.right[0] = np.inf # Ineteresting. Does not matter either. Why?
+            # LEFT AT END MATTERS
+            # self.left[-1] = np.nan # Does and should matter: controls -2
+            self.right[-1] = np.nan # Does not and should not matter: off array in roll
+            # DOWNSTREAM?
+            #_dQ_2cell = (self.Q_ext[0][-1] - *(self.Q_ext[1][0])
+            _dQ_2cell = 0.00388234 # hard-code for now: what if we just take local?
+            """
+            self.right[-1] = -self.C1[-1] / self.dx_ext_2cell[0][-1] \
+                                  * ( (7/3.)/self.dx_ext[0][-1] # REALLY?
+                                       + _dQ_2cell/self.Q[-1]/self.dx_ext_2cell[0][-1] )
+            self.left[-1] = -self.C1[-1] / self.dx_ext_2cell[0][-1] \
+                                  * ( (7/3.)/self.dx_ext[0][-1] # REALLY?
+                                       + _dQ_2cell/self.Q[-1]/self.dx_ext_2cell[0][-1] )
+            """
+            # I have seen these only after the following roll:
+            #self.left = np.roll(self.left, -1)
+            #self.right = np.roll(self.right, 1)
+
+
                                   # !!!!!!!!!!!!!!!!!
                                   # dQ --> dQ[0]. Expecting list! HACK.
         # Far-left "self.center" depends on upstream boundary conditions

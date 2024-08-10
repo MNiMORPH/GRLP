@@ -831,8 +831,10 @@ class LongProfile(object):
                 # It varies based on trib junction
                 # _trib_coeff = 1 * \
                 # 1E0 to play with coefficients and check them
+                # !!!!!!!!!! HARD CODING FERGUS' DQ
+                # YES, WAS NOT COUNTING ON Q ADDITIONS THROUGH HERE
                 _trib_coeff = dzdx_0_16 * 1E0 * \
-                              ( self.Q_ext[_tribi][0] /
+                              ( (self.Q_ext[_tribi][0] + 0.00192156/2.) /
                                 self.dx_ext[_tribi][0] ) \
                               / self.land_area_around_confluence
                 #_trib_coeff *= -1
@@ -855,6 +857,7 @@ class LongProfile(object):
             # Positive for right, negative for center
             #_mainstem_cent_right = 1 * \
             # 1E0 to play with coefficients and check them
+            # ALREADY IS AVERAGING Q !!!!!!!!!!! (SEE FERGUS NOTE FOR ABOVE)
             _mainstem_cent_right = dzdx_0_16 * 1E0 * \
                                    (self.Q[0] + self.Q[1])/2. / self.dx[0] \
                                    / self.land_area_around_confluence
@@ -863,6 +866,23 @@ class LongProfile(object):
                                    # at the confluence
                                    #(self.Q[0] + self.Q[1])/2. / self.dx[0] \
 
+            """
+            # Here for reference in case of needed rewrite
+            self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
+            self.left = -self.C1 / self.dx_ext_2cell \
+                            * ( (7/3.)/self.dx_ext[:-1]
+                            - self.dQ_ext_2cell/self.Q/self.dx_ext_2cell )
+            self.center = -self.C1 / self.dx_ext_2cell \
+                                  * ( (7/3.)
+                                  * (-1/self.dx_ext[:-1]
+                                     - 1/self.dx_ext[1:]) ) \
+                                     + 1.
+            self.right = -self.C1 / self.dx_ext_2cell \
+                                  * ( (7/3.)/self.dx_ext[1:] # REALLY?
+                                      + self.dQ_ext_2cell/self.Q/self.dx_ext_2cell )
+            """
+
+
             # Changes based on tributaries having more or less Q each!
             #print("")
             #print("TRIB CENT", _trib_cent)
@@ -870,6 +890,7 @@ class LongProfile(object):
             self.center[0] = self.C0 * ( _trib_cent + _mainstem_cent_right ) \
                               + 1
 
+            C1_local = self.C0 * _trib_cent
             # Right needs to be changed too
             # This should be positive... but I get something that looks right
             # when I make it negative

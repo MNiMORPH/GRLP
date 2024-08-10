@@ -915,22 +915,6 @@ class LongProfile(object):
             # AW 20240810
             # Let's break this down in a way that makes more sense compared to
             # our other methods
-            # _TRIBI, 0, ... DOESN'T REALLY MATTER
-            dzdx_0_16 = ( np.abs( self.z_ext[0][1] -
-                                  self.z_ext[0][2] )
-                          / self.dx[0] )**(1/6.)
-            #dzdx_0_16 = 1 # DEBUG TEST
-            #self.DEBUG_dzdx_0_16__downstream = dzdx_0_16.copy()
-            # Positive for right, negative for center
-            #_mainstem_cent_right = 1 * \
-            # 1E0 to play with coefficients and check them
-            # ALREADY IS AVERAGING Q !!!!!!!!!!! (SEE FERGUS NOTE FOR ABOVE)
-            _mainstem_cent_right = dzdx_0_16 * 1E0 * \
-                                   (self.Q[0] + self.Q[1])/2. / self.dx[0] \
-                                   / self.land_area_around_confluence
-
-                                   # Replacing this with just exactly the Q
-                                   # at the confluence
             _C1_upstream = 0
             for _tribi in range( len(self.upstream_segment_IDs) ):
                 # Upstream of junction

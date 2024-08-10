@@ -425,6 +425,10 @@ class LongProfile(object):
         _B = 98.12020388 # Uniform
 
         if len(self.upstream_segment_IDs) > 1:
+            # DANGER !!! DANGER !!!
+            # THIS IMPROVES THE SOLUTION BUT FOR NO RATIONAL CAUSE.
+            # POSSIBLY SOMETHING ABOUT NUMBER OF BYTES SET FOR A VAR
+
             ##print(self.C1[:2], end="")
             ##print(" ", end="")
             # Left TRIBUTARY
@@ -455,6 +459,20 @@ class LongProfile(object):
             #self.C1[0] = ( (C1_up1 + C1_up2) + C1_down ) / 6.
             #self.C1[0] = C1_up1 + C1_up2 + C1_down
             ##print(self.C1[:2])
+
+            # THIS MAY BE USED AROUND LINE 706 FOR NETEWORK
+            # BUT THEN SHOULD BE OVERWRITTEN (AT LEAST ONE SIDE?)
+            # TRY OVERWRITING OTHER SIDE WITH _trib_cent CODE
+
+            # Nope.
+
+            # This is strange. It really shouldn't matter. But yet, somehow it
+            # does.
+
+            # Try to force an error.
+            #self.C1[0] = [1,2]
+            #self.C1[0] = np.inf # Code still runs!
+            #self.C1[0] = np.nan
 
 
     def set_z_bl(self, z_bl):
@@ -918,6 +936,18 @@ class LongProfile(object):
             # slope * discharge?
 
             # Left will be handled among boundary conditions
+
+            # BUT TRY: LEFT
+            # YEP. ABSOLUTELY POSITIVELY DOESN'T MATTER.
+            dzdx_0_16 = ( np.abs( self.z_ext[0][0] -
+                                  self.z_ext[0][1] )
+                          / self.dx_ext[0][0] )**(1/6.)
+            # IMAGINE ALL UNIFORM DX
+            _mainstem_cent_left = dzdx_0_16 * 1E0 * \
+                                   (self.Q_ext[0][0] + self.Q_ext[1][0]) / self.dx[0] \
+                                   / self.land_area_around_confluence
+            self.left[0] = - self.C0 * _mainstem_cent_left
+            self.left[0] = np.nan
 
             """
             print("! 0 IF WE CONSERVE MASS !")

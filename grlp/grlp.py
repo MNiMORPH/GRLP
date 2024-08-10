@@ -402,7 +402,14 @@ class LongProfile(object):
             dzdx_0_16 = np.abs( (self.z_ext[_idx][2:] - self.z_ext[_idx][:-2]) \
                         / self.dx_ext_2cell[_idx] )**(1/6.)
             C1_list.append( self.C0 * dzdx_0_16 * self.Q / self.B )
-        self.C1 = np.sum(C1_list, axis=0)
+        # ADW, 2024.08.10
+        # I think that this is the problem that Fergus encountered.
+        # Previously, I had "sum" here.
+        # And this doubled the evolution efficiency of all segments by
+        # a multiplier that equaled the number of tributaries directly
+        # entering them. This led us to need a factor of "2" to multiply
+        # the added sediment by to keep an equilibrium slope
+        self.C1 = np.mean(C1_list, axis=0)
 
     def set_z_bl(self, z_bl):
         """

@@ -754,14 +754,6 @@ class LongProfile(object):
                               ( self.Q_ext[_tribi][0] /
                                 self.dx_ext[_tribi][0] ) \
                               / self.land_area_around_confluence
-                """
-                print("_tribi", _tribi)
-                print("TC", _trib_coeff)
-                print(dzdx_0_16)
-                print(self.Q_ext[_tribi][0])
-                print(self.dx_ext[_tribi][0])
-                print("")
-                """
                 #_trib_coeff *= -1
                 _trib_cent += _trib_coeff
                 #print("T", self.upstream_segment_IDs[_tribi],
@@ -796,24 +788,6 @@ class LongProfile(object):
             #print("")
             self.center[0] = self.C0 * ( _trib_cent + _mainstem_cent_right ) \
                               + 1
-
-            """
-                    C0 = upseg.k_Qs * upseg.intermittency \
-                            / ((1-upseg.lambda_p) * upseg.sinuosity**(7/6.)) \
-                            * self.dt
-                    # From upseg, could be either dx_ext, so why not 0 : )
-                    dzdx_0_16 = ( np.abs( lp.z_ext[_relative_id][0] -
-                                          lp.z_ext[_relative_id][1] )
-                                  / lp.dx_ext[_relative_id][0] )**(1/6.)
-                    C1 = C0 * dzdx_0_16 * upseg.Q[-1] / lp.B[0]
-                    # Slight hack but will work in convergent network
-                    #left_new = C0 / upseg.dx_ext[0][-1]
-                    left_new = C1 / lp.dx_ext[_relative_id][0] \
-                                / (lp.dx_ext_2cell[_relative_id][0]/2.)
-                    self.LHSblock_matrix[row, col] = left_new
-                    _relative_id += 1
-            """
-
 
             # Right needs to be changed too
             # This should be positive... but I get something that looks right

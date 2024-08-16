@@ -402,7 +402,20 @@ class LongProfile(object):
             dzdx_0_16 = np.abs( (self.z_ext[_idx][2:] - self.z_ext[_idx][:-2]) \
                         / self.dx_ext_2cell[_idx] )**(1/6.)
             C1_list.append( self.C0 * dzdx_0_16 * self.Q / self.B )
-        self.C1 = np.sum(C1_list, axis=0)
+        # ADW, 2024.08.10, rev. 2024.08.16
+        # Previously, I summed the C1_list.
+        # This created the problem that Fergus encountered, in which sediment
+        # transport rates beyond the junction were doubled.
+        self.C1 = np.mean(C1_list, axis=0)
+        # By using "mean", we ensure that everything below the junction is
+        # proper
+        # The upstream-most C1 will be correct when there is just one stream
+        # entering this lower one.
+        # And when there are multiple streams, it is not used: the upstream
+        # inputs are set separately.
+        # Demonstrate this and make sure that it fails if I'm wrong.
+        if len(self.upstream_segment_IDs) > 1:
+            self.C1[0] = np.nan
 
     def set_z_bl(self, z_bl):
         """

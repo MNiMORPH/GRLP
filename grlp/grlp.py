@@ -491,7 +491,10 @@ class LongProfile(object):
             #                    self.C1[0] / self.dx_ext_2cell[0][0] \
             #                    * ( 7/3./self.dx_ext[0][0]
             #                    - self.dQ_ext_2cell[0][0]/self.Q[0]/self.dx_ext_2cell[0][0] )
-            self.bcl = -self.S0 * \
+            # RESTORED OLD SIGN CONVENTION HERE: POSITIVE EVEN THOUGH
+            # IT REASONABLY SHOULD BE FLIPPED
+            # CONSIDER BREAKING THIS AT SOME LATER POINT.
+            self.bcl = self.S0 * \
                                 self.C1[0] \
                                 * ( 7/3./self.dx_ext[0][0]
                                 - self.dQ_ext_2cell[0][0]/self.Q[0]/self.dx_ext_2cell[0][0] )
@@ -502,7 +505,10 @@ class LongProfile(object):
             #                    -self.C1[0] / self.dx_ext_2cell[0] \
             #                    * ( 7/3./self.dx_ext[0]
             #                    - self.dQ_ext_2cell[0]/self.Q[0]/self.dx_ext_2cell[0] )
-            self.bcl = -self.S0 * \
+            # RESTORED OLD SIGN CONVENTION HERE: POSITIVE EVEN THOUGH
+            # IT REASONABLY SHOULD BE FLIPPED
+            # CONSIDER BREAKING THIS AT SOME LATER POINT.
+            self.bcl = self.S0 * \
                                 -self.C1[0] \
                                 * ( 7/3./self.dx_ext[0]
                                 - self.dQ_ext_2cell[0]/self.Q[0]/self.dx_ext_2cell[0] )

@@ -40,6 +40,10 @@ class LongProfile(object):
         #self.downstream_dx = None # not necessary if x_ext given
         #self.basic_constants()
         self.L = None
+        # The extra water added at upstream tributary junctions,
+        # spread evenly across all branches [a kludge]
+        # Setting default to 0
+        self.dQ_up_jcn = 0.
 
     def set_ID(self, ID):
         """
@@ -751,8 +755,21 @@ class LongProfile(object):
                 # It varies based on trib junction
                 # _trib_coeff = 1 * \
                 # 1E0 to play with coefficients and check them
+                # AW: 2024.08.10; re-implemented cleanly into trunk 2024.08.16
+                # I added dQ_dx to the discharges to account for along-stream
+                # additions of water at the tributary junctions.
+                # Previously, this was always 0 -- meaning that it was just
+                # the two tributaries coming together.
+                # Currently, a kludge: user sets self.dQ_up_jcn for each
+                # segment. Later could integrate upstream and downstream
+                # discharges to calculate internally.
+                # Dividing this discharge by len(self.Q_ext) because in the
+                # current implementation, the added water is spread evenly
+                # across all tributaries. This can also change in an updated
+                # version of the code.
                 _trib_coeff = dzdx_0_16 * 1E0 * \
-                              ( self.Q_ext[_tribi][0] /
+                              ( (self.Q_ext[_tribi][0] + \
+                                    self.dQ_up_jcn / len(self.Q_ext) ) /
                                 self.dx_ext[_tribi][0] ) \
                               / self.land_area_around_confluence
                 """

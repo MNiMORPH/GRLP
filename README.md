@@ -24,14 +24,15 @@ Releases will be sent to [PyPI](https://pypi.org/project/GRLP/).
 To download and install the release version within your python system, use:
 
 ```
-# Python 2
-pip2 install grlp # Python 2; deprecated :(
-
-# Python 3 (implicit, assuming your packages are updated)
+# Python 3
 pip install grlp
 
-# Python 3 (explicit)
-pip3 install grlp
+# If you computer is shielding your core Python install from external
+# packages, you have two options:
+# First, you may simply ignore these blocks
+# (Fine in my experience but could cause packages to clash)
+pip install grlp --break-system-packages
+# Second, you can build a separate environment for GRLP
 ```
 
 ### Locally with pip and incorporating ongoing code modifications
@@ -43,19 +44,22 @@ To install the unreleased code from this repository and/or to make changes to it
 gh repo clone awickert/GRLP
 
 # Install it
-# First, navigate to the root grlp directory. Then do one or both of:
-pip2 install -e . # Python 2; deprecated :(
-pip install -e . # Python 3; recommended
-pip3 install -e . # Python 3; command to explicitly use this version
+# First, navigate to the root grlp directory. Then use:
+pip install -e .
+
+# As noted above, you may need to  --break-system-packages or create an
+# environment for this to work.
 ```
 
-Of course, you may always just download the `grlp` source from here and run it as a local (rather than system-wide installed) module. But this can be inconvenient when needing to manage the directory of `grlp.py` relative to that of the driver `*.py` file that you are building to create your model run.
+You may always just download the `grlp` source from here and run it as a local (rather than system-wide installed) module.
+But this can be inconvenient when needing to manage the directory of `grlp.py` relative to that of the driver `*.py` file that you are building to create your model run.
 
 ## Learning how to use GRLP
 
 ### 1-D river long profile
 
-For a tutorial run the [Jupyter notebook contained within this package](https://github.com/awickert/GRLP/blob/master/example_1d.ipynb). After installing Jupyter on your local machine, navigate to this directory in the terminal and type:
+For a tutorial run the [Jupyter notebook contained within this package](https://github.com/awickert/GRLP/blob/master/example_1d.ipynb).
+After installing Jupyter on your local machine, navigate to this directory in the terminal and type:
 ```
 jupyter notebook
 ```

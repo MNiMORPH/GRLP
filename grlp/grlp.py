@@ -769,7 +769,7 @@ class LongProfile(object):
                 # version of the code.
                 _trib_coeff = dzdx_0_16 * 1E0 * \
                               ( (self.Q_ext[_tribi][0] + \
-                                    self.dQ_up_jcn / len(self.Q_ext) ) /
+                                    self.dQ_up_jcn[_tribi] / len(self.Q_ext) ) /
                                 self.dx_ext[_tribi][0] ) \
                               / self.land_area_around_confluence
                 """
@@ -2372,6 +2372,7 @@ class Network(object):
                     x = None,
                     z = None,
                     Q = None,
+                    dQ = None,
                     B = None,
                     overwrite=False
                     ):
@@ -2481,6 +2482,19 @@ class Network(object):
             # BUT I REALLY WANT TO REWRITE MORE IN TERMS OF SOURCE/SINK
             # DO SOMETHING HERE !!!!!
             lp.set_uplift_rate( 0 ) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            
+            # FM:
+            # Setting dQ of upstream segments. Used when dealing with junctions.
+            # If dQ for each segment is provided, we look to the list for the
+            # values of any upstream segments.
+            # Otherwise, set to zero.
+            lp.dQ_up_jcn = []
+            for up_id in upstream_segment_IDs[i]:
+                if dQ is not None:
+                    lp.dQ_up_jcn.append( dQ[up_id] )
+                else:
+                    lp.dQ_up_jcn.append( 0. )
+              
             i += 1
 
         # Generate list of all segment IDs to store within this Network object

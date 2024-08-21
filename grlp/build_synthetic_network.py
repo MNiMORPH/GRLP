@@ -325,16 +325,54 @@ def generate_discharges(supply_discharges, internal_discharges,
     return Q_ls, dQ_ls
 
 
-def generate_ssds(discharges, sediment_discharge_ratio, xs, widths, lambda_p):
+def generate_ssds(discharges, sediment_discharge_ratio, xs, widths,
+    upstream_segments, downstream_segments, lambda_p):
+    """
+    Produce list of source-sink-distributed arrays for set up of network object
+    based on given lists of discharge, valley width. Sets
+    source-sink-distributed term to cancel out effects on slope of variation in
+    discharge.
+    """
     
+    # ---- Prepare list for output
     Qs_ssd_ls = []
+    
+    # ---- Loop over segments
     for i,Q in enumerate(discharges):
 
-        mean_discharge = (Q[0] + Q[-1])/2.
-        dQ = Q[1] - Q[0]
-        dx = xs[i][1] - xs[i][0]
+        # Compute dQ and dx
+        dQ = np.diff(Q)[0]
+        dx = np.diff(xs[i])[0]
+        
+        # Compute basic ssd term - fill array
         Qs_ssd = dQ/sediment_discharge_ratio/dx/widths[i]/(1.-lambda_p)
         Qs_ssd = np.full(len(xs[i]), Qs_ssd)
+        
+        # We need to do some corrections!
+        
+        # If an inlet segment, half ssd at the upstream end, since we only have
+        # half a cell there.
+        if not upstream_segments[i]:
+            Qs_ssd[0] /= 2.
+            
+        # Otherwise, we need to adjust the value at the upstream end to account
+        # for different widths of the upstream segments. We average all the
+        # widths, weighted by dx.
+        else:
+            Bs = [widths[i][0]]
+            dxs = [dx]
+            for up_id in upstream_segments[i]:
+                Bs.append(widths[up_id][-1])
+                dxs.append(np.diff(xs[up_id])[-1])
+            B_mean = np.sum(np.array(Bs)*np.array(dxs))/np.sum(dxs)
+            Qs_ssd[0] *= widths[i][0] / B_mean
+            
+        # If an outlet segment, half ssd at the downstream end, since we only
+        # have half a cell there.
+        if not downstream_segments[i]:
+            Qs_ssd[-1] /= 2.
+        
+        # Save the list.
         Qs_ssd_ls.append( Qs_ssd )
     
     return Qs_ssd_ls

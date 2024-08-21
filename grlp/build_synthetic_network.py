@@ -910,7 +910,7 @@ class Shreve_Random_Network:
             lengths = []
             for i in range(len(self.upstream_segment_IDs)):
                 length = 0
-                down_IDs = grlp.downstream_IDs(self.downstream_segment_IDs, i)
+                down_IDs = downstream_IDs(self.downstream_segment_IDs, i)
                 for j in down_IDs:
                     length += self.segment_lengths[j]
                 lengths.append(length)

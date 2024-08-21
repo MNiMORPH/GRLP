@@ -1150,7 +1150,7 @@ class LongProfile(object):
         # imposing the condition that lag at the inlet should not exceed
         # 0.5*period.
         while lag[0] > 0.5*period:
-            lag -= 0.5
+            lag -= 0.5*period
 
         return lag
 
@@ -1181,7 +1181,7 @@ class LongProfile(object):
         # imposing the condition that lag at the inlet should not exceed
         # 0.5*period.
         while lag[0] > 0.5*period:
-            lag -= 0.5
+            lag -= 0.5*period
 
         return lag
 

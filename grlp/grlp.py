@@ -2346,7 +2346,7 @@ class Network(object):
                                                         representative_width )
                 # Assuming a convergent network
                 half_dx = ( lp.x[1] - lp.x[0] ) / 2.
-                representative_width = lp.B[1]
+                representative_width = lp.B[0]
                 land_area_below_confluence = half_dx * representative_width
 
                 lp.land_area_around_confluence = np.sum((

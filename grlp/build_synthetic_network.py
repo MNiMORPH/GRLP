@@ -378,14 +378,15 @@ def generate_ssds(discharges, sediment_discharge_ratio, xs, widths,
     return Qs_ssd_ls
     
 def generate_variable_widths(mean_width, mean_discharge, discharges):
-    
+    """
+    Produce list of width arrays for set up of network object based on given
+    lists of discharge. Sets width to cancel out effects of variation in
+    discharge on diffusivity.
+    """
+
     widths = []
     for i,Q in enumerate(discharges):
         widths.append( Q * mean_width / mean_discharge )
-    
-    min_width = np.concatenate(widths).min()
-    max_width = np.concatenate(widths).max()
-    width_range = max_width - min_width
     
     return widths
 
@@ -414,10 +415,10 @@ def generate_zs(xs, x_max, S0, downstream_segments):
 
 def generate_random_network(magnitude=None, max_length=None, segment_lengths=None,
     segment_length=None, internal_discharges=None, supply_discharges=None, 
-    segment_length_area_ratio=None, supply_area=None, approx_dx=1.e2,
-    min_nxs=5, mean_discharge=None, effective_rainfall=1.,
-    sediment_discharge_ratio=1.e4, mean_width=100., variable_width=False,
-    topology=None, evolve=False):
+    segment_length_area_ratios=None, segment_length_area_ratio=None,
+    supply_area=None, approx_dx=1.e2, min_nxs=5, mean_discharge=None,
+    effective_rainfall=1., sediment_discharge_ratio=1.e4, mean_width=100.,
+    variable_width=False, widths=None, topology=None, evolve=False):
     
     if not max_length and not segment_length and not segment_lengths:
         print(
@@ -447,7 +448,9 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         segment_length_area_ratio=segment_length_area_ratio,
         supply_area=supply_area,
         max_length=max_length,
-        topology=topology
+        topology=topology,
+        segment_lengths=segment_lengths,
+        segment_length_area_ratios=segment_length_area_ratios
         )
 
 
@@ -522,24 +525,33 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         i for i in range(len(net_topo.upstream_segment_IDs))
             if not net_topo.upstream_segment_IDs[i]
         ]
-    Q_ls = generate_discharges(
+    Q_ls, dQ_ls = generate_discharges(
         supply_discharges,
         internal_discharges,
-        sources,
         net_topo.upstream_segment_IDs,
         x_ls
         )
 
 
     # ---- Set widths
-    if variable_width:
+    if widths:
+        B_ls = widths
+    elif variable_width:
         B_ls = generate_variable_widths(mean_width, mean_discharge, Q_ls)
     else:
         B_ls = [np.full(len(x), mean_width) for x in x_ls]
 
 
     # ---- Generate ssd list
-    Qs_ssd_ls = generate_ssds(Q_ls, sediment_discharge_ratio, x_ls, B_ls, lp.lambda_p)
+    Qs_ssd_ls = generate_ssds(
+        Q_ls,
+        sediment_discharge_ratio,
+        x_ls,
+        B_ls,
+        net_topo.upstream_segment_IDs,
+        net_topo.downstream_segment_IDs,
+        lp.lambda_p
+        )
 
 
     # ---- Set initial z
@@ -559,25 +571,29 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         x = x_ls,
         z = z_ls,
         Q = Q_ls,
+        dQ = dQ_ls,
         B = B_ls,
         overwrite = False
         )
     net.set_niter(3)
     net.get_z_lengths()
     
+    
     # ---- Set segment source-sink-distributed term
     for i,seg in enumerate(net.list_of_LongProfile_objects):
         seg.set_source_sink_distributed(Qs_ssd_ls[i])
+
 
     # ---- If requested evolve network, aiming for steady state
     if evolve:
         net.evolve_threshold_width_river_network(nt=100, dt=3.15e12)
     
+    
     # ---- Compute Qs
     for seg in net.list_of_LongProfile_objects: seg.compute_Q_s()
     
+    
     return net, net_topo
-
 
 def plot_network(net, show=True):
     """

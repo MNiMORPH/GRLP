@@ -763,7 +763,8 @@ class Shreve_Random_Network:
 
     def __init__(self, magnitude, segment_length=None,
         segment_length_area_ratio=None, supply_area=None, max_length=None,
-        topology=None):
+        segment_lengths=None, segment_length_area_ratios=None,
+        source_areas=None, segment_areas=None, topology=None):
         
         self.magnitude = magnitude
         self.links = topology
@@ -773,15 +774,17 @@ class Shreve_Random_Network:
         self.segment_length_area_ratio = segment_length_area_ratio
         self.supply_area = supply_area
         self.max_length = max_length
-        self.segment_lengths = None
+        self.segment_lengths = segment_lengths
+        self.segment_length_area_ratios = segment_length_area_ratios
         self.source_areas = None
         self.segment_areas = None
         if not self.links:
             self.build_network_topology()
         self.build_lists()
-        if segment_length or max_length:
-            self.set_segment_lengths()
-        if segment_length_area_ratio:
+        if not segment_lengths:
+            if segment_length or max_length:
+                self.set_segment_lengths()
+        if segment_length_area_ratio or segment_length_area_ratios:
             self.set_segment_areas()
 
     @property
@@ -880,7 +883,8 @@ class Shreve_Random_Network:
                     down_segs.append(down_seg)
                     down_seg = seg
 
-                # If external link, work back downstream to last free internal link
+                # If external link, work back downstream to last free internal
+                # link
                 else:
                     while len(self.upstream_segment_IDs[down_seg]) > 1:
                         down_seg = down_segs.pop(-1)
@@ -906,7 +910,7 @@ class Shreve_Random_Network:
             lengths = []
             for i in range(len(self.upstream_segment_IDs)):
                 length = 0
-                down_IDs = downstream_IDs(self.downstream_segment_IDs, i)
+                down_IDs = grlp.downstream_IDs(self.downstream_segment_IDs, i)
                 for j in down_IDs:
                     length += self.segment_lengths[j]
                 lengths.append(length)
@@ -914,11 +918,12 @@ class Shreve_Random_Network:
             
             # Rescale segment lengths
             scale = self.max_length / max_length_pre_scale
-            self.segment_lengths = [length*scale for length in self.segment_lengths]
+            self.segment_lengths = [
+                length*scale for length in self.segment_lengths
+                ]
                 
     def set_segment_areas(self):
         
-        self.segment_areas = []
         self.source_areas = []
         for i in range(len(self.upstream_segment_IDs)):
             if not self.upstream_segment_IDs[i]:
@@ -926,21 +931,28 @@ class Shreve_Random_Network:
                     source_area = float(self.supply_area)
                 except TypeError:
                     source_area = self.supply_area.rvs(size=1)[0]
-                self.source_areas.append(segment_area)
+                self.source_areas.append(source_area)
             else:
                 self.source_areas.append(0.)
 
-            try:
-                segment_area = (
-                    self.segment_lengths[i] * 
-                    float(self.segment_length_area_ratio)
-                    )
-            except TypeError:
-                segment_area = (
-                    self.segment_lengths[i] * 
-                    self.segment_length_area_ratio.rvs(size=1)[0]
-                    )
-            self.segment_areas.append(segment_area)
+        if not self.segment_length_area_ratios:
+            self.segment_length_area_ratios = []
+            for i in range(len(self.upstream_segment_IDs)):
+                try:
+                    self.segment_length_area_ratios.append(
+                        float(self.segment_length_area_ratio)
+                        )
+                except TypeError:
+                    self.segment_length_area_ratios.append(
+                        self.segment_length_area_ratio.rvs(size=1)[0]
+                        )
+                        
+        self.segment_areas = []
+        for i in range(len(self.upstream_segment_IDs)):        
+            self.segment_areas.append(
+                self.segment_lengths[i] * 
+                self.segment_length_area_ratios[i]
+                )
 
 
 def power_law(x, k, p):

@@ -2753,6 +2753,53 @@ class Network(object):
         self.mean_downstream_distance = np.mean(x_max - x_arr)
         self.median_downstream_distance = np.median(x_max - x_arr)
 
+    def compute_tokunaga_metrics(self):
+        """
+        Compute Tokunaga's metrics for the network.
+        
+        Assumes various things are already calculated, so only really works
+        inside self.compute_network_properties().
+        """
+        
+        # Count numbers of streams of order i that join streams of order j
+        N = np.zeros(( self.orders[-1]-1, self.orders[-1] ))
+        for i in self.orders[:-1]:
+            for stream in self.streams_by_order[i]:
+                for ID in stream:
+                    seg = self.list_of_LongProfile_objects[ID]
+                    downID = seg.downstream_segment_IDs[0]
+                    if downID not in stream:
+                        down_seg = self.list_of_LongProfile_objects[downID]
+                        adjacentID = [
+                            id
+                            for id in down_seg.upstream_segment_IDs
+                            if id != ID
+                            ][0]
+                        adjacent_order = self.segment_orders[adjacentID]+1
+                        N[i-1,adjacent_order-1] += 1
+
+        # Get averages by dividing by number of streams j
+        T = np.zeros(( self.orders[-1]-1, self.orders[-1]-1 ))
+        for i in self.orders[1:]:
+            T[:i-1,i-2] = N[:i-1,i-1] / self.order_counts[i]
+
+        # Tokunaga's e_k - Average number of streams i flowing into streams
+        # of i+k
+        e_k = np.zeros(max(self.orders)-1)
+        for k in range(1,max(self.orders)):
+            e_k[k-1] = T.diagonal(k-1).mean()
+
+        # Ratios of e_k / e_k-1
+        with np.errstate(divide="ignore"):
+            K = e_k[1:] / e_k[:-1]
+        if len(K) > 0:
+            K_mean = K.mean()
+        else:
+            K_mean = np.nan
+        
+        self.tokunaga = {'counts': N, 'average_counts': T, 'e_k': e_k,
+            'K': K, 'K_mean': K_mean}
+
     def compute_network_properties(self):
         """
         Compute various network properties.
@@ -2811,6 +2858,9 @@ class Network(object):
             1)
         self.bifurcation_ratio = 10.**(-fit[0])
         self.bifurcation_scale = 10.**(fit[1] -fit[0])
+
+        # compute tokunaga metrics
+        self.compute_tokunaga_metrics()
 
         # compute stream lengths
         self.stream_lengths = {}

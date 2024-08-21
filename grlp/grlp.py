@@ -1143,6 +1143,14 @@ class LongProfile(object):
             if i != len(self.x)-1:
                 if lag[i+1] > lag[i] and lag[i+1] - lag[i] > period/4.:
                     lag[:i+1] += period/2.
+                    
+        # At least for parameter ranges we are interested in, we expect that
+        # lag at the inlet should not be too big. So we can also catch
+        # cycle-skipping that effects the whole length of the valley by
+        # imposing the condition that lag at the inlet should not exceed
+        # 0.5*period.
+        while lag[0] > 0.5*period:
+            lag -= 0.5
 
         return lag
 
@@ -1166,6 +1174,14 @@ class LongProfile(object):
             if i != len(self.x)-1:
                 if lag[i+1] > lag[i] and lag[i+1] - lag[i] > period/4.:
                     lag[:i+1] += period/2.
+
+        # At least for parameter ranges we are interested in, we expect that
+        # lag at the inlet should not be too big. So we can also catch
+        # cycle-skipping that effects the whole length of the valley by
+        # imposing the condition that lag at the inlet should not exceed
+        # 0.5*period.
+        while lag[0] > 0.5*period:
+            lag -= 0.5
 
         return lag
 

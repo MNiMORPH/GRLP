@@ -283,27 +283,46 @@ def generate_x_domain(segment_lengths, downstream_segments, min_nxs, approx_dx):
     return x_ls, x_max
 
 
-def generate_discharges(supply_discharges, internal_discharges, sources,
+def generate_discharges(supply_discharges, internal_discharges,
     upstream_segments, xs):
-
+    """
+    Produce list of discharge arrays for set up of network object, based on
+    given lists of upstream supply discharges, and internal supply discharges.
+    """
+    
+    # ---- Set up lists
     Q_ls = []
+    dQ_ls = []
+    
+    # ---- Loop over segments
     for i,L in enumerate(supply_discharges):
         
-        nx = len(xs[i])
-        dx = xs[i][1] - xs[i][0]
-        
-        # Set discharge
-        if i in sources:
+        # If an inlet segment, minimum discharge is that supplied, maximum
+        # discharge is that plus the internally supplied discharge.
+        if not upstream_segments[i]:
             min_discharge = supply_discharges[i]
             max_discharge = supply_discharges[i] + internal_discharges[i]
+            
+        # Otherwise, we need to sum the discharges upstream.
+        # Then, the minimum discharge is the maximum minus that supplied
+        # internally to that segment.
         else:
             up_IDs = upstream_IDs(upstream_segments, i)
-            max_discharge = sum([supply_discharges[j] + internal_discharges[j] for j in up_IDs])
+            max_discharge = sum(
+                [supply_discharges[j] + internal_discharges[j] for j in up_IDs]
+                )
             min_discharge = max_discharge - internal_discharges[i]
-        Q, dQ = np.linspace(min_discharge, max_discharge, nx, retstep=True)
-        Q_ls.append(Q)
+            
+        # Interpolate linearly between minimum and maximum discharge.
+        Q, dQ = np.linspace(
+            min_discharge, max_discharge, len(xs[i])+1, retstep=True
+            )
+            
+        # Save the discharge array and corresponding rate of increase.
+        Q_ls.append(Q[:-1])
+        dQ_ls.append(dQ)
         
-    return Q_ls
+    return Q_ls, dQ_ls
 
 
 def generate_ssds(discharges, sediment_discharge_ratio, xs, widths, lambda_p):

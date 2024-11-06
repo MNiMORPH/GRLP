@@ -2806,7 +2806,7 @@ class Network(object):
             e_k[k-1] = T.diagonal(k-1).mean()
 
         # Ratios of e_k / e_k-1
-        with np.errstate(divide="ignore"):
+        with np.errstate(invalid="ignore", divide="ignore"):
             K = e_k[1:] / e_k[:-1]
         if len(K) > 0:
             K_mean = K.mean()

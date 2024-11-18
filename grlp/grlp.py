@@ -2735,39 +2735,30 @@ class Network(object):
         _upstream_IDs(ID)
         return IDs
 
-    # def find_sources(self):
-    #     """
-    #     Find network sources (heads).
-    #     """
-    #     self.sources = [i for i in self.IDs if self.list_of_LongProfile_objects[i].Q_s_0]
-
-    def compute_mean_discharge(self):
-        """
-        Return mean discharge throughout network.
-        Calculated "pathwise", so trunk segments counted multiple times.
-        Interested in mean path from source to mouth.
-        Added: FM, 03/2021.
-        """
-        Q_arr = np.array([])
-        heads = [i for i in self.IDs if self.list_of_LongProfile_objects[i].Q_s_0]
-        for i in self.list_of_channel_head_segment_IDs:
-            downstream_path = self.find_downstream_IDs(i)
-            for j in downstream_path:
-                Q_arr = np.hstack(( Q_arr, self.list_of_LongProfile_objects[j].Q))
-        self.mean_discharge =  Q_arr.mean()
-
-    def compute_mean_downstream_distance(self):
+    def compute_absolute_lengths(self):
         """
         Return mean distance from source to mouth.
         Added: FM, 03/2021.
         """
-        x_max = [self.list_of_LongProfile_objects[i].x[-1] for i in self.IDs if not self.list_of_LongProfile_objects[i].downstream_segment_IDs][0]
-        x_arr = np.array([])
+        
+        # First get downstream distance at outlet
+        x_max = (
+            self.list_of_LongProfile_objects[self.channel_mouth_segment_ID].x[-1]
+            )
+            
+        # Get average path lengths from heads to outlet
+        Ls = []
         for i in self.list_of_channel_head_segment_IDs:
-            x_arr = np.hstack(( x_arr, self.list_of_LongProfile_objects[i].x[0] ))
-        # self.mean_downstream_distance = np.sqrt(((x_max - x_arr)**2).mean())
-        self.mean_downstream_distance = np.mean(x_max - x_arr)
-        self.median_downstream_distance = np.median(x_max - x_arr)
+            Ls.append( x_max - self.list_of_LongProfile_objects[i].x[0] )
+        self.mean_head_path_length = np.mean(Ls)
+        self.median_head_path_length = np.median(Ls)
+        
+        # Get average path lengths from all points to outlet
+        Ls = np.array([])
+        for seg in self.list_of_LongProfile_objects:
+            Ls = np.hstack(( Ls, x_max - seg.x))
+        self.mean_path_length = np.mean(Ls)
+        self.median_path_length = np.median(Ls)
 
     def compute_tokunaga_metrics(self):
         """
@@ -2775,10 +2766,13 @@ class Network(object):
         
         Assumes various things are already calculated, so only really works
         inside self.compute_network_properties().
+        
+        Put together following examples in Tarboton (1996, J. Hydrology) and
+        Pelletier and Turcotte (2000). Seems to work at least for those. 
         """
         
         # Count numbers of streams of order i that join streams of order j
-        N = np.zeros(( self.orders[-1]-1, self.orders[-1] ))
+        N = np.zeros(( self.orders[-1], self.orders[-1]+1 ))
         for i in self.orders[:-1]:
             for stream in self.streams_by_order[i]:
                 for ID in stream:
@@ -2795,40 +2789,109 @@ class Network(object):
                         N[i-1,adjacent_order-1] += 1
 
         # Get averages by dividing by number of streams j
-        T = np.zeros(( self.orders[-1]-1, self.orders[-1]-1 ))
+        T = np.zeros(( self.orders[-1], self.orders[-1] ))
         for i in self.orders[1:]:
-            T[:i-1,i-2] = N[:i-1,i-1] / self.order_counts[i]
+            T[:i-1,i-1] = N[:i-1,i] / self.order_counts[i]
 
         # Tokunaga's e_k - Average number of streams i flowing into streams
-        # of i+k
-        e_k = np.zeros(max(self.orders)-1)
+        # of i+k.
+        # i.e. e_1 is the average of the numbers of order 1 streams flowing
+        # into order 2 streams, order 2 streams flowing into order 3 streams,
+        # etc.
+        # Average is weighted by the numbers of receiving streams.
+        e_k = np.zeros(max(self.orders))
         for k in range(1,max(self.orders)):
-            e_k[k-1] = T.diagonal(k-1).mean()
-
+            weights = [c for c in self.order_counts.values()][k:]
+            e_k[k] = sum(T.diagonal(k)*weights) / sum(weights)
+                
         # Ratios of e_k / e_k-1
+        # Again, average is weighted by number of receiver streams involved in
+        # computing e_k and e_k-1.
         with np.errstate(invalid="ignore", divide="ignore"):
-            K = e_k[1:] / e_k[:-1]
+            K = e_k[2:] / e_k[1:-1]
         if len(K) > 0:
-            K_mean = K.mean()
+            weights = np.array([
+                self.order_counts[o]+self.order_counts[o-1]
+                    for o in self.orders[2:]
+                ])
+            K_mean = sum(K*weights)/sum(weights)
         else:
             K_mean = np.nan
         
         self.tokunaga = {'counts': N, 'average_counts': T, 'e_k': e_k,
             'K': K, 'K_mean': K_mean}
 
-    def compute_network_properties(self):
+    def compute_topological_lengths(self):
         """
-        Compute various network properties.
-        Added: FM, 03/2021.
+        Compute various metrics related to segment topological lengths.
         """
-        # self.find_sources()
-        self.compute_mean_downstream_distance()
-        # self.compute_mean_discharge()
+        
+        # First compute topological length for each segment.
+        # Number of segments to the outlet, including the segment itself.
+        self.segment_topogical_lengths = []
+        for seg in self.list_of_LongProfile_objects:
+            self.segment_topogical_lengths.append(
+                len(self.find_downstream_IDs(seg.ID))
+                )
+                
+        # Get maximum and mean
+        self.max_topological_length = max(self.segment_topogical_lengths)
+        self.mean_topological_length = np.mean(self.segment_topogical_lengths)
+        
+        # Get mean for channel heads only
+        self.head_topological_lengths = []
+        for i in self.list_of_channel_head_segment_IDs:
+            self.head_topological_lengths.append(
+                self.segment_topogical_lengths[i]
+                )
+        self.mean_head_topological_length = np.mean(
+            self.head_topological_lengths
+            )
+            
+    def compute_topological_widths(self):
+        """
+        Compute topological widths, defined as the number of segments at a
+        given topological distance from the outlet.
+        """
+        
+        # First organise segments into distances from the outlet
+        self.segs_by_topological_length = {}
+        for i,seg in enumerate(self.list_of_LongProfile_objects):
+            topo_length = len(self.find_downstream_IDs(seg.ID))
+            if topo_length in self.segs_by_topological_length.keys():
+                self.segs_by_topological_length[topo_length].append(seg.ID)
+            else:
+                self.segs_by_topological_length[topo_length] = [seg.ID]
+        
+        # Count numbers of segments at each distance from outlet
+        self.topological_widths = {}
+        for topo_length in self.segs_by_topological_length.keys():
+            self.topological_widths[topo_length] = len(
+                self.segs_by_topological_length[topo_length]
+                )
+        
+        # Get maximum and mean
+        self.max_topological_width = max(self.topological_widths.values())
+        self.mean_topological_width = np.mean(
+            list(self.topological_widths.values())
+            )
 
-        # recursive function to step through network
+        
+    def compute_strahler_orders(self):
+        """
+        Assign segments Strahler orders; construct Strahler streams.
+        """
+        
         def _step_down(i):
-            self.topological_length += 1
-            up_orders = [self.segment_orders[j] for j in self.list_of_LongProfile_objects[i].upstream_segment_IDs]
+            """
+            Recursive function to step through network, assigning Strahler
+            orders.
+            """
+            up_orders = [
+                self.segment_orders[j]
+                    for j in 
+                        self.list_of_LongProfile_objects[i].upstream_segment_IDs
+                ]
             if up_orders:
                 self.segment_orders[i] = max(up_orders)
                 if len(np.where(up_orders == max(up_orders))[0]) > 1:
@@ -2837,30 +2900,54 @@ class Network(object):
                 _step_down(j)
 
         # compute strahler orders, working down from each source
-        self.segment_orders = np.zeros(len(self.IDs), dtype=int)
-        self.max_topological_length = False
+        self.segment_orders = np.ones(len(self.IDs), dtype=int)
         for i in self.list_of_channel_head_segment_IDs:
-            self.topological_length = -1
             _step_down(i)
-            self.max_topological_length = max(self.max_topological_length, self.topological_length)
-        del self.topological_length
 
-        # organise segments into streams
+        # prepare dictionary to store Strahler streams
         self.streams_by_order = {}
         for order in np.unique(self.segment_orders):
-            self.streams_by_order[order+1] = []
+            self.streams_by_order[order] = []
+            
+        # organise segments into streams            
         for seg in self.list_of_LongProfile_objects:
+            seg_order = self.segment_orders[seg.ID]
+            
+            # identify neighbouring segments
             up_IDs = self.find_upstream_IDs(seg.ID)
             down_IDs = self.find_downstream_IDs(seg.ID)
-            if not self.streams_by_order[self.segment_orders[seg.ID]+1]:
-                self.streams_by_order[self.segment_orders[seg.ID]+1].append([seg.ID])
-            else:
-                for i,stream in enumerate(self.streams_by_order[self.segment_orders[seg.ID]+1]):
-                    if any(ID in stream for ID in up_IDs) or any(ID in stream for ID in down_IDs):
-                        self.streams_by_order[self.segment_orders[seg.ID]+1][i].append(seg.ID)
-                if not seg.ID in np.hstack(self.streams_by_order[self.segment_orders[seg.ID]+1]):
-                    self.streams_by_order[self.segment_orders[seg.ID]+1].append([seg.ID])
+            adjacent_IDs = np.hstack((up_IDs, down_IDs))
+        
+            # if no streams of that order yet, initiate list
+            if not self.streams_by_order[seg_order]:
+                self.streams_by_order[seg_order].append([seg.ID])
+            
+            # otherwise, check if the appropriate stream is already initiated
+            # if so, append; if not initiate the list.
+            else:    
+                for i,stream in enumerate(self.streams_by_order[seg_order]):
+                    if any(ID in stream for ID in adjacent_IDs):
+                        self.streams_by_order[seg_order][i].append(seg.ID)
+                if not seg.ID in np.hstack(self.streams_by_order[seg_order]):
+                    self.streams_by_order[seg_order].append([seg.ID])
 
+    def compute_horton_ratios(self):
+        """
+        Compute Horton's bifurcation, length and area(discharge) ratios.
+        
+        Horton proposes that the number of streams per stream order decreases
+        by a roughly constant ratio as stream order increases. This ratio
+        is termed the "bifurcation ratio". We can measue it using linear
+        regression in linear-logarithmic space.
+        
+        Similarly, average stream length and average stream area increase
+        steadily with increasing stream order. We compute them in the same
+        way. We don't really have area, so we use discharge instead, to create
+        a "discharge ratio".
+        """
+        
+        # ---- BIFURCATION RATIO
+        
         # count number of streams in each order
         self.order_counts = {}
         for order in self.streams_by_order.keys():
@@ -2875,10 +2962,9 @@ class Network(object):
         self.bifurcation_ratio = 10.**(-fit[0])
         self.bifurcation_scale = 10.**(fit[1] -fit[0])
 
-        # compute tokunaga metrics
-        self.compute_tokunaga_metrics()
+        # ---- LENGTH RATIO
 
-        # compute stream lengths
+        # compute average stream lengths in each order
         self.stream_lengths = {}
         self.order_lengths = {}
         for o in self.orders:
@@ -2901,6 +2987,8 @@ class Network(object):
         self.length_ratio = 10.**(fit[0])
         self.length_scale = 10.**(fit[0] + fit[1])
 
+        # ---- DISCHARGE RATIO
+
         # compute stream discharges
         self.stream_discharges = {}
         self.order_discharges = {}
@@ -2911,7 +2999,9 @@ class Network(object):
                     self.list_of_LongProfile_objects[segID].Q.mean()
                     for segID in stream
                     ]
-            self.order_discharges[o] = np.mean([q for q in self.stream_discharges[o]])
+            self.order_discharges[o] = np.mean(
+                [q for q in self.stream_discharges[o]]
+                )
 
         # compute discharge ratio
         fit = np.polyfit(
@@ -2920,66 +3010,79 @@ class Network(object):
             1)
         self.discharge_ratio = 10.**fit[0]
         self.discharge_scale = 10.**(fit[0] + fit[1])
+        
+    def compute_jarvis_E(self):
+        """
+        Compute Jarvis's (1972, WRR) E metric.
+        """
+        
+        heads_sum = 0
+        interior_sum = 0
+        
+        for i,seg in enumerate(self.list_of_LongProfile_objects):
+            if seg.ID in self.list_of_channel_head_segment_IDs:
+                heads_sum += len(self.find_downstream_IDs(seg.ID))
+            else:
+                n_upstream_heads = [
+                    i
+                    for i in self.find_upstream_IDs(seg.ID)
+                    if i in self.list_of_channel_head_segment_IDs
+                    ]
+                interior_sum += (
+                    len(n_upstream_heads) * 
+                    len(self.find_downstream_IDs(seg.ID))
+                    )
+                
+        self.jarvis_E = interior_sum / heads_sum    
 
-        # compute some mean properties, weighted by dx
+        
+    def compute_mean_diffusivity(self):
+        """
+        Compute mean diffusivity (and related properties).
+        
+        We weight by dx, to avoid bias towards more densely sampled parts of
+        the network. 
+        """
+        
+        # get dxs
         dxs = np.hstack(
             [seg.dx_ext[0][1:] for seg in self.list_of_LongProfile_objects]
             )
+            
+        # discharge
         Q_stack = np.hstack([seg.Q for seg in self.list_of_LongProfile_objects])
         self.mean_Q = (Q_stack * dxs).sum() / dxs.sum()
+        
+        # width
         B_stack = np.hstack([seg.B for seg in self.list_of_LongProfile_objects])
         self.mean_B = (B_stack * dxs).sum() / dxs.sum()
+        
+        # slope
         S_stack = np.hstack([seg.S for seg in self.list_of_LongProfile_objects])
         self.mean_S = (S_stack * dxs).sum() / dxs.sum()
+        
+        # diffusivity
         for seg in self.list_of_LongProfile_objects: seg.compute_diffusivity()
         diff_stack = np.hstack(
             [seg.diffusivity for seg in self.list_of_LongProfile_objects])
         self.mean_diffusivity = (diff_stack * dxs).sum() / dxs.sum()
 
+    def compute_network_properties(self):
+        """
+        Compute various network properties.
+        """
+        self.compute_topological_lengths()
+        self.compute_topological_widths()
+        self.compute_absolute_lengths()
+        self.compute_strahler_orders()
+        self.compute_horton_ratios()
+        self.compute_tokunaga_metrics()
+        self.compute_jarvis_E()
+        self.compute_mean_diffusivity()
 
-        # # count number of streams in each order
-        # self.order_counts = np.zeros(max(self.segment_orders)+1)
-        # lengths = np.zeros(len(self.order_counts))
-        # discharges = np.zeros(len(self.order_counts))
-        # for i,seg in enumerate(self.list_of_LongProfile_objects):
-        #     up_os = self.segment_orders[seg.upstream_segment_IDs]
-        #     if self.segment_orders[i] not in up_os:
-        #         self.order_counts[self.segment_orders[i]] += 1
-        #     lengths[self.segment_orders[i]] += seg.x.max() - seg.x.min()
-        #     discharges[self.segment_orders[i]] += seg.Q.mean()
-        # self.order_lengths = lengths / self.order_counts / 1.e3
-        # self.order_discharges = discharges / self.order_counts
-        #
-        # # compute bifurcation ratios directly and estimate with log-fit
-        # self.bifurcation_ratios = np.full(len(self.order_counts), np.nan)
-        # for i in range(len(self.order_counts)-1):
-        #     self.bifurcation_ratios[i] = (self.order_counts[i] /
-        #                                   self.order_counts[i+1])
-        # fit = np.polyfit(
-        #     np.arange(1,len(self.order_counts)+1,1),
-        #     np.log10(self.order_counts),
-        #     1)
-        # self.bifurcation_ratio = 10.**(-fit[0])
-        # self.bifurcation_intercept = fit[1]
-        #
-        # # compute length ratios
-        # self.length_ratios = np.full(len(self.order_counts), np.nan)
-        # for i in range(1,len(self.order_counts)):
-        #     self.length_ratios[i] = (self.order_lengths[i] /
-        #                              self.order_lengths[i-1])
-        # fit = np.polyfit(
-        #     np.arange(1,len(self.order_lengths)+1,1),
-        #     np.log10(self.order_lengths),
-        #     1)
-        # self.length_ratio = 10.**(fit[0])
-        # self.length_intercept = fit[1]
-        #
-        # # compute discharge ratios
-        # fit = np.polyfit(
-        #     np.arange(1,len(self.order_discharges)+1,1),
-        #     np.log10(self.order_discharges),
-        #     1)
-        # self.discharge_ratio = 10.**(fit[0])
+
+
+
 
 """
 # Test whether the lists have populated

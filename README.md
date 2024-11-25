@@ -12,7 +12,7 @@ When you use **grlp**, please cite:
 
 Furthermore, if you use any of the features associated with the linearization or the plotting scripts noted in the folder [McNab_et_al_submitted_GRL](https://github.com/MNiMORPH/GRLP/tree/master/examples/McNab_et_al_submitted_GRL), please cite:
 
-**M<sup>c</sup>Nab, F., T. F. Schildgen, J. M. Turowski, and A. D. Wickert (2022, submitted), Diverse responses of alluvial rivers to periodic environmental change.**
+**M<sup>c</sup>Nab, F., T. F. Schildgen, J. M. Turowski, and A. D. Wickert (2023), [Diverse responses of alluvial rivers to periodic environmental change](https://doi.org/10.1029/2023GL103075), *GRL*, *50*, e2023GL103075, doi:10.1029/2023GL103075.**
 
 
 ## Installation

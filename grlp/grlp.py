@@ -2750,15 +2750,15 @@ class Network(object):
         Ls = []
         for i in self.list_of_channel_head_segment_IDs:
             Ls.append( x_max - self.list_of_LongProfile_objects[i].x[0] )
-        self.mean_head_path_length = np.mean(Ls)
-        self.median_head_path_length = np.median(Ls)
+        self.mean_head_length = np.mean(Ls)
+        self.median_head_length = np.median(Ls)
         
         # Get average path lengths from all points to outlet
         Ls = np.array([])
         for seg in self.list_of_LongProfile_objects:
             Ls = np.hstack(( Ls, x_max - seg.x))
-        self.mean_path_length = np.mean(Ls)
-        self.median_path_length = np.median(Ls)
+        self.mean_length = np.mean(Ls)
+        self.median_length = np.median(Ls)
 
     def compute_tokunaga_metrics(self):
         """

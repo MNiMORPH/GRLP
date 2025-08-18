@@ -965,7 +965,17 @@ class LongProfile(object):
     def compute_Q_s(self):
         S = []
         Q_s = []
-        for _z, _dx in zip(self.z_ext, self.dx_ext_2cell):
+        # Ensure that this function works even if there is no list involved
+        if type(self.z_ext) is np.ndarray:
+            z_ext = [ self.z_ext ]
+        else:
+            dx_ext_2cell = [ dx_ext_2cell ]
+        if type(self.dx_ext_2cell) is np.ndarray:
+            dx_ext_2cell = list(self.dx_ext_2cell)
+        else:
+            dx_ext_2cell = self.dx_ext_2cell
+        # Next, loop through slopes and sediment discharges
+        for _z, _dx in zip(z_ext, dx_ext_2cell):
             S.append( np.abs( (_z[2:] - _z[:-2]) / _dx) / self.sinuosity )
             Q_s.append(
                 -np.sign( _z[2:] - _z[:-2] ) \

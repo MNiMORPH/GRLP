@@ -167,7 +167,7 @@ def running_mean(x, y, dx):
         _x += dx
     return xout, yout
         
-plt.ion()
+#plt.ion()
 plt.figure(figsize=(12,6))
 dt = 1E12
 x0, z0 = calc(500, 0.0, z=z_init, dt=dt, P_xA=P_xA, P_AQ=P_AQ, P_xB=P_xB)
@@ -215,5 +215,8 @@ for _x, _z in [[x0, z0]]:
   logA = np.log10(Ascaled)
 
   out = linregress(logA, logS)
-  print "Concavity = ", -out.slope
-  print "R2 = ", out.rvalue**2.
+  print( "Concavity = ", -out.slope )
+  print( "R2 = ", out.rvalue**2. )
+  
+plt.show()
+

@@ -1,8 +1,8 @@
 import numpy as np
 from matplotlib import pyplot as plt
-plt.ion()
+#plt.ion()
 from scipy.stats import linregress
-plt.ion()
+#plt.ion()
 
 z0 = 1
 z1 = 0
@@ -28,7 +28,7 @@ logS = np.log10(S)
 logA = np.log10(Ascaled)
 
 out = linregress(logA, logS)
-print "Concavity = ", -out.slope
-print "R2 = ", out.rvalue**2.
+print( "Concavity = ", -out.slope )
+print( "R2 = ", out.rvalue**2. )
 
 plt.plot(x,z); plt.show()

@@ -2,10 +2,10 @@
 
 import numpy as np
 from matplotlib import pyplot as plt
-plt.ion()
+#plt.ion()
 
 import grlp
-reload(grlp)
+#reload(grlp)
 
 S0 = 0.015
 P_xB = 0.2
@@ -51,7 +51,7 @@ lp.set_z(S0=-S0, z1=z1)
 lp.set_A(k_xA=1.)
 lp.set_Q(k_xQ=1.433776163432246e-05, P_xQ=7/4.*0.7)
 lp.set_B(k_xB=Bmax/np.max(lp.x**P_xB), P_xB=P_xB)
-lp.set_niter()
+lp.set_niter(3)
 lp.set_z_bl(z1)
 Qs0 = lp.k_Qs * lp.Q[0] * S0**(7/6.)
 lp.set_Qs_input_upstream(Qs0)
@@ -69,7 +69,8 @@ plt.ylabel('Elevation [m]', fontsize=14, fontweight='bold')
 ax1.plot(lp.x/1000., lp.z, '-', color='.6', linewidth=6, label='Numerical')
 ax1.plot(lp.x/1000., lp.zanalytical, '-', color='0', linewidth=2, label='Analytical')
 plt.legend(loc='upper right')
-plt.show()
 plt.tight_layout()
+
+plt.show()
 
 #plt.savefig('Uplift_Subsidence.svg')

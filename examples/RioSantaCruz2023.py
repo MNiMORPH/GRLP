@@ -1,8 +1,6 @@
-# Figure UpliftSubsidence in paper
-
 import numpy as np
 from matplotlib import pyplot as plt
-plt.ion()
+#plt.ion()
 
 import grlp
 
@@ -29,7 +27,7 @@ lp.set_x(dx=1000, nx=251, x0=0)
 lp.set_z(S0=-S0, z1=z1)
 lp.set_Q(Q)
 lp.set_B(B)
-lp.set_niter()
+lp.set_niter(3)
 lp.set_z_bl(z1)
 
 # Initial sed supply is the slope that we prescribe
@@ -64,4 +62,6 @@ for i in range(nts):
     #ax1.plot(lp.x/1000., lp.z, color='r', alpha=1-0.75/nts*i, linewidth=1)
     ax1.plot(lp.x/1000., lp.z, color='r', alpha=0.1, linewidth=1)
 ax1.plot(lp.x/1000., lp.z, color='r', alpha=1, linewidth=3)
+
+plt.show()
 

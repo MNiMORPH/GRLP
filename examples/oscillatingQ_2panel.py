@@ -63,7 +63,7 @@ lp.set_Qs_input_upstream(Qs0)
 lp.evolve_threshold_width_river(1000, 3.15E7 * 1000.)
 z0 = lp.z.copy()
 
-lp.analytical_threshold_width(P_xB=P_xB)
+lp.analytical_threshold_width()
 lp.compute_Q_s()
 
 Qs0_mean = np.mean(lp.Q_s)

@@ -144,7 +144,7 @@ for lp in net.list_of_LongProfile_objects:
     plt.ylim((-50, 450))
 
 plt.xlabel('Distance downvalley in network [m]', fontsize=16)
-plt.ylabel('Elevation above outlet before\nbase-level fall [m]', fontsize=16)
+plt.ylabel('Elevation above outlet [m]', fontsize=16)
 plt.tight_layout()
 
 frame_i = 0

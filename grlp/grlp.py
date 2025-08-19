@@ -475,7 +475,7 @@ class LongProfile(object):
          # INSTEAD OF TWO.
          # (WHEN I CHANGED TO "UPWIND". JUST CHANGED BACK, AND STILL DON'T KNOW.
          # IN ANY CASE, THE TESTS INCLUDE Z_BL = 0, SO BCR = 0 AND THIS CAN'T
-         # BE THE SWOURCE OF AN ERROR.
+         # BE THE SOURCE OF AN ERROR.
 
     def set_bcl_Neumann_RHS(self):
         """

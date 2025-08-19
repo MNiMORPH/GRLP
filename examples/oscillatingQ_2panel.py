@@ -221,3 +221,6 @@ for i in range(10):
     plt.plot(lp.x/1000., lp.z, '0.3', linewidth=2)
     plt.pause(.1)
 """
+
+plt.show()
+

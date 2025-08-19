@@ -5,7 +5,7 @@
 # Quick example to set up GRLP     #
 # See Wickert and Schildgen, 2018  # 
 # This example reproduces Figure 2 #
-# in Wickert and Schildgen, 2019   # 
+# from Wickert and Schildgen, 2019 # 
 ####################################
 
 # Import numerical and plotting libraries
@@ -61,8 +61,8 @@ lp.set_B(k_xB=25, P_xB=P_xB)
 # Set the uplift rate [m/s]; positive upwards
 lp.set_uplift_rate(0)
 
-# Set up the number of iterations in semi-implicit solver; defaults to 3.
-lp.set_niter()
+# Set up the number of iterations in semi-implicit solver; 3 is a good default.
+lp.set_niter(3)
 
 # Input sediment discharge: this is set based on your defined S0, above.
 # (this ficticious boundary-condition slope is the transport slope for the
@@ -75,7 +75,7 @@ lp.set_z_bl(0.)
 
 # Numerical and analytical solutions.
 # Numerical: (number of time steps, length of time step [s])
-lp.evolve_threshold_width_river(5, 1E12)
+lp.evolve_threshold_width_river(5, 1E13)
 lp.analytical_threshold_width()
 lp.compute_Q_s()
 

@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from pathlib import Path
 import os
 
 import grlp
@@ -10,7 +11,7 @@ P_xB = 0.2
 #z1 = 1000
 z1 = 0
 
-outroot = '/home/andy/Desktop/GRLP_output/'
+outroot = 'GRLP_output/'
 #outroot = '/home/awickert/Dropbox/Papers/InProgress/GRLP_oscillator/OscillatingQ_2panel_outrange/'
 
 zall_max = []
@@ -45,7 +46,7 @@ for Qperiod_kyr in [20, 40, 100, 400]:
   lp.set_B(k_xB=Bmax/np.max(lp.x**P_xB), P_xB=P_xB)
   #lp.set_B(k_xB=100., P_xB=0.)
   lp.set_uplift_rate(0)
-  lp.set_niter()
+  lp.set_niter(3)
   lp.set_z_bl(z1)
   Qs0 = lp.k_Qs * lp.Q[0] * (S0)**(7/6.)
   lp.set_Qs_input_upstream(Qs0)
@@ -145,10 +146,7 @@ for Qperiod_kyr in [20, 40, 100, 400]:
           #ax2.set_xlim((0, t[-1]/3.15E10))
           ax2.set_xlim((0, 100))
           fig.tight_layout()
-          try:
-              os.mkdir(outroot+'Animate_'+'%03d' %Qperiod_kyr+'kyr')
-          except:
-              pass
+          Path(outroot+'Animate_'+'%03d' %Qperiod_kyr+'kyr/').mkdir(parents=True, exist_ok=True)
           plt.savefig(outroot+'Animate_'+'%03d' %Qperiod_kyr+'kyr/'+'LP_'+'%06d' %(np.round(t[i]/3.15E7))+'.png')
           plt.close()
   
@@ -327,3 +325,6 @@ for i in range(10):
     plt.plot(lp.x/1000., lp.z, '0.3', linewidth=2)
     plt.pause(.1)
 """
+
+plt.show()
+

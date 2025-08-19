@@ -298,6 +298,10 @@ class LongProfile(object):
         """
         Uplift rate if positive -- or equivalently, rate of base-level fall
         Subsidence (or base-level rise) accomplished by negative uplift
+        This can also be thought as a general source (uplift) or sink
+        (subsidence) term -- for example, from landslide inputs (source) or
+        downstream fining (sink).
+        SI units (m/s)
         """
         # Keeping sign positive now and including as adding to river
         # instead of dropping base level

@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
-plt.ion()
+#plt.ion()
 
 import grlp
 #reload(grlp)
@@ -29,7 +29,7 @@ lp.set_z(S0=-S0, z1=z1)
 lp.set_A(k_xA=1.)
 lp.set_Q(k_xQ=1.433776163432246e-05, P_xQ=7/4.*0.7)
 lp.set_B(k_xB=Bmax/np.max(lp.x**P_xB), P_xB=P_xB)
-lp.set_niter()
+lp.set_niter(3)
 lp.set_z_bl(z1)
 Qs0 = lp.k_Qs * lp.Q[0] * S0**(7/6.)
 lp.set_Qs_input_upstream(Qs0)
@@ -95,4 +95,5 @@ for i in range(nt):
 plt.plot(lp.x, lp.z)
 #plt.plot(lp.x, z02)
 
+plt.show()
 

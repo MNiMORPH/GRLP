@@ -31,7 +31,7 @@ lp.set_x(dx=1000, nx=251, x0=0)
 lp.set_z(S0=S0, z1=z1)
 lp.set_Q(Q)
 lp.set_B(B)
-lp.set_niter(1)
+lp.set_niter(3)
 lp.set_z_bl(z1)
 
 # Initial sed supply is the slope that we prescribe

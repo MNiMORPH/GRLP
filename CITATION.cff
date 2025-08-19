@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite Wickert & Schildgen (2019, ESurf). For software versions above v1.0.0, please also cite it as below."
+message: "If you use this software, please cite Wickert & Schildgen (2019, ESurf). If you use the Network version, please cite McNab et al. (2025, ESurf). For software versions above v1.0.0, please also cite it as below."
 authors:
 - family-names: "Wickert"
   given-names: "Andrew D."
@@ -11,7 +11,7 @@ authors:
   given-names: "Eric"
   orcid: "https://orcid.org/0000-0001-5770-2116"
 title: "GRLP"
-version: 2.0.0-beta
+version: 2.0.0
 doi: 10.5281/zenodo.3740658
-date-released: 2024-08-17
+date-released: 2025-08-19
 url: "https://github.com/MNiMORPH/GRLP"

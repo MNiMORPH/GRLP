@@ -526,7 +526,7 @@ class LongProfile(object):
             # IT REASONABLY SHOULD BE FLIPPED
             # CONSIDER BREAKING THIS AT SOME LATER POINT.
             self.bcl = self.S0 * \
-                                -self.C1[0] \
+                                self.C1[0] \
                                 * ( 7/3./self.dx_ext[0]
                                 - self.dQ_ext_2cell[0]/self.Q[0]/self.dx_ext_2cell[0] )
 

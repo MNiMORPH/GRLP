@@ -27,16 +27,22 @@ lp.basic_constants()
 lp.bedload_lumped_constants()
 lp.set_hydrologic_constants()
 
+# Define x. Maybe not good enough alone.
 _x1 = np.linspace(0, 5000, 101)
 _x2 = np.arange(_x1[-1]+1000, 250001, 10000)
 _x = np.hstack( [_x1, _x2] )
 
+# Define x_ext from this. Keep uniform on ends.
+_dx1 = _x1[1] - _x1[0]
+_dx2 = _x1[-1] - _x1[-2]
+_x_ext = [_x[0] - _dx1] + _x + [_x[-1] + _dx2]
+
 #lp.set_x(dx=1000, nx=251, x0=0) # Uniform
-lp.set_x(_x)
+lp.set_x(x_ext=_x_ext) # Cannot set this with just x
 lp.set_z(S0=-S0, z1=z1)
 lp.set_Q(Q)
 lp.set_B(B)
-lp.set_niter()
+lp.set_niter(3)
 lp.set_z_bl(z1)
 
 # Initial sed supply is the slope that we prescribe

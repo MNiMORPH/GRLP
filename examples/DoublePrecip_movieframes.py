@@ -2,6 +2,7 @@
 
 import numpy as np
 from matplotlib import pyplot as plt
+from pathlib import Path
 import importlib
 #plt.ion()
 plt.ioff()
@@ -150,6 +151,9 @@ frame_i = 0
 
 plt.figtext( x=0.8, y=0.8, s='%04d' %frame_i + ' years',
               fontdict={'family':'monospace'} )
+
+# Make the output directory if it does not exist.
+Path(plotdir).mkdir(parents=True, exist_ok=True)
 
 plt.savefig(plotdir + '/' + 'frame' + '%04d' %frame_i + '.png')
 

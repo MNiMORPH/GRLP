@@ -461,10 +461,12 @@ class LongProfile(object):
                       # !!!!!!!!!!!!!!!!!
                       # dQ_ext_2cell --> dQ_ext_2cell[0]. Expecting list! HACK.
         else:
-            self.bcr = self.z_bl * ( self.C1[-1] / self.dx_ext_2cell[-1] * 7/3. \
-                           * (1/self.dx_ext[-2] + 1/self.dx_ext[-1])/2. \
-                           + self.dQ_ext_2cell[-1] / (self.dx_ext_2cell[-1] *
-                                                        self.Q[-1]) )
+            # Why do I average over the last two dx here?
+            self.bcr = self.z_bl * self.C1[-1] / self.dx_ext_2cell[-1] * (
+                           7/3. * ( 1/self.dx_ext[-2] + 1/self.dx_ext[-1])/2.
+                           + self.dQ_ext_2cell[-1]/self.Q[-1]
+                           * 1/ self.dx_ext_2cell[-1]
+                           )
                            #+ self.dQ_ext_2cell[-1]/self.Q[-1] )
 
          # I HAVE NOT CHECKED WHY PREV CODE DIDN'T HAVE A DX IN THE LAST LINE

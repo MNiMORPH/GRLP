@@ -60,7 +60,7 @@ for lp in segments:
     """
     lp.set_x(x_ext=x_ext)
     lp.set_z(S0=-S0, z1=z1)
-    lp.set_niter()
+    lp.set_niter(3)
     #lp.set_z_bl(z1)
     lp.set_Q(Qlist[i])
     lp.set_B(100.)
@@ -126,7 +126,7 @@ for lp in segments:
 
 net = grlp.Network(segments)
 net.get_z_lengths()
-net.set_niter()
+net.set_niter(3)
 net.build_ID_list()
 #net.set_dQ()
 #segments[2].dQ[0] = 0

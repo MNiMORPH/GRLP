@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import grlp
-reload(grlp)
+#reload(grlp)
 
 S0 = 1E-2
 P_xB = 0.2
@@ -33,7 +33,7 @@ lp.set_Q(q_R=0.01, A_R=1E4)
 lp.set_B(k_xB=Bmax/np.max(lp.x**P_xB), P_xB=P_xB)
 #lp.set_B(k_xB=100., P_xB=0.)
 lp.set_uplift_rate(0)
-lp.set_niter()
+lp.set_niter(3)
 lp.set_z_bl(z1)
 Qs0 = lp.k_Qs * lp.Q[0] * (S0)**(7/6.)
 lp.set_Qs_input_upstream(Qs0)
@@ -57,7 +57,7 @@ lp.evolve_threshold_width_river(150, 1E11)
 z_max_eq = lp.z.copy()
 """
 
-print "spin-up"
+print( "spin-up" )
 lp.Q = Q0
 lp.set_Qs_input_upstream(Qs0)
 lp.evolve_threshold_width_river(1000, 3.15E7 * 1000.)
@@ -82,7 +82,7 @@ mean_curvature = []
 mean_driver = []
 Qs_all = []
 
-print "time-series"
+print( "time-series" )
 for i in range(nt):
     lp.Q = Q0 * Qmult[i]
     lp.set_Qs_input_upstream(Qs0)
@@ -120,7 +120,7 @@ plt.plot(S_out_list_400k, 'g')
 
 
 
-print "plotting"
+print( "plotting" )
 
 """
 plt.ion()

@@ -112,7 +112,8 @@ class LongProfile(object):
         """
         if x is not None:
             if verbose:
-                print("Passing x alone leaves boundary conditions undefined."+
+                warnings.warn("\n"+
+                      "Passing x alone leaves boundary conditions undefined."+
                       "\n"+
                       "Be sure to define these in order to set:"+
                       "\n"+
@@ -144,6 +145,10 @@ class LongProfile(object):
             self.dx_ext_2cell__cent = self.dx_ext[:-1] - self.dx_ext[1:]
             self.dx_ext_2cell__right = self.dx_ext[1:] - self.dx_ext_2cell
         if x_ext is not None:
+            if x is not None:
+                warnings.warn("\n"+
+                                "x_ext will overwrite x values just set by "+
+                                "passing x")
             self.x_ext = np.array(x_ext)
             self.x = x_ext[1:-1]
             self.dx_ext = np.diff(self.x_ext)

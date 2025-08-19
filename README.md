@@ -20,7 +20,7 @@ The version of the code that you used, which is found in **CITATION.cff**, autom
 
 Fergus M<sup>c</sup>Nab and Jens Turowski developed the mathematics and associated code to linearize the GRLP equation in order to take advantage of near-analytical solutions and therefore perform rapid tests with it. If you use any of the features associated with the linearization or the plotting scripts noted in the folder [M<sup>c</sup>Nab_et_al_submitted_GRL](https://github.com/MNiMORPH/GRLP/tree/master/examples/M<sup>c</sup>Nab_et_al_GRL), please cite:
 
-**M<sup>c</sup>Nab, F., T. F. Schildgen, J. M. Turowski, and A. D. Wickert (2023), [Diverse responses of alluvial rivers to periodic environmental change](https://doi.org/10.1029/2023GL103075), *GRL*, *50*, e2023GL103075, doi:10.1029/2023GL103075.**
+**M<sup>c</sup>Nab, F., T. F. Schildgen, J. M. Turowski, and A. D. Wickert (2023), [Diverse responses of alluvial rivers to periodic environmental change](https://doi.org/10.1029/2023GL103075), *Geophys. Res. Lett.*, *50*, e2023GL103075, doi:10.1029/2023GL103075.**
 
 ### Network
 
@@ -81,7 +81,10 @@ jupyter notebook
 ```
 to launch it. Alternatively, a number of cloud-based services can help to host Jupyter notebooks.
 
-Additionally, a set of examples are located in [the "one-dimensional" sub-directory of the "examples" folder](https://github.com/MNiMORPH/GRLP/tree/master/examples/one_dimensional).
+Alongside the Jupyter notebook is a file,
+[run_grlp.py](https://github.com/MNiMORPH/GRLP/blob/master/examples/run_grlp.py), which replicates one of the figures from the Wickert and Schildgen (2019) article. It includes comments to describe how to set up a GRLP run, though the information is less extensive than that available in the Jupyter notebook.
+
+Beyond these two, a set of examples are located in [the "one-dimensional" sub-directory of the "examples" folder](https://github.com/MNiMORPH/GRLP/tree/master/examples/one_dimensional).
 
 
 ### Network of 1-D river long profiles

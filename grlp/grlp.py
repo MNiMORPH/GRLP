@@ -143,7 +143,7 @@ class LongProfile(object):
             self.dx_ext_2cell__left = self.dx_ext[:-1] - self.dx_ext_2cell
             self.dx_ext_2cell__cent = self.dx_ext[:-1] - self.dx_ext[1:]
             self.dx_ext_2cell__right = self.dx_ext[1:] - self.dx_ext_2cell
-        elif x_ext is not None:
+        if x_ext is not None:
             self.x_ext = np.array(x_ext)
             self.x = x_ext[1:-1]
             self.dx_ext = np.diff(self.x_ext)

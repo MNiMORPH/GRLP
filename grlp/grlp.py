@@ -981,7 +981,7 @@ class LongProfile(object):
         if type(self.z_ext) is np.ndarray:
             z_ext = [ self.z_ext ]
         else:
-            dx_ext_2cell = [ dx_ext_2cell ]
+            z_ext = self.z_ext_2cell
         if type(self.dx_ext_2cell) is np.ndarray:
             dx_ext_2cell = list(self.dx_ext_2cell)
         else:

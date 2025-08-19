@@ -1,11 +1,9 @@
-# Figure UpliftSubsidence in paper
-
 import numpy as np
 from matplotlib import pyplot as plt
-plt.ion()
+#plt.ion()
 
 import grlp
-reload(grlp)
+#reload(grlp)
 
 S0 = 0.015
 P_xB = 0.2
@@ -51,7 +49,7 @@ for lp in segments:
     x_ext = np.hstack((_x[0]-dx, _x, _x[-1]+dx))
     lp.set_x(x_ext=x_ext)
     lp.set_z(S0=-S0, z1=z1)
-    lp.set_niter()
+    lp.set_niter(3)
     #lp.set_z_bl(z1)
     lp.set_Q(Qlist[i])
     lp.set_B(100.)
@@ -121,7 +119,7 @@ net = grlp.Network(segments)
 #net.add_block_diagonal_matrix_upstream_boundary_conditions()
 #net.add_block_diagonal_matrix_downstream_boundary_conditions()
 net.get_z_lengths()
-net.set_niter()
+net.set_niter(3)
 net.evolve_threshold_width_river_network(nt=1, dt=dt)
 #self = net
 
@@ -151,3 +149,5 @@ plt.tight_layout()
 
 #plt.savefig('Uplift_Subsidence.svg')
 """
+
+plt.show()

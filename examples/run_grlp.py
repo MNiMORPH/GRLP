@@ -1,5 +1,6 @@
 # run_grlp.py
 # ADW, commented 29 November 2018
+# ADW, updated lightly 19 August 2025
 
 ####################################
 # Quick example to set up GRLP     #

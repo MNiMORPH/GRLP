@@ -1,9 +1,9 @@
 import numpy as np
 from matplotlib import pyplot as plt
-plt.ion()
+#plt.ion()
 
 import grlp
-reload(grlp)
+#reload(grlp)
 
 #S0 = 1E-2
 S0 = 0.01#0.096316051787322637
@@ -35,7 +35,7 @@ lp.set_B(k_xB=10, P_xB=0)
 #lp.set_B(B=lp.Q*2)
 #lp.set_B(B=10*np.ones(len(lp.Q)))
 lp.set_uplift_rate(0.000/3.15E7)
-lp.set_niter()
+lp.set_niter(3)
 #lp.set_bcr_Dirichlet(z1)
 lp.set_z_bl(z1)
 

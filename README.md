@@ -18,7 +18,7 @@ The version of the code that you used, which is found in **CITATION.cff**, autom
 
 ### Linearization and spectral response
 
-Fergus M<sup>c</sup>Nab and Jens Turowski developed the mathematics and associated code to linearize the GRLP equation in order to take advantage of near-analytical solutions and therefore perform rapid tests with it. If you use any of the features associated with the linearization or the plotting scripts noted in the folder [M<sup>c</sup>Nab_et_al_submitted_GRL](https://github.com/MNiMORPH/GRLP/tree/master/examples/M<sup>c</sup>Nab_et_al_GRL), please cite:
+Fergus M<sup>c</sup>Nab and Jens Turowski developed the mathematics and associated code to linearize the GRLP equation in order to take advantage of near-analytical solutions and therefore perform rapid tests with it. If you use any of the features associated with the linearization or the plotting scripts noted in the folder [M<sup>c</sup>Nab_et_al_GRL](https://github.com/MNiMORPH/GRLP/tree/master/examples/McNab_et_al_GRL), please cite:
 
 **M<sup>c</sup>Nab, F., T. F. Schildgen, J. M. Turowski, and A. D. Wickert (2023), [Diverse responses of alluvial rivers to periodic environmental change](https://doi.org/10.1029/2023GL103075), *Geophys. Res. Lett.*, *50*, e2023GL103075, doi:10.1029/2023GL103075.**
 

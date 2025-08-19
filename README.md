@@ -57,7 +57,7 @@ To install the unreleased code from this repository and/or to make changes to it
 
 ```sh
 # Download the repository
-gh repo clone awickert/GRLP
+gh repo clone MNiMORPH/GRLP
 
 # Install it
 # First, navigate to the root grlp directory. Then use:
@@ -90,3 +90,5 @@ Beyond these two, a set of examples are located in [the "one-dimensional" sub-di
 ### Network of 1-D river long profiles
 
 A set of functional examples for river networks is avaialble within [the "network" sub-directory of the "examples" folder](https://github.com/MNiMORPH/GRLP/tree/master/examples/network).
+
+For more extensive network examples, including random network generation, see [the repository](https://doi.org/10.5281/zenodo.15524964) accompanying the paper [M<sup>c</sup>Nab et al. (2025, EGUsphere)](https://doi.org/10.5194/egusphere-2025-2468).

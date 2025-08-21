@@ -6,3 +6,9 @@
 # or want to restrict the UI
 from .grlp import *
 from .build_synthetic_network import *
+
+# In addition, import and make visible the version number from _version.py
+from ._version import __version__
+
+__all__ = ["__version__"]
+

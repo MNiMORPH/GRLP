@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = []
+
+[project]
+name = "GRLP"
+dynamic = ["version"]
+#version = "2.0.0-rc1"
+dependencies = [
+  "numpy",
+  "scipy",
+  "matplotlib",
+]
+requires-python = ">=3.12"
+authors = [
+  { name="Andrew D. Wickert", email="awickert@umn.edu" },
+  { name="Fergus McNab", email="fergus.mcnab@gfz.de" },
+  { name="Eric A Barefoot", email="eric.barefoot@ucr.edu" },
+]
+description = "Evolves gravel-bed river long profiles"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICEN[CS]E*"]
+keywords = [
+  "earth science",
+  "geomorphology",
+  "fluvial",
+  "rivers",
+  "numerical modeling",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Hydrology",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "grlp._version.__version__"}
+
+[project.urls]
+Homepage = "https://csdms.colorado.edu/wiki/Model:GRLP"
+Repository = "https://github.com/MNiMORPH/GRLP"
+Documentation = "https://github.com/MNiMORPH/GRLP/"
+Issues = "https://github.com/MNiMORPH/GRLP/issues"
+

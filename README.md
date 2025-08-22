@@ -1,10 +1,22 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3740658.svg)](https://doi.org/10.5281/zenodo.3740658)
 
 # gravel-river-long-profile
-Long-profile evolution of gravel-bed rivers
 
-`grlp.py` is module that contains the equations and solvers. `run_grlp.py` interfaces with these to, well, run a model based off of `grlp.py`. Comments inside `run_grlp.py` should help you learn how to write your own models. Please contact Andy Wickert for questions or assistance.
+This model simulates the long-profile evolution of alluvial river valleys formed and evolved by gravel-bedded rivers.
 
+Key assumptions are that:
+* The river's bed and banks are formed of noncohesive gravel, and the rate and form of the river's morphological evolution is limited by its ability to move this gravel.
+* The river always maintains a self-formed equilibrium width with mobile gravel banks (following [Parker, 1978](https://www.cambridge.org/core/journals/journal-of-fluid-mechanics/article/abs/selfformed-straight-rivers-with-equilibrium-banks-and-mobile-bed-part-2-the-gravel-river/3AD9322C1939528ED73D409654E35E22)). This linearlizes the sediment-transport response to an increase in discharge. _Engineered or bedrock-walled rivers will require a fixed width, or one set by a different set of dynamics._
+* Simulations may be based upon a single channel-forming discharge. (See [Blom et al., 2017](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2017JF004213).)
+*  We are concerned with aggradation and incision over time scales affecting the full valley bottom (active fluvially worked surface), such that this is the area across which material must be added or removed for vertical change to take place.
+
+The code-base structure, in short, is as follows:
+* The **grlp** folder holds the core program
+  * `grlp.py` contains the equations and solvers.
+  * `build_synthetic_network.py` generates networks to run and test GRLP.
+* The **examples** folder contains general examples (in the subfolders) as well as tutorial code for a one-dimensional model.
+  * `run_grlp.py` contains comments intended to help you learn how to write your own models.
+  * `example_1d.ipynb` is a Jupyter notebook containing more extensive tutorial information.
 
 ## Sources to cite
 

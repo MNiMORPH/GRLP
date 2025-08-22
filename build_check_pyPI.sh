@@ -5,7 +5,8 @@ rm dist/*.tar.gz
 rm dist/*.whl
 
 # Build the new distribution
-python3 setup.py sdist bdist_wheel
+python3 -m build
+# python3 setup.py sdist bdist_wheel # old way
 
 # Check the new distribution for a successful build
 twine check dist/*

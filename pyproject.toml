@@ -14,7 +14,7 @@ dependencies = [
   "scipy",
   "matplotlib",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.09"
 authors = [
   { name="Andrew D. Wickert", email="awickert@umn.edu" },
   { name="Fergus McNab", email="fergus.mcnab@gfz.de" },

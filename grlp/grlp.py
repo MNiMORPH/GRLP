@@ -2435,7 +2435,15 @@ class Network(object):
         for ID in self.list_of_channel_head_segment_IDs:
             lp = self.list_of_LongProfile_objects[ID]
             for Q_ext_array in lp.Q_ext:
-                Q_ext_array[0] = lp.Q[0]
+                # Linearly extrapolate the ghost discharge, matching the
+                # single-segment solver (set_Q: 2*Q[0]-Q[1]).  A channel head
+                # has no tributary junction, hence no discharge discontinuity,
+                # so the two-cell centered dQ/dx used in the boundary sediment
+                # flux is well defined and second-order.  The previous constant
+                # value (Q_ext[0] = Q[0]) collapsed that difference to a
+                # one-sided, first-order estimate, biasing the injected flux and
+                # the whole equilibrium profile by O(dx).
+                Q_ext_array[0] = 2*lp.Q[0] - lp.Q[1]
 
     def update_Q_ext_external_downstream(self):
         """

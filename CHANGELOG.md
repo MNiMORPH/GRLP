@@ -11,6 +11,21 @@ version heading for the full notes.
 
 ## [Unreleased]
 
+### Fixed
+- Networked solver, channel-head boundary: the upstream ghost discharge is now
+  linearly extrapolated (`Q_ext[0] = 2*Q[0] - Q[1]`), matching the standalone
+  single-segment solver, instead of held constant (`Q_ext[0] = Q[0]`). A channel
+  head has no tributary junction and hence no discharge discontinuity, so the
+  two-cell centered `dQ/dx` in the boundary sediment flux is well defined; the
+  former constant value collapsed it to a one-sided, first-order estimate. On a
+  reach with downstream-increasing discharge this biased the injected sediment
+  flux and shifted the whole equilibrium profile by O(dx) — ~8.9 m at
+  `dx = 1000` on the test domain — and the error only halved (first order) under
+  grid refinement. It now converges second-order and tracks the analytical
+  solution, matching the standalone. Networks with uniform discharge per segment
+  (where `2*Q[0] - Q[1] == Q[0]`) are unaffected. Guarded by
+  `tests/test_network_varying_Q.py`.
+
 ## [2.1.0] - 2026-07-20
 
 ### Added

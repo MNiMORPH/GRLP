@@ -40,11 +40,17 @@ which at a single-upstream junction is the last node of the upstream segment).
 
 ## Next steps (the port)
 
-- **2a — add the walker as a new `Network` method.** Port `walk_assemble.py`:
-  build the global LHS+RHS by walking. For a single segment it must reproduce
-  the current single-segment network assembly **bit-for-bit**. Additive; not yet
-  wired in.
-- **2b — 1-into-1 junction.** The confluence node's `up[g]` points across the
+- **2a — DONE** (commit `a52eeaf`). `Network.assemble_by_walking(dt)` builds the
+  global LHS+RHS by walking; reproduces `build_matrices` bit-for-bit for a single
+  segment (`tests/test_depad_walk.py`). Single-upstream junctions already walk
+  across the boundary and get the interior stencil; multi-tributary confluences
+  raise `NotImplementedError`. Additive; **not yet wired into the evolve loop**.
+- **2b — 1-into-1 junction.** `assemble_by_walking` already produces the interior
+  stencil at a single-upstream junction (the confluence node's neighbor walk
+  crosses the boundary). Remaining 2b work: validate a 1-into-1 chain assembled
+  by the walker equals the single segment, then wire the walker into the evolve
+  loop for the discharge-continuous cases. The confluence node's `up[g]` points
+  across the boundary to the upstream segment's last global node; the interior
   boundary to the upstream segment's last global node; the same interior stencil
   then produces the correct row → fixes it exactly (vs current ~0.8 m/junction).
   **`chain_uniform_B` golden WILL move here** (it pins the buggy junction);

@@ -74,27 +74,59 @@ dependency** (add to `pyproject.toml`), which you've already approved.
 - Deprecate, don't delete: where an internal method is superseded, warn and
   forward for one release.
 
-## Phased plan (each phase gated by the test suite staying green)
+## Phased plan (revised — see "Phase C findings" below)
 
-- **B — NetworkX topology layer.** Introduce the `DiGraph` as the internal
-  representation behind the current API; `initialize` builds it; topology
-  queries (`find_up/downstream_IDs`, heads/mouths, Strahler, etc.) read the
-  graph. No numerical change → golden master must stay bit-for-bit.
-- **C — Network primary + `LongProfile` façade.** Route the 1-D path through the
-  1-edge network; make `LongProfile` the segment class. Golden master + the
-  1-seg≡standalone check guard it.
-- **D — de-pad the solver (this is Step 3).** Separate, later; replace `_ext`
-  with direct neighbor-reaching. Highest risk; not part of Step 1.
+- **B — NetworkX topology layer. DONE.** `Network.build_graph()` builds the
+  `DiGraph` in `initialize`; `find_up/downstream_IDs` and the channel
+  head/mouth lists (and, transitively, Strahler/Horton) now read the graph.
+  Purely additive; golden master bit-for-bit. Guarded by `test_network_graph.py`
+  and a per-head-`S0` ordering test.
+- **C/D — de-pad the solver, which unifies by construction.** *Reordered:*
+  replacing the padded `_ext` arrays with a single neighbor-walking matrix
+  assembly is now the **vehicle** for unification, not a later step. One assembly
+  ⇒ one BC discretization ⇒ single-segment (1-edge walk) and network agree by
+  construction, and the `LongProfile` façade falls out as a 1-edge call. This
+  dissolves the Phase C boundary-condition discrepancy rather than reconciling
+  two soon-to-be-deleted implementations.
+
+## Phase C findings (why the reorder)
+
+Measured: a 1-segment `Network` equals the standalone `LongProfile` **only at
+equilibrium**, not in the transient (for `niter > 1`). Two causes:
+
+1. **Inert Picard loop** in `evolve_threshold_width_river_network`
+   (`grlp.py` ~2754): it never wrote the iterate back into `z_ext[1:-1]`, so the
+   semi-implicit coefficient never refined and `niter` was a no-op (the standalone
+   writes `z_ext[1:-1] = spsolve(...)`). The author's own commented-out line at
+   the segment-update block is the intended fix. **Lesson for the unified
+   assembly: write the iterate into the interior before recomputing the
+   coefficient (proper Picard), or `niter` does nothing.**
+2. **Different upstream-BC discretization** (the real blocker). The standalone
+   applies the upstream sediment-flux Neumann BC by *modifying the matrix*
+   (`set_bcl_Neumann_LHS/RHS`, `grlp.py` ~489-571, called from `build_matrices`
+   ~619). The network applies it via the *ghost node* `z_ext[0]` and does
+   `pass` for head segments in
+   `add_block_diagonal_matrix_upstream_boundary_conditions` (~1393). Both are
+   valid; they give the same equilibrium but different transient fixed points
+   (~3e-3). Reconciling ≈ deleting one implementation, which is what de-padding
+   does anyway.
+
+A partial Picard fix (cause 1) was written, verified equilibrium-preserving, then
+**reverted** — it is throwaway against the de-pad rewrite; only its lesson is kept.
 
 ## Test strategy
 
-- Add a **`test_single_equals_network.py`**: parametrized single-segment configs
-  asserting `LongProfile.evolve_threshold_width_river` ≡ 1-edge `Network` to
-  ~1e-12. This becomes the contract that lets the façade delegate.
-- The existing **golden master** (`characterization_reference.npz`) is the
-  invariant across B and C: setup code may change, recorded numbers may not.
-- Run `pytest -m "not slow"` after every step; regenerate the golden master only
-  on a *knowing* change (there should be none in B/C).
+- **Hard invariants** the de-padded solver must satisfy (these validate a *new*
+  discretization far better than bit-matching the old one — the point of the
+  Step −1 suite): the analytical solutions (steady-state power law, uplift
+  quadrature, linearized gain/lag) and sediment conservation, single-segment and
+  network. These must hold to tolerance throughout.
+- **Single-segment golden-master *transient* snapshots** (`z_t0`, `z_t1` in
+  `characterization_reference.npz`) *will* change under the new assembly and be
+  regenerated — but only after confirming the new transient is *more* correct
+  (converges to the analytical / high-`niter` solution as the standalone does
+  today). Equilibrium/`Q_s`/network golden values stay invariant.
+- Run `pytest -m "not slow"` after each step.
 
 ## Resolved decisions
 
@@ -102,8 +134,9 @@ dependency** (add to `pyproject.toml`), which you've already approved.
    `pyproject.toml`).
 2. **The single-thread path delegates to the unified network solver**: the
    standalone `LongProfile` is the front end and, in the 1-segment special case,
-   runs through the same block-diagonal solver. Backed by the measured
-   machine-precision equivalence.
+   runs through the same assembly. The equivalence is exact at equilibrium today;
+   full transient equivalence comes from the single de-padded assembly (see
+   "Phase C findings"), not from reconciling the two current solvers.
 3. **Keep the names** `Network` / `LongProfile` for now; revisit a base-class
    split at Step 4 (FluvTree), when multiple segment *types* force it.
 4. **Work directly on `master`**, committing granularly with the test suite

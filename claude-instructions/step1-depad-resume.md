@@ -81,13 +81,23 @@ which at a single-upstream junction is the last node of the upstream segment).
      mass leaks. A conserving confluence needs the *whole junction neighborhood*
      (confluence node + tributary last nodes + downstream node) to use
      **consistent shared face fluxes** on the junction faces.
-  3. The current `land_area` code already arranges this two-sided handshake
-     (`add_block_diagonal_matrix_upstream/downstream_boundary_conditions`). So
-     **2c-delegate = reproduce those entries via the walk**, not re-derive them;
-     re-derivation keeps hitting the two-sided-consistency wall. A clean
-     second-order confluence (2c-b) is a separate, genuine numerical-design task
-     (naive single-valued FV in `prototypes/fv_prototype.py` is first-order) —
-     fresh session.
+  3. **land_area does NOT conserve for varying-Q confluences** — measured 0.85%
+     sediment imbalance at steady state (converged: identical at nt=3000 and
+     30000), and the junction elevation drifts under refinement instead of
+     converging. Exact for uniform Q, so the leak is in the varying-Q junction
+     term (`dQ_up_jcn` / face-discharge handling). Pinned by
+     `tests/test_confluence_conservation.py` (strict xfail).
+  4. **So delegation is WRONG** — reproducing the land_area entries would refactor
+     a conservation *bug* into the walker. The confluence work is a **bug fix**,
+     not just an accuracy tweak. Plan: fix the confluence to conserve (correct
+     the varying-Q term, or rebuild the junction with two-sided consistent face
+     fluxes across the whole junction neighborhood — confluence node + tributary
+     last nodes + downstream node), which changes `confluence_varying_Q` to a
+     *correct* value; THEN unify into the walker onto the fixed confluence.
+     Genuine numerical work — fresh session. (`prototypes/fv_prototype.py`:
+     naive single-valued FV is first-order; `confluence_cell.py`-style rebuilds
+     leak because junction faces are double-valued between face-based cell and
+     node-based interior.)
 - **remove** the padded `_ext` machinery once 2c lands.
 - **(later, hard half)** swap the delegated multi-tributary path for the
   second-order flux-balance junction cell (7/6 tangent flux, reduces to interior

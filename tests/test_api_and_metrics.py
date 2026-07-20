@@ -43,13 +43,6 @@ def test_series_coefficient_positive_and_decreasing_in_n():
     assert all(coeffs[i + 1] < coeffs[i] for i in range(len(coeffs) - 1))
 
 
-@pytest.mark.xfail(
-    reason="compute_e_folding_time calls self.wavenumber(n), but the method is "
-           "named compute_wavenumber -> AttributeError. Remove this xfail when "
-           "the call is corrected to self.compute_wavenumber.",
-    strict=True,
-    raises=AttributeError,
-)
 def test_e_folding_time_formula():
     lp = make_uniform_profile()
     tau = lp.compute_e_folding_time(0)

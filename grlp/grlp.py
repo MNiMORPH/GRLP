@@ -1165,7 +1165,7 @@ class LongProfile(object):
         From solving linearized version of threshold width equation.
         """
         self.compute_equilibration_time()
-        return 1./self.diffusivity.mean()/self.wavenumber(n)**2.
+        return 1./self.diffusivity.mean()/self.compute_wavenumber(n)**2.
 
     def compute_wavenumber(self, n):
         """

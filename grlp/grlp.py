@@ -233,6 +233,8 @@ class LongProfile(object):
         """
         if k_xQ is not None:
             self.k_xQ = k_xQ
+        if P_xQ is not None:
+            self.P_xQ = P_xQ
         if Q is not None:
             # Check if it is a scalar or an array
             if hasattr(Q, "__iter__"):

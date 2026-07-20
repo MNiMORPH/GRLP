@@ -49,19 +49,23 @@ which at a single-upstream junction is the last node of the upstream segment).
   assembled by `assemble_by_walking` equals the single segment bit-for-bit
   (`tests/test_depad_walk.py::test_walk_1into1_chain_equals_single_segment`).
   The fix is proven at the assembly level; wiring into the evolve loop remains.
-- **WIRING (the next real step) — needs a full budget.** Route
-  `evolve_threshold_width_river_network` through `assemble_by_walking` for the
-  solve. This forces **2c (multi-tributary delegation)** at the same time,
-  because the evolve loop runs the golden confluence networks, which currently
-  raise `NotImplementedError` in the walker. And it **moves `chain_uniform_B`**
-  (it pins the buggy junction) — regenerate that golden and confirm it then
-  equals a single uniform-Q segment; all `confluence_*`/`topology_*` goldens must
-  stay bit-identical (that is what the delegation guarantees).
-- **2c — multi-tributary confluence: delegate.** Hand these nodes to the
-  existing `land_area` code unchanged, so `confluence_*` / `topology_*` /
-  `confluence_varying_Q` goldens stay bit-identical.
-- **wire in** to `evolve_threshold_width_river_network`; full suite green.
-- **remove** the padded `_ext` machinery the walker replaces.
+- **WIRING — DONE for single-segment + chains** (commit `e987159`).
+  `evolve_threshold_width_river_network` dispatches to `_evolve_by_walking` when
+  the network has no multi-tributary confluence (`any(len(upstream)>1)` is
+  False). Proper Picard (RHS from `zold`, coefficient from the iterate).
+  Verified: single-segment networks still match the standalone; a varying-Q
+  1-into-1 chain now matches a single varying-Q segment to 0.0 (was ~0.8 m).
+  `chain_uniform_B` did **not** move — with uniform Q the `dQ/dx` terms vanish,
+  so the junction handling is irrelevant there (earlier "it will move" was
+  wrong). Full suite 296 green.
+- **2c — multi-tributary confluence (NEXT).** The evolve branch still sends any
+  network with a ≥2-tributary confluence down the old padded block-matrix path;
+  the walker raises `NotImplementedError` on such a node. Fold multi-tributary
+  confluences into the walker: first *delegate* (reproduce the current
+  `land_area` block entries so `confluence_*`/`topology_*`/`confluence_varying_Q`
+  goldens stay bit-identical), then flip the evolve branch to always use the
+  walker. This is where the padded path finally goes away.
+- **remove** the padded `_ext` machinery once 2c lands.
 - **(later, hard half)** swap the delegated multi-tributary path for the
   second-order flux-balance junction cell (7/6 tangent flux, reduces to interior
   in the single-tributary limit). See the design doc's confluence section.

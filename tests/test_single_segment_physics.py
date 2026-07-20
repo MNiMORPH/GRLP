@@ -110,37 +110,15 @@ def test_base_level_fall_reequilibrates():
 
 
 # --------------------------------------------------------------------------- #
-# Sternberg gravel loss  (currently BROKEN -- see xfail)
+# Sternberg gravel loss
 # --------------------------------------------------------------------------- #
 
-@pytest.mark.xfail(
-    reason="set_Sternberg_gravel_loss drops the per-km -> per-m /1000 unit "
-           "conversion present in the original (commented) implementation, so "
-           "a genuine per-km loss overstates the sink ~1000x and drives z to "
-           "nan. Passing k/1000 works and reproduces Qs=Qs0*exp(-k*x). Remove "
-           "this xfail when the units are fixed.",
-    strict=True,
-)
 def test_sternberg_gravel_loss_exponential_decay():
+    # A per-km abrasion coefficient makes bedload discharge decay downstream
+    # following Sternberg's law, Qs = Qs0 * exp(-k * x).
     k_per_km = 0.02
     lp, Qs0 = _base(intermittency=1.0)
     lp.set_Sternberg_gravel_loss(gravel_fractional_loss_per_km=k_per_km)
-    lp.evolve_threshold_width_river(nt=300, dt=1e13)
-    lp.compute_Q_s()
-    assert not np.isnan(lp.z).any()
-    x_km = (lp.x - lp.x_ext[0]) / 1000.0
-    predicted = Qs0 * np.exp(-k_per_km * x_km)
-    assert np.abs(lp.Q_s - predicted).max() / Qs0 < 0.05
-
-
-def test_sternberg_gravel_loss_decays_when_scaled_to_per_meter():
-    # Documents the current (per-meter) behavior: passing the per-km rate
-    # divided by 1000 runs and reproduces Sternberg's exponential decay of
-    # sediment discharge. This will keep passing after a units fix only if the
-    # fix preserves the physics; pair it with the xfail above.
-    k_per_km = 0.02
-    lp, Qs0 = _base(intermittency=1.0)
-    lp.set_Sternberg_gravel_loss(gravel_fractional_loss_per_km=k_per_km / 1000.0)
     lp.evolve_threshold_width_river(nt=300, dt=1e13)
     lp.compute_Q_s()
     assert not np.isnan(lp.z).any()

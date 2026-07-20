@@ -341,8 +341,10 @@ class LongProfile(object):
         else:
             raise ValueError('You must define gravel_fractional_loss_per_km.')
         self.compute_Q_s()
+        # gravel_fractional_loss_per_km is per kilometer; divide by 1000 to get
+        # the per-meter coefficient used against the (metre-based) geometry.
         self.downstream_fining_subsidence_equivalent = \
-                - self.gravel_fractional_loss_per_km * self.Q_s \
+                - self.gravel_fractional_loss_per_km / 1000. * self.Q_s \
                 / ( (1-self.lambda_p) * self.B )
 
     def set_niter(self, niter):

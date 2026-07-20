@@ -30,17 +30,17 @@ pytest -m slow                # only the numerical spectral benchmark
 | `test_api_and_metrics.py` | Response timescales, Strahler/Horton on a balanced tree, `Shreve_Random_Network` invariants | known metric values |
 | `test_characterization.py` | Golden-master: current outputs of many prescribed-`B` configs and network topologies match a recorded reference to ~1e-9 | `characterization_reference.npz` |
 
-## Known issues these tests surfaced (tracked as strict `xfail`)
+## Bugs this suite surfaced (found and fixed)
 
-Building this suite uncovered two live bugs, documented as `xfail` so they stay
-visible and will flip to failing (`xpass`) the moment they are fixed:
+Building the suite uncovered — and led to fixing — two live bugs; the tests
+below now assert the corrected behavior:
 
-- **`set_Sternberg_gravel_loss` units** — the finite-difference sink dropped the
-  per-km → per-m `/1000` conversion that the original (commented) implementation
-  had, so a genuine per-km loss overstates the sink ~1000× and drives `z` to
-  `nan`. See `test_single_segment_physics.py::test_sternberg_gravel_loss_exponential_decay`.
-- **`compute_e_folding_time` typo** — calls `self.wavenumber(n)`, but the method
-  is `compute_wavenumber` → `AttributeError`. See
+- **`set_Sternberg_gravel_loss` units** — the finite-difference sink had dropped
+  the per-km → per-m `/1000` conversion, so a genuine per-km loss overstated the
+  sink ~1000× and drove `z` to `nan`. Guarded by
+  `test_single_segment_physics.py::test_sternberg_gravel_loss_exponential_decay`.
+- **`compute_e_folding_time` typo** — it called `self.wavenumber(n)` instead of
+  `compute_wavenumber` (`AttributeError`). Guarded by
   `test_api_and_metrics.py::test_e_folding_time_formula`.
 
 A diagnostic of the padded-array network solver at asymmetric / unequal-`dx` /

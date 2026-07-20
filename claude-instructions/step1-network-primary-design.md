@@ -114,6 +114,31 @@ equilibrium**, not in the transient (for `niter > 1`). Two causes:
 A partial Picard fix (cause 1) was written, verified equilibrium-preserving, then
 **reverted** — it is throwaway against the de-pad rewrite; only its lesson is kept.
 
+### Golden-safety of unifying the head Neumann BC (verified post-compact)
+
+Two measured facts make the unification safe for the golden master:
+
+1. **A de-padded single-segment assembly reproduces the standalone
+   `build_matrices()` LHS+RHS to `0.0` absolute difference** (prototype
+   `proto_depad_single.py`): computing the boundary gradients directly from the
+   Neumann `S0` and the outlet `z_bl` — no stored `_ext` pad — and applying the
+   standalone matrix-modification Neumann BC gives the identical tridiagonal
+   system. So the single-segment interior + Neumann + Dirichlet stencil de-pads
+   exactly.
+2. **The network golden-master stores only steady-state values.**
+   `build_network`/`run_topology_arrays` evolve `nt=1000, dt=3e10` to machine
+   precision; every recorded array (`z_all`, `Qs_seg*`) is an equilibrium
+   quantity. Because the two Neumann discretizations *agree at equilibrium*
+   (the 1.4e-13 finding), applying the standalone matrix-mod Neumann BC at
+   **all** channel heads — single-segment and network alike — cannot move any
+   network golden value. Only the single-segment *transient* snapshots
+   (`z_t0` at `nt=2`, `z_t1` at `nt=6`) move, and those are the ones slated to
+   regenerate once confirmed more-correct.
+
+Consequence: the junction stencil is re-expressed *faithfully* (same value
+formulas, graph-walk indexing instead of block bookkeeping + `_ext` pads); the
+head BC is *unified* to the matrix-mod form; nothing else changes.
+
 ## Test strategy
 
 - **Hard invariants** the de-padded solver must satisfy (these validate a *new*

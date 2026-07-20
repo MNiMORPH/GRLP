@@ -60,10 +60,6 @@ def make_long_profile(
     lp.set_z(S0=-S0)
     lp.set_A(k_xA=k_xA)
     lp.set_Q(k_xQ=k_xQ, P_xQ=P_xQ)
-    # set_Q sets the Q array but does not update self.P_xQ, which
-    # analytical_threshold_width reads.  Keep them consistent so the analytical
-    # power-law exponent matches the discharge field actually used.
-    lp.P_xQ = P_xQ
     lp.set_B(k_xB=k_xB, P_xB=P_xB)
     lp.set_uplift_rate(U)
     lp.set_niter(niter)

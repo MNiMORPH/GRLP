@@ -37,10 +37,3 @@ pytest -m slow                # only the numerical spectral benchmark
 * `analytical_threshold_width_perturbation` is **deprecated and incorrect** (an
   early perturbation attempt that returns unphysical elevations); it is retained
   only for the historical record. Use `analytical_threshold_width_uplift`.
-
-## A known API sharp edge exercised here
-
-`set_Q(P_xQ=...)` sets the discharge array but does **not** update `self.P_xQ`,
-which the analytical solutions read. The test factory keeps them consistent; if
-you change `P_xQ` yourself, set `lp.P_xQ` to match, or the analytical exponent
-will disagree with the discharge field.

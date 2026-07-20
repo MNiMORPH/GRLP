@@ -12,6 +12,7 @@ dependencies = [
   "numpy",
   "scipy",
   "matplotlib",
+  "networkx",
 ]
 requires-python = ">=3.09"
 authors = [

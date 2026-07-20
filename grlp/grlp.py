@@ -4,6 +4,7 @@ from scipy.sparse import spdiags, identity, block_diag
 from scipy import sparse
 from scipy.sparse.linalg import spsolve, isolve
 from scipy.stats import linregress
+import networkx as nx
 import warnings
 import sys
 
@@ -2182,6 +2183,42 @@ class Network(object):
         else:
             sys.exit("Ahmm... why are there multiple river mouths?")
 
+    def build_graph(self):
+        """
+        Build a NetworkX directed-graph representation of the network topology.
+
+        Edges are river segments -- each edge carries its ``segment_id`` and the
+        ``LongProfile`` object itself -- and nodes are the junctions between
+        them: one ``("source", i)`` per channel head, one ``("jcn", c)`` per
+        confluence (named by the segment ``c`` flowing out of it), and a single
+        ``("outlet",)``. A one-segment network is a two-node, one-edge graph.
+
+        Flow direction is downstream (edges point from the upstream node to the
+        downstream node), so NetworkX ancestor/descendant queries map directly
+        onto upstream/downstream reaches.
+
+        This is the emerging source of truth for topology; the per-segment
+        upstream/downstream ID lists are retained during the transition.
+        Requires the channel-head and channel-mouth lists to be set first.
+        """
+        heads = set(self.list_of_channel_head_segment_IDs)
+
+        def upstream_node(seg_id):
+            return ("source", seg_id) if seg_id in heads else ("jcn", seg_id)
+
+        def downstream_node(seg_id):
+            lp = self.list_of_LongProfile_objects[seg_id]
+            if not lp.downstream_segment_IDs:
+                return ("outlet",)
+            return ("jcn", lp.downstream_segment_IDs[0])
+
+        G = nx.DiGraph()
+        for lp in self.list_of_LongProfile_objects:
+            G.add_edge(upstream_node(lp.ID), downstream_node(lp.ID),
+                       segment_id=lp.ID, segment=lp)
+        self.graph = G
+        return self.graph
+
     def update_dx_ext(self):
         """
         Create dx_ext arrays -- one for each upstream link -- from x_ext.
@@ -2650,6 +2687,10 @@ class Network(object):
         # Identify channel head and mouth segments
         self.create_list_of_channel_head_segment_IDs()
         self.create_list_of_channel_mouth_segment_IDs()
+
+        # Build the NetworkX topology graph (edges = segments, nodes =
+        # junctions). Emerging source of truth for topology.
+        self.build_graph()
 
         # Generate arrays of x, including networked links
         self.create_x_ext_lists()

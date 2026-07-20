@@ -39,7 +39,7 @@ Fergus M<sup>c</sup>Nab and Jens Turowski developed the mathematics and associat
 
 Wickert designed and wrote the code for the networked version of GRLP, with assistance from M<sup>c</sup>Nab, including error finding and bug fixing. M<sup>c</sup>Nab in turn added functions to expanded network functionality and wrote and executed scientific code to understand river-network dynamics. Based on this, M<sup>c</sup>Nab led the study on river-network dynamics and wrote the associated paper. Therefore, if you use the river-network version of GRLP, please cite both of the following:
 
-**Wickert, A. D., M<sup>c</sup>Nab, F., and Barefoot, E. (2025). [GRLP](https://doi.org/10.5281/zenodo.3740658) (Version 2.0.0). doi:10.5281/zenodo.3740658.**
+**Wickert, A. D., M<sup>c</sup>Nab, F., and Barefoot, E. (2026). [GRLP](https://doi.org/10.5281/zenodo.3740658) (Version 2.1.0). doi:10.5281/zenodo.3740658.**
 
 **M<sup>c</sup>Nab, F., T. F. Schildgen, J. M. Turowski, and A. D. Wickert (2025), [Influence of network geometry on long-term morphodynamics of alluvial rivers](https://doi.org/10.5194/esurf-13-1059-2025), *Earth Surf. Dynam.*, *13*, 1059–1092, doi:10.5194/esurf-13-1059-2025.**
 

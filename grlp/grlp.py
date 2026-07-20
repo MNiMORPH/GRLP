@@ -1700,6 +1700,103 @@ class Network(object):
             self.RHS += list(lp.RHS)
         self.RHS = np.array(self.RHS)
 
+    def assemble_by_walking(self, dt):
+        """
+        De-padded global assembly (Step 1 de-pad).
+
+        Build the global LHS matrix and RHS by *walking the topology* to each
+        node's upstream/downstream neighbor, instead of reading the padded
+        ``z_ext``/``Q_ext`` ghost arrays. The per-node stencil formulas are
+        identical to :meth:`LongProfile.build_matrices` -- only neighbor lookup
+        changes -- so for a single segment this reproduces the standalone solver
+        bit-for-bit. Channel heads apply the sediment-flux Neumann boundary
+        condition, the outlet the base-level Dirichlet condition; at a
+        single-upstream junction the confluence node reaches across the segment
+        boundary and so gets the ordinary interior stencil (fixing the
+        first-order ``land_area`` junction handling in the 1-into-1 case).
+
+        Multi-tributary confluences are not yet handled here (they will delegate
+        to the existing junction code, or later a flux-balance cell); a node with
+        more than one upstream segment raises ``NotImplementedError``.
+
+        Returns ``(LHSmatrix, RHS)`` over the global node vector, ordered by
+        segment as in ``list_of_segment_lengths``. Additive: not yet wired into
+        the evolve loop.
+        """
+        segs = self.list_of_LongProfile_objects
+        lengths = list(self.list_of_segment_lengths)
+        starts = np.cumsum([0] + lengths)[:-1]
+        n = int(np.sum(lengths))
+        for lp in segs:
+            lp.build_LHS_coeff_C0(dt=dt)
+        rows = []; cols = []; vals = []; RHS = np.zeros(n)
+        for lp in segs:
+            s = lp.ID; off = starts[s]; L = lengths[s]
+            # per-node source term (matches build_matrices' RHS additions)
+            src = (np.asarray(lp.ssd)
+                   + np.asarray(lp.downstream_fining_subsidence_equivalent)
+                   + np.asarray(lp.U)) * dt
+            src = np.broadcast_to(src, (L,))
+            for i in range(L):
+                g = off + i
+                # --- upstream neighbor (or head ghost) ---
+                if i > 0:
+                    up_g = g - 1; z_up = lp.z[i - 1]; x_up = lp.x[i - 1]
+                    Q_up = lp.Q[i - 1]; is_head = False
+                elif len(lp.upstream_segment_IDs) == 0:
+                    is_head = True; up_g = None
+                    x_up = 2 * lp.x[0] - lp.x[1]
+                    z_up = lp.z[0] + lp.S0 * (lp.x[0] - x_up)
+                    Q_up = 2 * lp.Q[0] - lp.Q[1]
+                elif len(lp.upstream_segment_IDs) == 1:
+                    is_head = False
+                    us = segs[lp.upstream_segment_IDs[0]]
+                    up_g = starts[us.ID] + lengths[us.ID] - 1
+                    z_up = us.z[-1]; x_up = us.x[-1]; Q_up = us.Q[-1]
+                else:
+                    raise NotImplementedError(
+                        "assemble_by_walking: multi-tributary confluence "
+                        "(segment %d has %d upstream segments) not yet handled"
+                        % (s, len(lp.upstream_segment_IDs)))
+                # --- downstream neighbor (or outlet ghost) ---
+                if i < L - 1:
+                    dn_g = g + 1; z_dn = lp.z[i + 1]; x_dn = lp.x[i + 1]
+                    Q_dn = lp.Q[i + 1]; is_outlet = False
+                elif len(lp.downstream_segment_IDs) == 0:
+                    is_outlet = True; dn_g = None
+                    x_dn = 2 * lp.x[-1] - lp.x[-2]; z_dn = lp.z_bl
+                    Q_dn = 2 * lp.Q[-1] - lp.Q[-2]
+                else:
+                    is_outlet = False
+                    ds = segs[lp.downstream_segment_IDs[0]]
+                    dn_g = starts[ds.ID]
+                    z_dn = ds.z[0]; x_dn = ds.x[0]; Q_dn = ds.Q[0]
+                # --- stencil (identical to build_matrices) ---
+                dxu = lp.x[i] - x_up; dxd = x_dn - lp.x[i]; dx2 = x_dn - x_up
+                dQ2 = Q_dn - Q_up
+                S = np.abs(z_dn - z_up) / dx2
+                C1 = lp.C0 * S ** (1 / 6.) * lp.Q[i] / lp.B[i]
+                center = -C1 / dx2 * (7 / 3. * (-1 / dxu - 1 / dxd)) + 1.
+                left = -C1 / dx2 * (7 / 3. / dxu - dQ2 / lp.Q[i] / dx2)
+                right = -C1 / dx2 * (7 / 3. / dxd + dQ2 / lp.Q[i] / dx2)
+                rhs_g = lp.z[i] + src[i]
+                if is_head:                       # set_bcl_Neumann
+                    right = -C1 / dx2 * 7 / 3. * (1 / dxu + 1 / dxd)
+                    rhs_g += lp.S0 * C1 * (7 / 3. / dxu - dQ2 / lp.Q[i] / dx2)
+                if is_outlet:                     # set_bcr_Dirichlet
+                    rhs_g += z_dn * C1 / dx2 * (
+                        7 / 3. * (1 / (lp.x[-1] - lp.x[-2])
+                                  + 1 / (x_dn - lp.x[-1])) / 2.
+                        + dQ2 / lp.Q[i] / dx2)
+                rows.append(g); cols.append(g); vals.append(center)
+                if up_g is not None:
+                    rows.append(g); cols.append(up_g); vals.append(left)
+                if dn_g is not None:
+                    rows.append(g); cols.append(dn_g); vals.append(right)
+                RHS[g] = rhs_g
+        LHSmatrix = sparse.csr_matrix((vals, (rows, cols)), shape=(n, n))
+        return LHSmatrix, RHS
+
     def set_niter(self, niter):
         # MAKE UNIFORM IN BASE CLASS
         self.niter = niter

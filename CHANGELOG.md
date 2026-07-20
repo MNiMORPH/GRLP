@@ -11,7 +11,25 @@ version heading for the full notes.
 
 ## [Unreleased]
 
+### Changed
+- The networked solver is **de-padded**: it assembles its matrix by walking the
+  topology to each node's real neighbour, instead of maintaining padded
+  `z_ext`/`Q_ext` ghost arrays. Single-thread and network now share one solver
+  (a single segment is a one-edge network). Results are unchanged to machine
+  precision for single segments and for uniform-discharge networks; see the fix
+  below for the one intended numerical change.
+
 ### Fixed
+- Networked solver, sediment conservation at confluences: the previous
+  `land_area` junction discretization did **not** conserve sediment when
+  discharge varied within a confluence's segments (~0.85% imbalance at steady
+  state, and the junction elevation failed to converge under grid refinement).
+  The de-padded solver uses a conservative three-node junction cell (a single
+  shared sediment-flux conductance per junction face) that conserves to machine
+  precision, is exact for uniform discharge per segment, and converges under
+  refinement. Uniform-discharge networks are unchanged; only
+  varying-discharge confluences move, to the conserving value. Guarded by
+  `tests/test_confluence_conservation.py`.
 - `Network.set_intermittency` now sets each segment's intermittency. It had
   assigned the value to the attribute holding the segment's bound
   `set_intermittency` *method* (`lp.set_intermittency = intermittency`) rather

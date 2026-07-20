@@ -25,7 +25,28 @@ pytest -m slow                # only the numerical spectral benchmark
 | `test_network.py` | Confluence slopes, network-wide sediment conservation, uniform-discharge chain reduces to the exact linear profile | networked mass conservation |
 | `test_spectral.py` | Analytical limits of the linearized gain/lag (quasi-static → 6/7 & 0; fast → 0; monotonicity, bounds) | `compute_z_gain` / `compute_z_lag`; McNab et al. (2023) |
 | `test_spectral_benchmark.py` | **(slow)** Full numerical periodic forcing vs. the linearized gain/lag | as above; cf. `examples/McNab_et_al_GRL/Figure_S1_Benchmark.py` |
-| `test_characterization.py` | Golden-master: current outputs of many prescribed-`B` configs match a recorded reference to ~1e-9 | `characterization_reference.npz` |
+| `test_network_correctness.py` | Known-true physics on junction-stressing topologies (asymmetric `Q`, unequal `dx`, unequal lengths, multi-level) | network mass conservation; shared `network_helpers.NETWORK_TOPOLOGIES` |
+| `test_single_segment_physics.py` | Irregular grid, distributed source/sink ≡ uplift, base-level fall, Sternberg loss | analytical; `set_source_sink_distributed`, `set_Sternberg_gravel_loss` |
+| `test_api_and_metrics.py` | Response timescales, Strahler/Horton on a balanced tree, `Shreve_Random_Network` invariants | known metric values |
+| `test_characterization.py` | Golden-master: current outputs of many prescribed-`B` configs and network topologies match a recorded reference to ~1e-9 | `characterization_reference.npz` |
+
+## Known issues these tests surfaced (tracked as strict `xfail`)
+
+Building this suite uncovered two live bugs, documented as `xfail` so they stay
+visible and will flip to failing (`xpass`) the moment they are fixed:
+
+- **`set_Sternberg_gravel_loss` units** — the finite-difference sink dropped the
+  per-km → per-m `/1000` conversion that the original (commented) implementation
+  had, so a genuine per-km loss overstates the sink ~1000× and drives `z` to
+  `nan`. See `test_single_segment_physics.py::test_sternberg_gravel_loss_exponential_decay`.
+- **`compute_e_folding_time` typo** — calls `self.wavenumber(n)`, but the method
+  is `compute_wavenumber` → `AttributeError`. See
+  `test_api_and_metrics.py::test_e_folding_time_formula`.
+
+A diagnostic of the padded-array network solver at asymmetric / unequal-`dx` /
+multi-level junctions found it **numerically correct** (conservation to ~1e-14,
+two-sided junction ghosts agree exactly), so the planned de-padding refactor is
+architectural cleanup, not a bug fix.
 
 ## Characterization (golden-master) tests
 

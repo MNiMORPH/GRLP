@@ -1,5 +1,7 @@
 # Resume: Step 1 solver de-pad (port the neighbor-walking assembler)
 
+> **UPDATE (de-pad functionally COMPLETE).** All networks now route through the walker (`evolve_threshold_width_river_network` dispatches to `_evolve_by_walking`), including multi-tributary confluences via a conservative three-node junction cell (shared face conductance). The confluence conservation bug is fixed; only `confluence_varying_Q` moved. Full suite green (297). REMAINING: delete the now-unreachable padded block-matrix path and the `_ext` machinery (create_x_ext_lists etc.); optionally raise the junction cell from first- to second-order; harden junction edge cases (segments with <3 nodes near a junction use x[2]/x[-2]).
+
 Pick-up point for the **de-pad port** into `grlp.py` (task: unify the solver by
 replacing padded `_ext` arrays with graph-walking neighbor lookup). Read this
 plus `step1-network-primary-design.md` (the design + the confluence decision) to

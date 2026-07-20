@@ -37,8 +37,19 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
 
+[project.optional-dependencies]
+test = [
+  "pytest",
+]
+
 [tool.setuptools.dynamic]
 version = {attr = "grlp._version.__version__"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "slow: marks tests that run full numerical time-integrations (deselect with '-m \"not slow\"')",
+]
 
 [project.urls]
 Homepage = "https://csdms.colorado.edu/wiki/Model:GRLP"

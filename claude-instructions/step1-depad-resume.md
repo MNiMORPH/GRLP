@@ -45,16 +45,18 @@ which at a single-upstream junction is the last node of the upstream segment).
   segment (`tests/test_depad_walk.py`). Single-upstream junctions already walk
   across the boundary and get the interior stencil; multi-tributary confluences
   raise `NotImplementedError`. Additive; **not yet wired into the evolve loop**.
-- **2b — 1-into-1 junction.** `assemble_by_walking` already produces the interior
-  stencil at a single-upstream junction (the confluence node's neighbor walk
-  crosses the boundary). Remaining 2b work: validate a 1-into-1 chain assembled
-  by the walker equals the single segment, then wire the walker into the evolve
-  loop for the discharge-continuous cases. The confluence node's `up[g]` points
-  across the boundary to the upstream segment's last global node; the interior
-  boundary to the upstream segment's last global node; the same interior stencil
-  then produces the correct row → fixes it exactly (vs current ~0.8 m/junction).
-  **`chain_uniform_B` golden WILL move here** (it pins the buggy junction);
-  regenerate it and confirm it then equals a single uniform-Q segment.
+- **2b — 1-into-1 junction validated** (commit `5542635`). A 1-into-1 chain
+  assembled by `assemble_by_walking` equals the single segment bit-for-bit
+  (`tests/test_depad_walk.py::test_walk_1into1_chain_equals_single_segment`).
+  The fix is proven at the assembly level; wiring into the evolve loop remains.
+- **WIRING (the next real step) — needs a full budget.** Route
+  `evolve_threshold_width_river_network` through `assemble_by_walking` for the
+  solve. This forces **2c (multi-tributary delegation)** at the same time,
+  because the evolve loop runs the golden confluence networks, which currently
+  raise `NotImplementedError` in the walker. And it **moves `chain_uniform_B`**
+  (it pins the buggy junction) — regenerate that golden and confirm it then
+  equals a single uniform-Q segment; all `confluence_*`/`topology_*` goldens must
+  stay bit-identical (that is what the delegation guarantees).
 - **2c — multi-tributary confluence: delegate.** Hand these nodes to the
   existing `land_area` code unchanged, so `confluence_*` / `topology_*` /
   `confluence_varying_Q` goldens stay bit-identical.

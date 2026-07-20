@@ -1727,6 +1727,22 @@ class Network(object):
         lengths = list(self.list_of_segment_lengths)
         starts = np.cumsum([0] + lengths)[:-1]
         n = int(np.sum(lengths))
+        # The three-node junction cell reaches to the confluence's second
+        # interior node and to each tributary's second-to-last node, so segments
+        # adjacent to a multi-tributary confluence must be long enough. Fail
+        # clearly rather than with an IndexError.
+        for lp in segs:
+            if len(lp.upstream_segment_IDs) > 1:
+                if lengths[lp.ID] < 3:
+                    raise ValueError(
+                        "Walking solver: confluence segment %d needs >= 3 nodes "
+                        "(has %d)." % (lp.ID, lengths[lp.ID]))
+                for t in lp.upstream_segment_IDs:
+                    if lengths[t] < 2:
+                        raise ValueError(
+                            "Walking solver: tributary segment %d into confluence "
+                            "%d needs >= 2 nodes (has %d)."
+                            % (t, lp.ID, lengths[t]))
         for lp in segs:
             lp.build_LHS_coeff_C0(dt=dt)
         rows = []; cols = []; vals = []; RHS = np.zeros(n)

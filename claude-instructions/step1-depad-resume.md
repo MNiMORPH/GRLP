@@ -66,15 +66,28 @@ which at a single-upstream junction is the last node of the upstream segment).
   goldens stay bit-identical, then flip the branch (banks the padless
   refactor but keeps the first-order junction); (b) *the real fix* — a
   second-order flux-balance junction cell (design doc "Confluence handling").
-  **Design finding (do not re-walk):** *averaging the interior stencil over the
-  tributaries does NOT conserve sediment* — ~53% junction flux imbalance
-  (`prototypes`-style scratch test `confluence_cell.py`, not committed) —
-  because averaging breaks the flux match between each tributary's last-node
-  equation and the confluence node. The cell MUST be built on explicit flux
-  conservation (sum of tributary face-fluxes = outflow face-flux). The open
-  problem is doing that *and* staying second-order (the naive single-valued-flux
-  FV in `prototypes/fv_prototype.py` is first-order). This is the genuine
-  numerical-design task; give it a fresh session.
+  **Findings (measured; do not re-walk):**
+  1. *The current confluence is EXACT for uniform Q per segment* — the symmetric
+     junction elevation is `600.0` at every `dx` (constant-slope profile, no
+     discretization error). It is first-order **only** for within-segment-varying
+     Q (the `confluence_varying_Q` case). So the standard confluences are fine;
+     the "hard half" is a narrow edge case, and 2c-delegate keeps all standard
+     confluence goldens exact.
+  2. *Two re-derivations both fail conservation:* averaging interior stencils
+     (~53% junction imbalance) and a one-sided flux-balance cell (~40%, junction
+     z 388 vs 600). **Root cause:** each junction-adjacent face is shared between
+     a face-based cell and a node-based interior neighbor (the tributary's last
+     node, the confluence's downstream node) → the face flux is double-valued →
+     mass leaks. A conserving confluence needs the *whole junction neighborhood*
+     (confluence node + tributary last nodes + downstream node) to use
+     **consistent shared face fluxes** on the junction faces.
+  3. The current `land_area` code already arranges this two-sided handshake
+     (`add_block_diagonal_matrix_upstream/downstream_boundary_conditions`). So
+     **2c-delegate = reproduce those entries via the walk**, not re-derive them;
+     re-derivation keeps hitting the two-sided-consistency wall. A clean
+     second-order confluence (2c-b) is a separate, genuine numerical-design task
+     (naive single-valued FV in `prototypes/fv_prototype.py` is first-order) —
+     fresh session.
 - **remove** the padded `_ext` machinery once 2c lands.
 - **(later, hard half)** swap the delegated multi-tributary path for the
   second-order flux-balance junction cell (7/6 tangent flux, reduces to interior

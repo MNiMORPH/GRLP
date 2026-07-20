@@ -1879,6 +1879,15 @@ class Network(object):
             for lp in segs:
                 lp.t = self.t
                 lp.dz_dt = (lp.z - lp.zold) / dt
+        # Sync the padded z_ext arrays for downstream consumers that still read
+        # them (LongProfile.compute_Q_s, the examples/ scripts). The walking
+        # solver does not use z_ext; this keeps the final state consistent until
+        # those consumers are migrated to lp.z and the padding is removed.
+        for lp in segs:
+            for _tribi in range(len(lp.z_ext)):
+                lp.z_ext[_tribi][1:-1] = lp.z
+        self.update_z_ext_internal()
+        self.update_z_ext_external_upstream(S0=self.S0, Q_s_0=self.Q_s_0)
 
     def set_niter(self, niter):
         # MAKE UNIFORM IN BASE CLASS

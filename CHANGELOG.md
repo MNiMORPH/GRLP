@@ -12,6 +12,20 @@ version heading for the full notes.
 ## [Unreleased]
 
 ### Fixed
+- `Network.set_intermittency` now sets each segment's intermittency. It had
+  assigned the value to the attribute holding the segment's bound
+  `set_intermittency` *method* (`lp.set_intermittency = intermittency`) rather
+  than calling it, so segment intermittency never changed and the method was
+  overwritten with a float. Handles both the scalar and per-segment-list forms.
+- Networked solver, `Q_s_0 → S0` boundary conversion
+  (`update_z_ext_external_upstream`): removed a spurious intermittency factor and
+  corrected the sign, matching the single-segment `set_Qs_input_upstream`.
+  Intermittency scales the evolution rate (via `C0`), not the equilibrium slope,
+  so it must not enter this geometric inversion; and the ghost placement
+  `z_ext[0] = z[0] + S0·dx` requires a positive `S0` for a descending river. With
+  `I ≠ 1` the old form gave the wrong slope by `I^(-6/7)` and the wrong sign, so a
+  network driven by sediment supply diverged from the equivalent standalone by
+  hundreds of metres. Latent: all tests and examples drive networks by `S0`.
 - Networked solver, channel-head boundary: the upstream ghost discharge is now
   linearly extrapolated (`Q_ext[0] = 2*Q[0] - Q[1]`), matching the standalone
   single-segment solver, instead of held constant (`Q_ext[0] = Q[0]`). A channel

@@ -2213,9 +2213,11 @@ class Network(object):
             return ("jcn", lp.downstream_segment_IDs[0])
 
         G = nx.DiGraph()
+        self._edge_of_segment = {}
         for lp in self.list_of_LongProfile_objects:
-            G.add_edge(upstream_node(lp.ID), downstream_node(lp.ID),
-                       segment_id=lp.ID, segment=lp)
+            u, v = upstream_node(lp.ID), downstream_node(lp.ID)
+            G.add_edge(u, v, segment_id=lp.ID, segment=lp)
+            self._edge_of_segment[lp.ID] = (u, v)
         self.graph = G
         return self.graph
 
@@ -2865,33 +2867,32 @@ class Network(object):
 
     def find_downstream_IDs(self, ID):
         """
-        Search list of downstream IDs, return all segments downstream of
-        specified point.
-        Uses recursive call of _downstream_IDs function.
-        Added: FM, 03/2021.
+        Return all segment IDs downstream of (and including) the specified
+        segment, in order from that segment to the outlet.
+
+        Walks the topology graph's unique out-edge chain.
+        Added: FM, 03/2021. Migrated to the NetworkX graph.
         """
-        IDs = []
-        def _downstream_IDs(i):
-            IDs.append(i)
-            down_IDs = self.list_of_LongProfile_objects[i].downstream_segment_IDs
-            if down_IDs:
-                _downstream_IDs(down_IDs[0])
-        _downstream_IDs(ID)
+        IDs = [ID]
+        node = self._edge_of_segment[ID][1]  # downstream node of this segment
+        while self.graph.out_degree(node) > 0:
+            (_, next_node, data), = list(self.graph.out_edges(node, data=True))
+            IDs.append(data["segment_id"])
+            node = next_node
         return IDs
 
     def find_upstream_IDs(self, ID):
         """
-        Search list of upstream IDs, return all segments upstream of
-        specified point.
-        Uses recursive call of _upstream_IDs function.
-        Added: FM, 03/2021.
+        Return all segment IDs upstream of (and including) the specified
+        segment, by depth-first walk up the topology graph's in-edges.
+        Added: FM, 03/2021. Migrated to the NetworkX graph.
         """
         IDs = []
-        def _upstream_IDs(i):
-            IDs.append(i)
-            up_IDs = self.list_of_LongProfile_objects[i].upstream_segment_IDs
-            for j in up_IDs:
-                _upstream_IDs(j)
+        def _upstream_IDs(seg_id):
+            IDs.append(seg_id)
+            upstream_node = self._edge_of_segment[seg_id][0]
+            for _, _, data in self.graph.in_edges(upstream_node, data=True):
+                _upstream_IDs(data["segment_id"])
         _upstream_IDs(ID)
         return IDs
 

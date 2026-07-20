@@ -64,3 +64,40 @@ def test_walk_reproduces_build_matrices_single_segment(long_profile_factory):
 
     np.testing.assert_allclose(Mw.toarray(), Mref, rtol=0, atol=1e-9)
     np.testing.assert_allclose(Rw, Rref, rtol=0, atol=1e-9)
+
+
+def test_walk_1into1_chain_equals_single_segment(long_profile_factory):
+    """A 1-into-1 chain assembled by the walker equals the single segment: the
+    confluence node's neighbor walk crosses the segment boundary and gets the
+    ordinary interior stencil, so splitting a reach is an exact no-op (vs. the
+    ~0.8 m/junction error of the land_area code). This is the de-pad's
+    discharge-continuous junction fix."""
+    ref = long_profile_factory(intermittency=1.0)
+    x = ref.x.copy(); Q = ref.Q.copy(); B = ref.B.copy()
+    n = len(x); dx = x[1] - x[0]; S0 = 1.5e-2
+    zc = np.linspace(30.0, 1.0, n)
+
+    def _walk(net):
+        for lp in net.list_of_LongProfile_objects:
+            lp.set_intermittency(1.0)
+        net.set_niter(5); net.get_z_lengths()
+        return net.assemble_by_walking(DT)
+
+    single = grlp.Network()
+    single.initialize(
+        x_bl=x[-1] + dx, z_bl=0.0, S0=[S0], Q_s_0=None,
+        upstream_segment_IDs=[[]], downstream_segment_IDs=[[]],
+        x=[x.copy()], z=[zc.copy()], Q=[Q.copy()], B=[B.copy()])
+    Ms, Rs = _walk(single)
+
+    k = n // 2
+    chain = grlp.Network()
+    chain.initialize(
+        x_bl=x[-1] + dx, z_bl=0.0, S0=[S0], Q_s_0=None,
+        upstream_segment_IDs=[[], [0]], downstream_segment_IDs=[[1], []],
+        x=[x[:k].copy(), x[k:].copy()], z=[zc[:k].copy(), zc[k:].copy()],
+        Q=[Q[:k].copy(), Q[k:].copy()], B=[B[:k].copy(), B[k:].copy()])
+    Mc, Rc = _walk(chain)
+
+    np.testing.assert_allclose(Mc.toarray(), Ms.toarray(), rtol=0, atol=1e-9)
+    np.testing.assert_allclose(Rc, Rs, rtol=0, atol=1e-9)

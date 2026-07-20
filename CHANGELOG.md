@@ -25,6 +25,13 @@ version heading for the full notes.
   solution, matching the standalone. Networks with uniform discharge per segment
   (where `2*Q[0] - Q[1] == Q[0]`) are unaffected. Guarded by
   `tests/test_network_varying_Q.py`.
+- Networked solver, river-mouth (outlet) boundary: the downstream ghost
+  discharge is likewise linearly extrapolated (`Q_ext[-1] = 2*Q[-1] - Q[-2]`)
+  rather than held constant, the sibling of the channel-head fix above. The
+  single outlet has no tributary junction, so the same reasoning applies. With
+  both boundary fixes a single-segment network now reproduces the standalone
+  single-segment solver to machine precision given identical (array) inputs;
+  `tests/test_network_varying_Q.py` asserts this parity and requires both fixes.
 
 ## [2.1.0] - 2026-07-20
 

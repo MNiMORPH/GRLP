@@ -2470,7 +2470,13 @@ class Network(object):
         # Nope: Multiple arrays if there are also upstream segments
         # Just loop over them all
         for Q_ext_array in lp.Q_ext:
-                Q_ext_array[-1] = lp.Q[-1]
+                # Linearly extrapolate the ghost discharge, matching the
+                # single-segment solver (set_Q: 2*Q[-1]-Q[-2]).  The river mouth
+                # is a single outlet with no tributary junction, so -- as at a
+                # channel head -- there is no discharge discontinuity and the
+                # two-cell centered dQ/dx at the boundary is well defined.  See
+                # update_Q_ext_external_upstream for the full rationale.
+                Q_ext_array[-1] = 2*lp.Q[-1] - lp.Q[-2]
 
     def update_dQ_ext_2cell(self):
         """

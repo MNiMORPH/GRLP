@@ -20,6 +20,7 @@ above it, and each channel head carries the imposed slope ``S0``.
 import numpy as np
 import pytest
 
+import grlp
 from network_helpers import (
     NETWORK_TOPOLOGIES,
     build_network,
@@ -29,6 +30,35 @@ from network_helpers import (
 )
 
 S0 = 0.015
+
+
+def test_per_head_S0_maps_to_channel_head_order():
+    # Distinct boundary slopes per head must map to the heads in
+    # list_of_channel_head_segment_IDs order. All other network tests use a
+    # uniform S0, so this is the guard on channel-head ordering (which the
+    # topology-graph migration must preserve, since it sets sediment supply).
+    d = 2000.0
+    net = grlp.Network()
+    net.initialize(
+        x_bl=d * 9, z_bl=0.0, S0=[0.01, 0.02], Q_s_0=None,
+        upstream_segment_IDs=[[], [], [0, 1]],
+        downstream_segment_IDs=[[2], [2], []],
+        x=[d * np.arange(1, 5.0), d * np.arange(1, 5.0), d * np.arange(5, 9.0)],
+        z=[np.zeros(4)] * 3,
+        Q=[5 * np.ones(4), 5 * np.ones(4), 10 * np.ones(4)],
+        B=[100.0 * np.ones(4)] * 3,
+    )
+    net.set_niter(3)
+    net.get_z_lengths()
+    net.evolve_threshold_width_river_network(nt=1000, dt=3e10)
+    assert net.list_of_channel_head_segment_IDs == [0, 1]
+    slopes = [
+        float(np.mean(-np.diff(net.list_of_LongProfile_objects[i].z)
+                      / np.diff(net.list_of_LongProfile_objects[i].x)))
+        for i in (0, 1)
+    ]
+    assert slopes[0] == pytest.approx(0.01, rel=1e-6)
+    assert slopes[1] == pytest.approx(0.02, rel=1e-6)
 
 
 @pytest.fixture(scope="module", params=list(NETWORK_TOPOLOGIES),

@@ -1,4 +1,5 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3740658.svg)](https://doi.org/10.5281/zenodo.3740658)
+[![tests](https://github.com/MNiMORPH/GRLP/actions/workflows/tests.yml/badge.svg)](https://github.com/MNiMORPH/GRLP/actions/workflows/tests.yml)
 
 # gravel-river-long-profile
 

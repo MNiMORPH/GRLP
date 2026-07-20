@@ -23,6 +23,7 @@ flattens these into ``"<config>__<array>"`` keys.
 import numpy as np
 
 import grlp
+from network_helpers import NETWORK_TOPOLOGIES, run_topology_arrays
 
 
 # Evolution schedule for single-segment configs: cumulative (nt, dt) legs.
@@ -226,4 +227,10 @@ def run_all():
     for name, (fn, kwargs) in NETWORK_CONFIGS.items():
         for key, arr in fn(**kwargs).items():
             data["%s__%s" % (name, key)] = arr
+    # Golden master for the shared correctness topologies (asymmetric, unequal
+    # dx, multi-level, balanced tree). Safe to pin because Group A confirms the
+    # current solver is correct on them.
+    for name, spec in NETWORK_TOPOLOGIES.items():
+        for key, arr in run_topology_arrays(spec).items():
+            data["topology_%s__%s" % (name, key)] = arr
     return data

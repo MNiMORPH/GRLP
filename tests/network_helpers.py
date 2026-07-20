@@ -72,3 +72,84 @@ def expected_during_flood_Qs(net, seg_id, up, S0):
         segs[h].k_Qs * segs[h].Q[0] * S0 ** (7 / 6.0)
         for h in heads_above(seg_id, up)
     )
+
+
+# --------------------------------------------------------------------------- #
+# Shared catalog of test network topologies.
+#
+# Used both by the correctness tests (assert physics) and by the
+# characterization suite (capture golden-master outputs), so that every topology
+# whose behavior is pinned is also checked for correctness.
+# --------------------------------------------------------------------------- #
+
+_D = 2000.0
+
+
+def _head(n=4):
+    """A head-segment x array of n nodes at spacing _D starting at _D."""
+    return _D * np.arange(1, n + 1, dtype=float)
+
+
+NETWORK_TOPOLOGIES = {
+    "symmetric_confluence": dict(
+        x=[_head(), _head(), _D * np.arange(5, 9, dtype=float)],
+        Q=[5 * np.ones(4), 5 * np.ones(4), 10 * np.ones(4)],
+        up=[[], [], [0, 1]], down=[[2], [2], []], x_bl=_D * 9,
+    ),
+    "asymmetric_Q_confluence": dict(
+        x=[_head(), _head(), _D * np.arange(5, 9, dtype=float)],
+        Q=[5 * np.ones(4), 15 * np.ones(4), 20 * np.ones(4)],
+        up=[[], [], [0, 1]], down=[[2], [2], []], x_bl=_D * 9,
+    ),
+    "unequal_dx_coarse_to_fine": dict(
+        x=[_head(), _head(), 8000.0 + 1000.0 * np.arange(1, 7, dtype=float)],
+        Q=[5 * np.ones(4), 5 * np.ones(4), 10 * np.ones(6)],
+        up=[[], [], [0, 1]], down=[[2], [2], []], x_bl=14000.0 + 1000.0,
+    ),
+    "unequal_dx_fine_to_coarse": dict(
+        x=[1000.0 * np.arange(1, 7, dtype=float),
+           1000.0 * np.arange(1, 7, dtype=float),
+           6000.0 + 2000.0 * np.arange(1, 5, dtype=float)],
+        Q=[5 * np.ones(6), 5 * np.ones(6), 10 * np.ones(4)],
+        up=[[], [], [0, 1]], down=[[2], [2], []], x_bl=14000.0 + 2000.0,
+    ),
+    "unequal_length_tributaries": dict(
+        x=[_head(3), 1000.0 * np.arange(1, 7, dtype=float),
+           _D * np.arange(5, 9, dtype=float)],
+        Q=[5 * np.ones(3), 5 * np.ones(6), 10 * np.ones(4)],
+        up=[[], [], [0, 1]], down=[[2], [2], []], x_bl=_D * 9,
+    ),
+    "multi_level": dict(
+        x=[_head(), _head(), _head(), _head(),
+           _D * np.arange(5, 9, dtype=float),
+           _D * np.arange(9, 13, dtype=float),
+           _D * np.arange(13, 17, dtype=float)],
+        Q=[5 * np.ones(4)] * 4
+          + [10 * np.ones(4), 15 * np.ones(4), 20 * np.ones(4)],
+        up=[[], [], [], [], [0, 1], [4, 2], [5, 3]],
+        down=[[4], [4], [5], [6], [5], [6], []], x_bl=_D * 17,
+    ),
+    "balanced_tree": dict(
+        x=[_head(), _head(), _head(), _head(),
+           _D * np.arange(5, 9, dtype=float),
+           _D * np.arange(5, 9, dtype=float),
+           _D * np.arange(9, 13, dtype=float)],
+        Q=[5 * np.ones(4)] * 4
+          + [10 * np.ones(4), 10 * np.ones(4), 20 * np.ones(4)],
+        up=[[], [], [], [], [0, 1], [2, 3], [4, 5]],
+        down=[[4], [4], [5], [5], [6], [6], []], x_bl=_D * 13,
+    ),
+}
+
+
+def run_topology_arrays(spec, S0=0.015):
+    """
+    Build+evolve a topology from NETWORK_TOPOLOGIES and return golden-master
+    arrays: concatenated bed elevations and per-segment during-flood Q_s.
+    """
+    net = build_network(spec["x"], spec["Q"], spec["up"], spec["down"],
+                        spec["x_bl"], S0=S0)
+    out = {"z_all": np.hstack([lp.z for lp in net.list_of_LongProfile_objects])}
+    for lp in net.list_of_LongProfile_objects:
+        out["Qs_seg%d" % lp.ID] = during_flood_Qs(lp)
+    return out

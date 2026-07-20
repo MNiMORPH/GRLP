@@ -935,6 +935,24 @@ class LongProfile(object):
 
     def analytical_threshold_width_perturbation(self, P_xQ=None, x0=None, x1=None,
                                    z0=None, z1=None, U=None):
+        """
+        DEPRECATED and known to be incorrect.
+
+        This early ("First attempt at perturbation theory") closed-form attempt
+        at a steady-state solution with uplift does not reproduce the numerical
+        model: its constants of integration blow up and catastrophically
+        cancel, returning unphysical elevations. It is retained only for the
+        historical record.
+
+        Use analytical_threshold_width_uplift instead, which gives the correct
+        steady-state solution with uplift (or base-level fall).
+        """
+        warnings.warn(
+            "analytical_threshold_width_perturbation is deprecated and "
+            "incorrect; use analytical_threshold_width_uplift instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if x0 is None:
             x0 = self.x[0]
         if x1 is None:
@@ -973,6 +991,81 @@ class LongProfile(object):
 
     #def analytical_threshold_width_perturbation_2(self):
     #    self.analytical_threshold_width()
+
+    def analytical_threshold_width_uplift(self, nx_fine=20001):
+        """
+        Semi-analytical steady-state long profile *with uplift* (equivalently,
+        distributed base-level fall), for the transport-limited threshold-width
+        gravel river.
+
+        Uplift is applied to the valley surface at rate U (set_uplift_rate).
+        At steady state (dz/dt = 0), mass conservation
+
+            (1 - lambda_p) * B * dz/dt = -dQ_s/dx + (1 - lambda_p) * B * U
+
+        forces the long-term-averaged bedload discharge to grow downstream as
+        uplifted material is exported:
+
+            Q_s(x) = I * Q_s_0  +  (1 - lambda_p) * U * \\int_{x0}^{x} B dx'
+
+        where I is the intermittency and Q_s_0 is the (during-flood) sediment
+        supply set at the upstream boundary. Note the boundary flux carried by
+        the long-term average is I * Q_s_0, consistent with compute_Q_s.
+
+        The threshold-width transport law Q_s = k_Qs * I * Q * (S/sinuosity)**(7/6)
+        then gives the valley slope, and the bed is recovered by integrating
+        up from base level:
+
+            S(x) = sinuosity * ( Q_s(x) / (k_Qs * I * Q(x)) )**(6/7)
+            z(x) = z_bl + \\int_{x}^{x_bl} S dx'
+
+        Both integrals are evaluated by the trapezoidal rule on a fine grid of
+        nx_fine points (there is no elementary closed form for general P_xQ and
+        P_xB), then sampled at the model nodes. Because the reference grid is
+        independent of the model grid, comparing the numerical solution to this
+        one exhibits first-order convergence under model grid refinement.
+
+        Requires the power-law discharge and width parameters (k_xQ, P_xQ,
+        k_xB, P_xB), the uplift rate U, the intermittency, the upstream
+        sediment supply (Q_s_0, via set_Qs_input_upstream), and base level.
+
+        Sets and returns self.zanalytical (elevations at self.x).
+        """
+        for attr in ("k_xQ", "P_xQ", "k_xB", "P_xB", "U", "Q_s_0"):
+            if getattr(self, attr, None) is None:
+                raise ValueError(
+                    "analytical_threshold_width_uplift requires the power-law "
+                    "parameters (k_xQ, P_xQ, k_xB, P_xB), the uplift rate, and "
+                    "the upstream sediment supply Q_s_0 to be set; missing: "
+                    + attr + "."
+                )
+        lambda_p = self.lambda_p
+        I = self.intermittency
+        # Fine, model-independent reference grid spanning the boundary nodes.
+        x0 = self.x_ext[0]
+        x_bl = self.x_ext[-1]
+        z_bl = self.z_ext[-1]
+        xf = np.linspace(x0, x_bl, nx_fine)
+        Bf = self.k_xB * xf**self.P_xB
+        Qf = self.k_xQ * xf**self.P_xQ
+        # Cumulative trapezoidal integral of B from x0 (numpy-only, so no
+        # dependence on the moving scipy.integrate cumtrapz/cumulative_trapezoid
+        # name).
+        intB = np.concatenate((
+            [0.],
+            np.cumsum(0.5 * (Bf[1:] + Bf[:-1]) * np.diff(xf))
+        ))
+        Qs = I * self.Q_s_0 + (1 - lambda_p) * self.U * intB
+        Sf = self.sinuosity * (Qs / (self.k_Qs * I * Qf))**(6/7.)
+        # z by integrating slope upstream from base level:
+        # z(x) = z_bl + \int_x^{x_bl} S dx'. Integrate on the reversed grid.
+        dz_up = np.concatenate((
+            [0.],
+            np.cumsum(0.5 * (Sf[1:] + Sf[:-1]) * np.diff(xf))
+        ))
+        zf = z_bl + (dz_up[-1] - dz_up)
+        self.zanalytical = np.interp(self.x, xf, zf)
+        return self.zanalytical
 
     def compute_Q_s(self):
         S = []

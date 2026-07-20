@@ -153,6 +153,55 @@ straddles the jump and the current one-sided handling is first-order
 (~0.8 m/junction, accumulating). That is the real target for the de-pad's
 finite-volume flux-divergence form (see the C/D bullet above).
 
+## Confluence handling: finite volume vs. finite difference (decision)
+
+### The implied face flux of the current FD interior
+
+The interior transport at node `i` (uniform grid, `dQ` term dropped for clarity)
+
+```
+T_i = (7/6) · C1_i / dx^2 · (2 z_i - z_{i-1} - z_{i+1})
+    = [ F_{i+1/2} - F_{i-1/2} ] / dx ,     C1_i = C0 · |S_i|^{1/6} · Q_i / B_i
+F_{i+1/2} = (7/6) · C1_i · (z_i - z_{i+1}) / dx
+```
+
+Two facts drive everything:
+
+1. The `7/6` is the **tangent (Newton) linearization** of `Q_s = K Q S^{7/6}`
+   (`d/dS S^{7/6} = 7/6 S^{1/6}`). `land_area_around_confluence` was built with
+   the **secant** flux (frozen `|S|^{1/6}`, no `7/6`); the missing factor is the
+   measured ~6/7 (0.85x) weakness at the confluence node.
+2. `C1_i` is evaluated at the **node** (2-cell slope), so `F_{i+1/2}` is
+   **double-valued** — nodes `i` and `i+1` compute the shared face's flux with
+   different `C1`. The interior is therefore a **node-based, second-order but not
+   strictly conservative** scheme. It does not drop into clean finite-volume
+   form.
+
+### Measured: naive finite volume is first-order here
+
+A from-scratch single-valued-face-flux FV (secant flux, face-averaged `Q`,
+node-centered cells; prototype `fv_prototype.py`) converges at **first order**
+(order ~1.0, ~1.35 m at `dx = 1000` vs. the GRLP standalone, which is
+second-order). So converting to FV is **not** a free accuracy win — a careless
+FV downgrades the interior from second to first order. A second-order FV is
+achievable but needs careful face reconstruction; it is real work, not a swap.
+
+### Decision (two regimes)
+
+- **Discharge-continuous junctions (single upstream segment)** use the standard
+  second-order FD interior stencil with **neighbor-reaching** across the segment
+  boundary — the confluence node is just a regular interior node. Exact
+  (reduces to the single segment to ~1e-13); no special cell.
+- **Genuine multi-tributary confluences (discharge discontinuity)** use a
+  **flux-balance junction cell** — the FV idea (sum of tributary face-fluxes =
+  outflow face-flux, cell area = `land_area`, no `dQ/dx` across the jump) — but
+  with each face flux carrying the interior's **tangent (`7/6`) linearization**
+  and constructed to reduce to the interior stencil in the single-tributary
+  limit, so it stays second-order.
+- A naive secant / face-averaged FV is **explicitly rejected** (measured
+  first-order), as is a full model-wide FV conversion (it would change every
+  interior number and move all golden values for no accuracy gain).
+
 ## Test strategy
 
 - **Hard invariants** the de-padded solver must satisfy (these validate a *new*

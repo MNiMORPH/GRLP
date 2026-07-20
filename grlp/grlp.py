@@ -1737,6 +1737,12 @@ class Network(object):
                    + np.asarray(lp.downstream_fining_subsidence_equivalent)
                    + np.asarray(lp.U)) * dt
             src = np.broadcast_to(src, (L,))
+            # RHS uses the start-of-step elevation (zold) during Picard
+            # iteration; the coefficient (C1) uses the current iterate lp.z.
+            # When zold is unset (static assembly, e.g. tests) it equals lp.z.
+            z_rhs = getattr(lp, "zold", None)
+            if z_rhs is None or np.size(z_rhs) != L:
+                z_rhs = lp.z
             for i in range(L):
                 g = off + i
                 # --- upstream neighbor (or head ghost) ---
@@ -1779,7 +1785,7 @@ class Network(object):
                 center = -C1 / dx2 * (7 / 3. * (-1 / dxu - 1 / dxd)) + 1.
                 left = -C1 / dx2 * (7 / 3. / dxu - dQ2 / lp.Q[i] / dx2)
                 right = -C1 / dx2 * (7 / 3. / dxd + dQ2 / lp.Q[i] / dx2)
-                rhs_g = lp.z[i] + src[i]
+                rhs_g = z_rhs[i] + src[i]
                 if is_head:                       # set_bcl_Neumann
                     right = -C1 / dx2 * 7 / 3. * (1 / dxu + 1 / dxd)
                     rhs_g += lp.S0 * C1 * (7 / 3. / dxu - dQ2 / lp.Q[i] / dx2)
@@ -1796,6 +1802,33 @@ class Network(object):
                 RHS[g] = rhs_g
         LHSmatrix = sparse.csr_matrix((vals, (rows, cols)), shape=(n, n))
         return LHSmatrix, RHS
+
+    def _evolve_by_walking(self, nt, dt):
+        """
+        Time-step the network through the de-padded walking assembler
+        (:meth:`assemble_by_walking`). Used for networks with no multi-tributary
+        confluence (single segments and 1-into-1 chains); the walker handles
+        those exactly and fixes the first-order junction. Proper Picard: the RHS
+        is frozen at the start-of-step elevation (``zold``) while the coefficient
+        relinearizes on the current iterate each iteration.
+        """
+        self.dt = dt
+        segs = self.list_of_LongProfile_objects
+        lengths = list(self.list_of_segment_lengths)
+        starts = np.cumsum([0] + lengths)[:-1]
+        for ti in range(int(nt)):
+            for lp in segs:
+                lp.zold = lp.z.copy()
+            for _ in range(int(self.niter)):
+                LHS, RHS = self.assemble_by_walking(dt)
+                out = spsolve(sparse.csr_matrix(LHS), RHS)
+                for lp in segs:
+                    s = lp.ID
+                    lp.z = out[starts[s]:starts[s] + lengths[s]]
+            self.t += dt
+            for lp in segs:
+                lp.t = self.t
+                lp.dz_dt = (lp.z - lp.zold) / dt
 
     def set_niter(self, niter):
         # MAKE UNIFORM IN BASE CLASS
@@ -2870,6 +2903,13 @@ class Network(object):
         """
         self.nt = nt
         self.dt = dt
+        # De-padded path: networks with no multi-tributary confluence (single
+        # segments, 1-into-1 chains) are handled exactly by the neighbor-walking
+        # assembler, which also fixes the first-order junction. Multi-tributary
+        # confluences still use the padded block-matrix path below.
+        if not any(len(lp.upstream_segment_IDs) > 1
+                   for lp in self.list_of_LongProfile_objects):
+            return self._evolve_by_walking(nt, dt)
         self.update_z_ext_internal() # FM: set again later inside iteration?
         # self.dt is decided earlier
 

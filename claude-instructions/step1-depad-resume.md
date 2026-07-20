@@ -58,13 +58,23 @@ which at a single-upstream junction is the last node of the upstream segment).
   `chain_uniform_B` did **not** move — with uniform Q the `dQ/dx` terms vanish,
   so the junction handling is irrelevant there (earlier "it will move" was
   wrong). Full suite 296 green.
-- **2c — multi-tributary confluence (NEXT).** The evolve branch still sends any
-  network with a ≥2-tributary confluence down the old padded block-matrix path;
-  the walker raises `NotImplementedError` on such a node. Fold multi-tributary
-  confluences into the walker: first *delegate* (reproduce the current
-  `land_area` block entries so `confluence_*`/`topology_*`/`confluence_varying_Q`
-  goldens stay bit-identical), then flip the evolve branch to always use the
-  walker. This is where the padded path finally goes away.
+- **2c — multi-tributary confluence (NEXT, the hard half).** The evolve branch
+  still sends any network with a ≥2-tributary confluence down the old padded
+  block-matrix path; the walker raises `NotImplementedError` on such a node.
+  Two sub-options: (a) *delegate* — reproduce the current `land_area` block
+  entries in the walker so `confluence_*`/`topology_*`/`confluence_varying_Q`
+  goldens stay bit-identical, then flip the branch (banks the padless
+  refactor but keeps the first-order junction); (b) *the real fix* — a
+  second-order flux-balance junction cell (design doc "Confluence handling").
+  **Design finding (do not re-walk):** *averaging the interior stencil over the
+  tributaries does NOT conserve sediment* — ~53% junction flux imbalance
+  (`prototypes`-style scratch test `confluence_cell.py`, not committed) —
+  because averaging breaks the flux match between each tributary's last-node
+  equation and the confluence node. The cell MUST be built on explicit flux
+  conservation (sum of tributary face-fluxes = outflow face-flux). The open
+  problem is doing that *and* staying second-order (the naive single-valued-flux
+  FV in `prototypes/fv_prototype.py` is first-order). This is the genuine
+  numerical-design task; give it a fresh session.
 - **remove** the padded `_ext` machinery once 2c lands.
 - **(later, hard half)** swap the delegated multi-tributary path for the
   second-order flux-balance junction cell (7/6 tangent flux, reduces to interior

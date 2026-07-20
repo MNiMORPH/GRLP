@@ -2037,7 +2037,6 @@ class Network(object):
         if _use_Q_s_0:
             _Q0 = []
             _sinuosity = []
-            _intermittency = []
             _k_Qs = []
             for ID in self.list_of_channel_head_segment_IDs:
                 lp = self.list_of_LongProfile_objects[ID]
@@ -2048,18 +2047,20 @@ class Network(object):
                 # consistent internally
                 _Q0.append(lp.Q[0])
                 _sinuosity.append(lp.sinuosity)
-                _intermittency.append(lp.intermittency)
                 _k_Qs.append(lp.k_Qs)
             _Q0 = np.array(_Q0)
             _sinuosity = np.array(_sinuosity)
-            _intermittency = np.array(_intermittency)
             _k_Qs = np.array(_k_Qs)
-            # Note: Negative S0 if sloping downstream.
-            # This is reverse to the usuaal (backwards) sign convention.
-            S0 = - np.sign(_Q0) * _sinuosity * \
+            # Invert the transport law Q_s = k_Qs * Q * (S/sinuosity)**(7/6) for
+            # the boundary slope, matching the single-segment set_Qs_input_upstream.
+            # Intermittency is deliberately absent: it scales the evolution rate
+            # (via C0), not the equilibrium slope, so it must not enter the
+            # Q_s_0 -> S0 conversion.  The sign is +sign(Q0): the ghost is placed
+            # as z_ext[0] = z[0] + S0*dx, so S0 must be positive for a river that
+            # descends downstream (matching the S0-given code path).
+            S0 = np.sign(_Q0) * _sinuosity * \
               ( np.abs(Q_s_0) /
-                ( _k_Qs * _intermittency
-                      * np.abs(_Q0)) )**(6/7.)
+                ( _k_Qs * np.abs(_Q0) ) )**(6/7.)
 
         ################################################
         #        IF S0 BE PROVIDED, JUST USE IT        #

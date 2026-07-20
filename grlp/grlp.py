@@ -2153,10 +2153,14 @@ class Network(object):
 
         Therefore, it is set by topology rather than boundary conditions.
         """
-        self.list_of_channel_head_segment_IDs = []
-        for lp in self.list_of_LongProfile_objects:
-            if not lp.upstream_segment_IDs:
-                self.list_of_channel_head_segment_IDs.append(lp.ID)
+        # Source nodes (no upstream edges); each has one out-edge, the head
+        # segment. Sorted by ID so the order matches sediment-supply inputs.
+        head_ids = [
+            data["segment_id"]
+            for node in self.graph.nodes if self.graph.in_degree(node) == 0
+            for _, _, data in self.graph.out_edges(node, data=True)
+        ]
+        self.list_of_channel_head_segment_IDs = sorted(head_ids)
 
     def create_list_of_channel_mouth_segment_IDs(self):
         """
@@ -2170,10 +2174,14 @@ class Network(object):
         It seems cleaner (to me, Wickert) to run each tributary network
         as a separate instance of GRLP.
         """
-        self.list_of_channel_mouth_segment_IDs = []
-        for lp in self.list_of_LongProfile_objects:
-            if not lp.downstream_segment_IDs:
-                self.list_of_channel_mouth_segment_IDs.append(lp.ID)
+        # Outlet nodes (no downstream edges); each has one in-edge, the mouth
+        # segment. A convergent network has exactly one.
+        mouth_ids = [
+            data["segment_id"]
+            for node in self.graph.nodes if self.graph.out_degree(node) == 0
+            for _, _, data in self.graph.in_edges(node, data=True)
+        ]
+        self.list_of_channel_mouth_segment_IDs = sorted(mouth_ids)
 
         if len(self.list_of_channel_mouth_segment_IDs) == 1:
             self.channel_mouth_segment_ID = \
@@ -2199,12 +2207,13 @@ class Network(object):
 
         This is the emerging source of truth for topology; the per-segment
         upstream/downstream ID lists are retained during the transition.
-        Requires the channel-head and channel-mouth lists to be set first.
+        Built directly from those ID lists (an empty upstream list marks a
+        source, an empty downstream list marks the outlet).
         """
-        heads = set(self.list_of_channel_head_segment_IDs)
-
         def upstream_node(seg_id):
-            return ("source", seg_id) if seg_id in heads else ("jcn", seg_id)
+            lp = self.list_of_LongProfile_objects[seg_id]
+            return ("source", seg_id) if not lp.upstream_segment_IDs \
+                else ("jcn", seg_id)
 
         def downstream_node(seg_id):
             lp = self.list_of_LongProfile_objects[seg_id]
@@ -2686,13 +2695,13 @@ class Network(object):
         #   S0
         #   Q_s_0
 
-        # Identify channel head and mouth segments
-        self.create_list_of_channel_head_segment_IDs()
-        self.create_list_of_channel_mouth_segment_IDs()
-
         # Build the NetworkX topology graph (edges = segments, nodes =
         # junctions). Emerging source of truth for topology.
         self.build_graph()
+
+        # Identify channel head and mouth segments (derived from the graph)
+        self.create_list_of_channel_head_segment_IDs()
+        self.create_list_of_channel_mouth_segment_IDs()
 
         # Generate arrays of x, including networked links
         self.create_x_ext_lists()

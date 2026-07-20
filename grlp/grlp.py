@@ -2513,11 +2513,11 @@ class Network(object):
             _isscalar = True
         if _isscalar:
             for lp in self.list_of_LongProfile_objects:
-                lp.set_intermittency = intermittency
+                lp.set_intermittency(intermittency)
         else:
             i = 0
             for lp in self.list_of_LongProfile_objects:
-                lp.set_intermittency = intermittency[i]
+                lp.set_intermittency(intermittency[i])
                 i += 1
 
     def compute_land_areas_around_confluences(self):

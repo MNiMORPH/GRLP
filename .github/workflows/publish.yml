@@ -1,0 +1,61 @@
+name: Publish to PyPI
+
+# Publishes the built distribution to PyPI using Trusted Publishing (OIDC),
+# so no API tokens are stored in the repository.
+#
+# Fires when a GitHub Release is published, and can also be run manually
+# (workflow_dispatch) against a tag -- used to publish v2.1.0, which was
+# released before this workflow existed.
+#
+# One-time setup (cannot be done from here):
+#   1. Register a Trusted Publisher on PyPI:
+#      https://pypi.org/manage/account/publishing/
+#        Owner:         MNiMORPH
+#        Repository:    GRLP
+#        Workflow file: publish.yml
+#        Environment:   pypi
+#   2. Create a "pypi" environment in the GitHub repo settings, ideally with
+#      required reviewers so every upload gets a manual approval.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+      - name: Install build and twine
+        run: pip install build twine
+      - name: Build package
+        run: python -m build
+      - name: Check distribution
+        run: twine check dist/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/GRLP
+    permissions:
+      id-token: write  # required for Trusted Publishing (OIDC)
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-package-distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

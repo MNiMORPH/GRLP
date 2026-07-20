@@ -115,14 +115,19 @@ def _seg_x(start_mult):
     return _DX * np.arange(start_mult, start_mult + _NSEG, dtype=float)
 
 
-def run_confluence(B_lists=None, S0=0.015, Qh=5.0):
+def run_confluence(B_lists=None, Q_lists=None, S0=0.015, Qh=5.0):
     """
     Symmetric Y network (two heads -> trunk). B_lists, if given, is a list of
-    three width arrays (one per segment); otherwise uniform B=100.
+    three width arrays (one per segment); otherwise uniform B=100. Q_lists, if
+    given, is a list of three discharge arrays; otherwise uniform Qh per
+    tributary and 2*Qh in the trunk.
     """
     x = [_seg_x(1), _seg_x(1), _seg_x(_NSEG + 1)]
     if B_lists is None:
         B_lists = [100.0 * np.ones(_NSEG) for _ in range(3)]
+    if Q_lists is None:
+        Q_lists = [Qh * np.ones(_NSEG), Qh * np.ones(_NSEG),
+                   2 * Qh * np.ones(_NSEG)]
     net = grlp.Network()
     net.initialize(
         x_bl=_DX * (2 * _NSEG + 1),
@@ -133,7 +138,7 @@ def run_confluence(B_lists=None, S0=0.015, Qh=5.0):
         downstream_segment_IDs=[[2], [2], []],
         x=x,
         z=[np.zeros(_NSEG) for _ in range(3)],
-        Q=[Qh * np.ones(_NSEG), Qh * np.ones(_NSEG), 2 * Qh * np.ones(_NSEG)],
+        Q=Q_lists,
         B=B_lists,
     )
     net.set_niter(3)
@@ -214,6 +219,17 @@ NETWORK_CONFIGS = {
         dict(B_lists=[_wavy_seg(_seg_x(1)),
                       _wavy_seg(_seg_x(1)) * 1.1,
                       _wavy_seg(_seg_x(_NSEG + 1)) + 20.0]),
+    ),
+    # Discharge varying *within* each segment -- the only multi-tributary case
+    # that exercises the boundary/junction dQ/dx terms. Every other network
+    # fixture holds Q uniform per segment. Pins current behavior so the planned
+    # solver de-pad (which must leave multi-tributary confluences unchanged)
+    # cannot silently move it.
+    "confluence_varying_Q": (
+        run_confluence,
+        dict(Q_lists=[2.0 + 0.1 * np.arange(_NSEG),
+                      2.0 + 0.1 * np.arange(_NSEG),
+                      4.0 + 0.2 * np.arange(_NSEG)]),
     ),
 }
 

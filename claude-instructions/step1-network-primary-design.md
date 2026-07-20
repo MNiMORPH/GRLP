@@ -33,14 +33,23 @@ as hand-managed ID lists.
 
 A **1-segment `Network` reproduces the standalone `LongProfile` to machine
 precision** (max |Δz| = 1.4e-13 m; rel 5e-16 on a 20-node test). So
-"single = 1-edge network" is already numerically exact — the façade can route
-1-D runs through the network solver without changing results, and the existing
-golden-master + analytical tests will catch any drift.
+"single = 1-edge network" is numerically exact — the façade can route
+1-D runs through the network solver without changing results.
 
-Also established in Step −1: the padded network solver is **correct** at
-asymmetric / unequal-`dx` / multi-level junctions (conservation ~1e-14, ghosts
-agree exactly). So the class/topology refactor here does **not** require
-touching the solver internals; de-padding stays a separate Step 3.
+> **Correction (see "Phase C findings, corrected").** That 1.4e-13 was measured
+> with *uniform* discharge. With downstream-increasing `Q` the 1-segment network
+> was off by ~8.9 m, due to two boundary ghost-discharge bugs — **now fixed**
+> (commits `1deeea9`, `b5e0594`); post-fix the equivalence is genuinely ~1e-13
+> for varying `Q` too. The lesson: "the existing golden-master + analytical
+> tests will catch any drift" was *false* here — every fixture used uniform `Q`,
+> so the bug was invisible. New varying-`Q` tests (`test_network_varying_Q.py`)
+> close that gap.
+
+Also established in Step −1: the padded network solver **conserves sediment** at
+asymmetric / unequal-`dx` / multi-level junctions (~1e-14, ghosts agree exactly).
+Conservation is exact, but note this does *not* imply the junction is
+high-order: the confluence coupling is first-order (~0.8 m/junction, O(dx)) — a
+conservative-but-first-order scheme. That is the de-pad's real target.
 
 ## Target architecture
 
@@ -81,63 +90,68 @@ dependency** (add to `pyproject.toml`), which you've already approved.
   head/mouth lists (and, transitively, Strahler/Horton) now read the graph.
   Purely additive; golden master bit-for-bit. Guarded by `test_network_graph.py`
   and a per-head-`S0` ordering test.
-- **C/D — de-pad the solver, which unifies by construction.** *Reordered:*
-  replacing the padded `_ext` arrays with a single neighbor-walking matrix
-  assembly is now the **vehicle** for unification, not a later step. One assembly
-  ⇒ one BC discretization ⇒ single-segment (1-edge walk) and network agree by
-  construction, and the `LongProfile` façade falls out as a 1-edge call. This
-  dissolves the Phase C boundary-condition discrepancy rather than reconciling
-  two soon-to-be-deleted implementations.
+- **C/D — de-pad the solver.** *Rescoped (see "Phase C findings, corrected"
+  below).* The single-segment vs. network discrepancy that originally motivated
+  de-padding turned out to be **two boundary ghost-discharge bugs, now fixed**
+  (commits `1deeea9`, `b5e0594`) — not a fundamental two-implementation
+  conflict. With those fixed, a 1-segment network reproduces the standalone to
+  ~1e-13, so single-segment *unification* no longer needs de-padding. What
+  remains for the de-pad is the **confluence coupling**: an internal junction is
+  still first-order (~0.8 m/junction, O(dx)) because the discharge is
+  discontinuous there and the current stencil handles it with one-sided
+  differences. Replacing the padded `_ext`/block machinery with a single
+  neighbor-walking, **finite-volume flux-divergence** assembly is the vehicle to
+  make the confluence second-order and conservative by construction (sum of
+  tributary face-fluxes = outflow face-flux; discharge never differenced across
+  the jump). That — not the boundary — is the real justification now.
 
-## Phase C findings (why the reorder)
+## Phase C findings (corrected)
 
-Measured: a 1-segment `Network` equals the standalone `LongProfile` **only at
-equilibrium**, not in the transient (for `niter > 1`). Two causes:
+> The original Phase C write-up (two "causes" — an inert Picard loop and an
+> irreconcilable boundary discretization — motivating de-padding as the
+> unification vehicle) was **wrong on both counts**. It was measured on a set-up
+> that conflated a real bug with intermittency and initial-condition
+> mismatches. The corrected account, verified in detail, is below. The prior
+> "Golden-safety" subsection (which asserted the two discretizations "agree at
+> equilibrium") is superseded and removed.
 
-1. **Inert Picard loop** in `evolve_threshold_width_river_network`
-   (`grlp.py` ~2754): it never wrote the iterate back into `z_ext[1:-1]`, so the
-   semi-implicit coefficient never refined and `niter` was a no-op (the standalone
-   writes `z_ext[1:-1] = spsolve(...)`). The author's own commented-out line at
-   the segment-update block is the intended fix. **Lesson for the unified
-   assembly: write the iterate into the interior before recomputing the
-   coefficient (proper Picard), or `niter` does nothing.**
-2. **Different upstream-BC discretization** (the real blocker). The standalone
-   applies the upstream sediment-flux Neumann BC by *modifying the matrix*
-   (`set_bcl_Neumann_LHS/RHS`, `grlp.py` ~489-571, called from `build_matrices`
-   ~619). The network applies it via the *ghost node* `z_ext[0]` and does
-   `pass` for head segments in
-   `add_block_diagonal_matrix_upstream_boundary_conditions` (~1393). Both are
-   valid; they give the same equilibrium but different transient fixed points
-   (~3e-3). Reconciling ≈ deleting one implementation, which is what de-padding
-   does anyway.
+**The 1-segment network did *not* equal the standalone even at equilibrium — it
+was off by ~8.9 m at `dx = 1000` on a reach with downstream-increasing `Q`.**
+Chased to ground (matched intermittency, matched IC, matched `S0`, grid
+refinement, term-by-term matrix diff, reproduced identically on `v2.0.0` so not
+a Phase B regression):
 
-A partial Picard fix (cause 1) was written, verified equilibrium-preserving, then
-**reverted** — it is throwaway against the de-pad rewrite; only its lesson is kept.
+1. **The Picard loop is *active*, not inert.** The iterate converges across
+   `niter` (0.12 → 3.5e-4 → 1e-6 per iteration). The earlier "inert Picard"
+   claim was false; no Picard fix was needed.
+2. **The discrepancy was two boundary ghost-discharge bugs** — the LHS stencil
+   and Neumann matrix-modification are in fact *bit-identical* between the two
+   solvers; the whole difference lived in one RHS term, the boundary `dQ/dx`.
+   The network held the **ghost discharge constant** (`Q_ext[0] = Q[0]` at the
+   head, `Q_ext[-1] = Q[-1]` at the mouth), collapsing the two-cell centered
+   `dQ/dx` to a one-sided, first-order estimate; the standalone linearly
+   extrapolates (`set_Q`: `2*Q[0]-Q[1]`, `2*Q[-1]-Q[-2]`), which is second-order.
+   Neither boundary has a discharge discontinuity, so the linear ghost is simply
+   correct. **Fixed** in `update_Q_ext_external_upstream` / `_downstream`
+   (commits `1deeea9`, `b5e0594`). The error halved (first order) under grid
+   refinement before the fix and quarters (second order) after; a single-segment
+   network now reproduces the standalone to **~1e-13** given identical array
+   inputs (`tests/test_network_varying_Q.py`).
 
-### Golden-safety of unifying the head Neumann BC (verified post-compact)
+Why it stayed hidden: every pre-existing network test used **uniform `Q` per
+segment**, where `2*Q[0]-Q[1] == Q[0]` and `dQ/dx == 0`, so the bug is invisible
+and no golden value moves. The earlier "1.4e-13 agreement" and the committed
+"golden-safe" finding (`2c2bb60`) were measured in exactly that uniform-`Q`
+regime — the *conclusion* (golden-safe) held, but only because the bug cannot
+manifest there, not because the discretizations are equivalent in general.
 
-Two measured facts make the unification safe for the golden master:
-
-1. **A de-padded single-segment assembly reproduces the standalone
-   `build_matrices()` LHS+RHS to `0.0` absolute difference** (prototype
-   `proto_depad_single.py`): computing the boundary gradients directly from the
-   Neumann `S0` and the outlet `z_bl` — no stored `_ext` pad — and applying the
-   standalone matrix-modification Neumann BC gives the identical tridiagonal
-   system. So the single-segment interior + Neumann + Dirichlet stencil de-pads
-   exactly.
-2. **The network golden-master stores only steady-state values.**
-   `build_network`/`run_topology_arrays` evolve `nt=1000, dt=3e10` to machine
-   precision; every recorded array (`z_all`, `Qs_seg*`) is an equilibrium
-   quantity. Because the two Neumann discretizations *agree at equilibrium*
-   (the 1.4e-13 finding), applying the standalone matrix-mod Neumann BC at
-   **all** channel heads — single-segment and network alike — cannot move any
-   network golden value. Only the single-segment *transient* snapshots
-   (`z_t0` at `nt=2`, `z_t1` at `nt=6`) move, and those are the ones slated to
-   regenerate once confirmed more-correct.
-
-Consequence: the junction stencil is re-expressed *faithfully* (same value
-formulas, graph-walk indexing instead of block bookkeeping + `_ext` pads); the
-head BC is *unified* to the matrix-mod form; nothing else changes.
+Consequence for de-padding: the **boundary** is no longer a reason to de-pad —
+it is fixed and the two solvers agree. The remaining first-order error is at the
+**confluence**, where `Q` genuinely *is* discontinuous (each tributary carries
+its own discharge; the reach below carries the sum), so a centered `dQ/dx`
+straddles the jump and the current one-sided handling is first-order
+(~0.8 m/junction, accumulating). That is the real target for the de-pad's
+finite-volume flux-divergence form (see the C/D bullet above).
 
 ## Test strategy
 
@@ -146,11 +160,17 @@ head BC is *unified* to the matrix-mod form; nothing else changes.
   Step −1 suite): the analytical solutions (steady-state power law, uplift
   quadrature, linearized gain/lag) and sediment conservation, single-segment and
   network. These must hold to tolerance throughout.
-- **Single-segment golden-master *transient* snapshots** (`z_t0`, `z_t1` in
-  `characterization_reference.npz`) *will* change under the new assembly and be
-  regenerated — but only after confirming the new transient is *more* correct
-  (converges to the analytical / high-`niter` solution as the standalone does
-  today). Equilibrium/`Q_s`/network golden values stay invariant.
+- **Single-segment golden values stay invariant.** The boundary fix already
+  brought the single-segment network into ~1e-13 parity with the standalone, and
+  a de-pad that preserves single-segment behavior leaves `z_t0`/`z_t1` and the
+  single-segment characterization arrays untouched. (The boundary-ghost fixes
+  themselves moved *no* golden value, since all fixtures use uniform `Q`.)
+- **Network/confluence golden values *will* move** under a finite-volume
+  confluence rewrite — even with uniform `Q` per segment, the discharge jumps at
+  each junction, so the junction discretization changes the steady state by
+  O(dx). Regenerate them only after confirming the new confluence is *more*
+  correct against the hard invariants (analytical amplitude + exact conservation)
+  and second-order under refinement.
 - Run `pytest -m "not slow"` after each step.
 
 ## Resolved decisions
@@ -159,9 +179,10 @@ head BC is *unified* to the matrix-mod form; nothing else changes.
    `pyproject.toml`).
 2. **The single-thread path delegates to the unified network solver**: the
    standalone `LongProfile` is the front end and, in the 1-segment special case,
-   runs through the same assembly. The equivalence is exact at equilibrium today;
-   full transient equivalence comes from the single de-padded assembly (see
-   "Phase C findings"), not from reconciling the two current solvers.
+   runs through the same assembly. Equivalence is now **exact** (~1e-13, transient
+   and steady) once the boundary ghost-discharge bugs are fixed — so delegation
+   is safe today without any de-pad. The de-pad is about the *confluence*, not
+   this single-segment equivalence.
 3. **Keep the names** `Network` / `LongProfile` for now; revisit a base-class
    split at Step 4 (FluvTree), when multiple segment *types* force it.
 4. **Work directly on `master`**, committing granularly with the test suite

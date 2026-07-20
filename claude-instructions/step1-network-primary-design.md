@@ -96,17 +96,15 @@ dependency** (add to `pyproject.toml`), which you've already approved.
 - Run `pytest -m "not slow"` after every step; regenerate the golden master only
   on a *knowing* change (there should be none in B/C).
 
-## Risks / open questions for review
+## Resolved decisions
 
-1. **`networkx` as a hard dependency** — confirmed OK? (Adds one well-maintained
-   dep; removes hand-rolled topology code.)
-2. **Façade depth** — is delegating `evolve_threshold_width_river` to a 1-edge
-   network acceptable, or do you want the 1-D standalone solver kept as-is and
-   only the multi-segment path unified? (Delegation is the true unification and
-   is backed by the machine-precision equivalence; keeping both is lower-churn
-   but leaves the duplication.)
-3. **Naming** — keep `Network`/`LongProfile`, or rename toward the FluvTree
-   vision (`RiverNetwork` / `Segment`)? Recommendation: keep names now, revisit
-   at Step 4 when multiple segment *types* force a base-class split.
-4. **Branch/PR** — work proceeds on `feature/network-primary`; merge to `master`
-   only when the suite is green and you've reviewed. Agreed?
+1. **`networkx` is a hard dependency**, folded in with this step (add to
+   `pyproject.toml`).
+2. **The single-thread path delegates to the unified network solver**: the
+   standalone `LongProfile` is the front end and, in the 1-segment special case,
+   runs through the same block-diagonal solver. Backed by the measured
+   machine-precision equivalence.
+3. **Keep the names** `Network` / `LongProfile` for now; revisit a base-class
+   split at Step 4 (FluvTree), when multiple segment *types* force it.
+4. **Work directly on `master`**, committing granularly with the test suite
+   green at each step. (No feature branch.)

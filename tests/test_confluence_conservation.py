@@ -6,19 +6,13 @@ Every other network conservation test uses uniform Q per segment, where the
 land_area confluence discretization is exact. With Q varying within the
 segments the current confluence does NOT conserve sediment at steady state
 (~0.85% imbalance, converged -- not a transient) and the junction elevation does
-not converge under grid refinement. This is a real bug in the confluence
-handling, surfaced during the Step 1 de-pad; the test is xfail until the
-confluence is fixed to conserve (see claude-instructions/step1-depad-resume.md).
+not converge under grid refinement. This was a real bug (the padded land_area confluence leaked ~0.85%);
+the de-padded walking solver's conservative three-node junction cell fixes it.
 """
 import numpy as np
-import pytest
-
 import grlp
 
 
-@pytest.mark.xfail(reason="multi-tributary confluence does not conserve sediment "
-                          "for within-segment-varying Q (known bug; de-pad 2c)",
-                   strict=True)
 def test_varying_Q_confluence_conserves_sediment():
     nseg = 30
     dx = 1000.0

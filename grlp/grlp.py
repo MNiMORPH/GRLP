@@ -1745,6 +1745,56 @@ class Network(object):
                 z_rhs = lp.z
             for i in range(L):
                 g = off + i
+                # ===== multi-tributary junction: shared-flux three-node cell ====
+                # Conservation is by construction: each junction FACE carries one
+                # shared conductance D used identically by both adjacent nodes, so
+                # the sediment flux D*(z_up - z_dn) is single-valued. D/A_cell
+                # matches the interior coupling magnitude
+                # (C0*7/(6 B dx**2) Q |S|**(1/6)), so a junction-adjacent node is
+                # consistent with the ordinary interior stencil on its other face.
+                def _Dface(zu, zd, Qf, xu, xd, C0f):
+                    Lf = xd - xu
+                    return C0f * (7 / 6.) * Qf * (np.abs(zu - zd) / Lf) ** (1 / 6.) / Lf
+                is_conf = (i == 0 and len(lp.upstream_segment_IDs) > 1)
+                dn_is_conf = (i == L - 1 and lp.downstream_segment_IDs
+                              and len(segs[lp.downstream_segment_IDs[0]]
+                                      .upstream_segment_IDs) > 1)
+                up_is_conf = (i == 1 and len(lp.upstream_segment_IDs) > 1)
+                if is_conf:
+                    A_c = lp.land_area_around_confluence
+                    D_cd = _Dface(lp.z[0], lp.z[1], 0.5 * (lp.Q[0] + lp.Q[1]),
+                                  lp.x[0], lp.x[1], lp.C0)
+                    csum = D_cd
+                    rows.append(g); cols.append(g + 1); vals.append(-D_cd / A_c)
+                    for t in lp.upstream_segment_IDs:
+                        us = segs[t]; tg = starts[t] + lengths[t] - 1
+                        D_tc = _Dface(us.z[-1], lp.z[0], us.Q[-1],
+                                      us.x[-1], lp.x[0], lp.C0)
+                        csum += D_tc
+                        rows.append(g); cols.append(tg); vals.append(-D_tc / A_c)
+                    rows.append(g); cols.append(g); vals.append(1. + csum / A_c)
+                    RHS[g] = z_rhs[i]; continue
+                if dn_is_conf:
+                    ds = segs[lp.downstream_segment_IDs[0]]; cg = starts[ds.ID]
+                    A = lp.B[-1] * 0.5 * ((lp.x[-1] - lp.x[-2]) + (ds.x[0] - lp.x[-1]))
+                    D_tc = _Dface(lp.z[-1], ds.z[0], lp.Q[-1],
+                                  lp.x[-1], ds.x[0], ds.C0)     # shared with conf
+                    D_up = _Dface(lp.z[-2], lp.z[-1], 0.5 * (lp.Q[-2] + lp.Q[-1]),
+                                  lp.x[-2], lp.x[-1], lp.C0)
+                    rows.append(g); cols.append(g - 1); vals.append(-D_up / A)
+                    rows.append(g); cols.append(cg); vals.append(-D_tc / A)
+                    rows.append(g); cols.append(g); vals.append(1. + (D_up + D_tc) / A)
+                    RHS[g] = z_rhs[i]; continue
+                if up_is_conf:
+                    A = lp.B[1] * 0.5 * ((lp.x[1] - lp.x[0]) + (lp.x[2] - lp.x[1]))
+                    D_cd = _Dface(lp.z[0], lp.z[1], 0.5 * (lp.Q[0] + lp.Q[1]),
+                                  lp.x[0], lp.x[1], lp.C0)       # shared with conf
+                    D_dn = _Dface(lp.z[1], lp.z[2], 0.5 * (lp.Q[1] + lp.Q[2]),
+                                  lp.x[1], lp.x[2], lp.C0)
+                    rows.append(g); cols.append(g - 1); vals.append(-D_cd / A)
+                    rows.append(g); cols.append(g + 1); vals.append(-D_dn / A)
+                    rows.append(g); cols.append(g); vals.append(1. + (D_cd + D_dn) / A)
+                    RHS[g] = z_rhs[i]; continue
                 # --- upstream neighbor (or head ghost) ---
                 if i > 0:
                     up_g = g - 1; z_up = lp.z[i - 1]; x_up = lp.x[i - 1]
@@ -2903,13 +2953,11 @@ class Network(object):
         """
         self.nt = nt
         self.dt = dt
-        # De-padded path: networks with no multi-tributary confluence (single
-        # segments, 1-into-1 chains) are handled exactly by the neighbor-walking
-        # assembler, which also fixes the first-order junction. Multi-tributary
-        # confluences still use the padded block-matrix path below.
-        if not any(len(lp.upstream_segment_IDs) > 1
-                   for lp in self.list_of_LongProfile_objects):
-            return self._evolve_by_walking(nt, dt)
+        # De-padded path: the neighbor-walking assembler now handles all
+        # topologies, including multi-tributary confluences (conservative
+        # three-node junction cell). The padded block-matrix path below is
+        # retained only for reference during the transition.
+        return self._evolve_by_walking(nt, dt)
         self.update_z_ext_internal() # FM: set again later inside iteration?
         # self.dt is decided earlier
 

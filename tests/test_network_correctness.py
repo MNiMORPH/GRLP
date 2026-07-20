@@ -93,19 +93,20 @@ def test_channel_heads_carry_imposed_slope(net_case):
             np.testing.assert_allclose(slope, S0, rtol=1e-8)
 
 
-def test_junction_ghost_nodes_are_two_sided_consistent(net_case):
-    # The invariant the padded-array refactor must preserve: at every internal
-    # junction the upstream segment's downstream ghost equals the downstream
-    # segment's first real node, and the downstream segment's upstream ghost
-    # (for this tributary) equals the upstream segment's last real node.
+def test_sediment_conserved_across_each_junction(net_case):
+    # The physical invariant (replacing the old padded-ghost-consistency check,
+    # which tested a now-bypassed implementation detail): at every confluence the
+    # summed during-flood sediment supply of the tributaries equals the outflow.
+    # The de-padded walking solver's three-node junction cell conserves this to
+    # machine precision.
     net, spec = net_case
     segs = net.list_of_LongProfile_objects
-    for lp in segs:
-        for j, ds_id in enumerate(lp.downstream_segment_IDs):
-            ds = segs[ds_id]
-            up_index = ds.upstream_segment_IDs.index(lp.ID)
-            assert lp.z_ext[j][-1] == pytest.approx(ds.z[0], abs=1e-12)
-            assert ds.z_ext[up_index][0] == pytest.approx(lp.z[-1], abs=1e-12)
+    for ds in segs:
+        if len(ds.upstream_segment_IDs) > 1:
+            influx = sum(during_flood_Qs(segs[t])[-1]
+                         for t in ds.upstream_segment_IDs)
+            outflux = during_flood_Qs(ds)[0]
+            np.testing.assert_allclose(outflux, influx, rtol=1e-9)
 
 
 def test_elevation_decreases_downstream_within_each_segment(net_case):

@@ -30,23 +30,23 @@ def test_set_x_regular_grid_shapes_and_spacing():
     np.testing.assert_allclose(np.diff(lp.x), 1000.0)
 
 
-def test_set_x_ext_brackets_interior_by_one_cell():
+def test_set_x_ghost_positions_bracket_interior():
     lp = grlp.LongProfile()
     lp.set_x(dx=1000.0, nx=90, x0=10000.0)
 
-    # x_ext adds exactly one ghost node on each side.
-    assert len(lp.x_ext) == lp.nx + 2
-    np.testing.assert_allclose(lp.x_ext[1:-1], lp.x)
-    assert lp.x_ext[0] == pytest.approx(lp.x[0] - 1000.0)
-    assert lp.x_ext[-1] == pytest.approx(lp.x[-1] + 1000.0)
+    # The boundary ghost-node positions sit exactly one cell outside the
+    # interior grid (the padded x_ext array is no longer stored).
+    assert lp.x_ghost_upstream == pytest.approx(lp.x[0] - 1000.0)
+    assert lp.x_ghost_downstream == pytest.approx(lp.x[-1] + 1000.0)
 
 
-def test_set_x_length_and_dx_ext():
+def test_set_x_length_and_uniform_spacing():
     lp = grlp.LongProfile()
     lp.set_x(dx=1000.0, nx=90, x0=10000.0)
 
-    np.testing.assert_allclose(lp.dx_ext, 1000.0)
-    assert lp.L == pytest.approx(lp.x_ext[-1] - lp.x_ext[0])
+    np.testing.assert_allclose(lp.dx, 1000.0)
+    # L spans the two boundary ghost nodes.
+    assert lp.L == pytest.approx(lp.x_ghost_downstream - lp.x_ghost_upstream)
 
 
 def test_set_x_from_x_ext_recovers_interior():
@@ -96,7 +96,11 @@ def test_set_A_power_law():
     lp.set_A(k_xA=1.0)
 
     np.testing.assert_allclose(lp.A, 1.0 * lp.x ** lp.P_xA)
-    np.testing.assert_allclose(lp.A_ext[1:-1], lp.A)
+    # The boundary ghost drainage areas follow the same power law (the padded
+    # A_ext array is no longer stored).
+    assert lp.A_ghost_upstream == pytest.approx(1.0 * lp.x_ghost_upstream ** lp.P_xA)
+    assert lp.A_ghost_downstream == pytest.approx(
+        1.0 * lp.x_ghost_downstream ** lp.P_xA)
 
 
 def test_set_Q_power_law():

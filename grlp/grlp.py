@@ -22,10 +22,7 @@ class LongProfile(object):
         self.b = None # Width and depth need not be resoloved to compute
         self.h = None # long-profile evolution
         self.S0 = None # S0 for Q_s_0 where there is a defined boundary input
-        self.x_ext = None
-        self.dx_ext = None
         self.dx_2cell = None
-        self.dx_ext_2cell = None
         self.x_ghost_upstream = None # boundary ghost-node position, upstream
         self.x_ghost_downstream = None # and downstream: the two scalars that
                                        # replace the padded x_ext ends
@@ -123,35 +120,16 @@ class LongProfile(object):
                 warnings.warn("\n"+
                       "Passing x alone leaves boundary conditions undefined."+
                       "\n"+
-                      "Be sure to define these in order to set:"+
+                      "The ghost-node positions default to a linear "+
+                      "extrapolation of the end cells;"+
                       "\n"+
-                      "x_ext"+
-                      "\n"+
-                      "dx_ext"+
-                      "\n"+
-                      "dx_ext_2cell"+
+                      "pass x_ext to set them explicitly, and be sure to "+
+                      "define the base level and upstream supply."+
                       "\n"
                       )
             self.x = np.array(x)
             self.dx = np.diff(self.x)
             self.dx_2cell = self.x[2:] - self.x[:-2]
-            # This doesn't have enough information to work consistently
-            # Needs ext
-            #self.x_ext = np.hstack( [ [self.x[0] - self.dx[0]],
-            #                          self.x,
-            #                          [self.x[-1] + self.dx[-1]] ] )
-            #self.dx_ext = np.diff(self.x_ext)
-            #self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
-            # Apply nan and expect that the user will
-            self.x_ext = np.hstack( [ np.nan,
-                                      self.x,
-                                      np.nan ] )
-            self.dx_ext = np.diff(self.x_ext)
-            self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
-            # LCR
-            self.dx_ext_2cell__left = self.dx_ext[:-1] - self.dx_ext_2cell
-            self.dx_ext_2cell__cent = self.dx_ext[:-1] - self.dx_ext[1:]
-            self.dx_ext_2cell__right = self.dx_ext[1:] - self.dx_ext_2cell
             # Ghost-node positions by linear extrapolation (x alone leaves the
             # boundary otherwise undefined; this is the sensible default)
             self.x_ghost_upstream = 2*self.x[0] - self.x[1]
@@ -161,37 +139,24 @@ class LongProfile(object):
                 warnings.warn("\n"+
                                 "x_ext will overwrite x values just set by "+
                                 "passing x")
-            self.x_ext = np.array(x_ext)
+            x_ext = np.array(x_ext)
             self.x = x_ext[1:-1]
             # Preserve the supplied ghost positions exactly (they need not be
             # a linear extrapolation of the interior grid)
-            self.x_ghost_upstream = self.x_ext[0]
-            self.x_ghost_downstream = self.x_ext[-1]
-            self.dx_ext = np.diff(self.x_ext)
-            self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
+            self.x_ghost_upstream = x_ext[0]
+            self.x_ghost_downstream = x_ext[-1]
             self.dx_2cell = self.x[2:] - self.x[:-2]
             self.dx = np.diff(self.x)
-            # LCR
-            self.dx_ext_2cell__left = self.dx_ext[:-1] - self.dx_ext_2cell
-            self.dx_ext_2cell__cent = self.dx_ext[:-1] - self.dx_ext[1:]
-            self.dx_ext_2cell__right = self.dx_ext[1:] - self.dx_ext_2cell
         elif (dx is not None) and (nx is not None) and (x0 is not None):
             self.x = np.arange(x0, x0+dx*nx, dx)
-            self.x_ext = np.arange(x0-dx, x0+dx*(nx+1), dx)
-            self.x_ghost_upstream = self.x_ext[0] # = x0 - dx = 2*x[0] - x[1]
-            self.x_ghost_downstream = self.x_ext[-1]
+            self.x_ghost_upstream = x0 - dx # = 2*x[0] - x[1]
+            self.x_ghost_downstream = self.x[-1] + dx # = 2*x[-1] - x[-2]
             self.dx = dx * np.ones(len(self.x) - 1)
-            self.dx_ext = dx * np.ones(len(self.x) + 1)
             self.dx_2cell = np.ones(len(self.x) - 1)
-            self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
-            # LCR. Though could go to a simpler grid with dx here, really
-            self.dx_ext_2cell__left = self.dx_ext[:-1] - self.dx_ext_2cell
-            self.dx_ext_2cell__cent = self.dx_ext[:-1] - self.dx_ext[1:]
-            self.dx_ext_2cell__right = self.dx_ext[1:] - self.dx_ext_2cell
         else:
             sys.exit("Need x OR x_ext OR (dx, nx, x0)")
         self.nx = len(self.x)
-        self.L = self.x_ext[-1] - self.x_ext[0]
+        self.L = self.x_ghost_downstream - self.x_ghost_upstream
         if (nx is not None) and (nx != self.nx):
             warnings.warn("Choosing x length instead of supplied nx")
 
@@ -211,7 +176,7 @@ class LongProfile(object):
         elif z_ext is not None:
             if self.z is not None:
                 self.z = z_ext[1:-1]
-        elif self.x.any() and self.x_ext.any() and (S0 is not None):
+        elif self.x.any() and (S0 is not None):
             self.z = self.x * S0 + (z1 - self.x[-1] * S0)
         else:
             sys.exit("Error defining variable")
@@ -223,19 +188,17 @@ class LongProfile(object):
         """
         if A is not None:
             self.A = A
-            self.A_ext = np.hstack((2*A[0]-A[1], A, 2*A[-1]-A[-2]))
             self.A_ghost_upstream = 2*A[0] - A[1]
             self.A_ghost_downstream = 2*A[-1] - A[-2]
         elif A_ext is not None:
-            self.A_ext = A_ext
-            self.A = self.A_ext[1:-1]
-            self.A_ghost_upstream = self.A_ext[0]
-            self.A_ghost_downstream = self.A_ext[-1]
-        elif self.x.any() and self.x_ext.any():
+            A_ext = np.array(A_ext)
+            self.A = A_ext[1:-1]
+            self.A_ghost_upstream = A_ext[0]
+            self.A_ghost_downstream = A_ext[-1]
+        elif self.x.any():
             self.k_xA = k_xA
             if P_xA:
                 self.P_xA = P_xA
-            self.A_ext = self.k_xA * self.x_ext**self.P_xA
             self.A = self.k_xA * self.x**self.P_xA
             self.A_ghost_upstream = self.k_xA * self.x_ghost_upstream**self.P_xA
             self.A_ghost_downstream = self.k_xA \
@@ -276,7 +239,7 @@ class LongProfile(object):
             Q_ext = q_R * np.minimum(A_R, A_ext) \
                     * (A_ext/np.minimum(A_R,A_ext))**self.P_AQ
             self.Q = Q_ext[1:-1]
-        elif self.x.any() and self.x_ext.any() and k_xQ and P_xQ:
+        elif self.x.any() and k_xQ and P_xQ:
             self.Q = k_xQ * self.x**P_xQ
             _x_ext = np.hstack(( self.x_ghost_upstream, self.x,
                                  self.x_ghost_downstream ))
@@ -325,7 +288,7 @@ class LongProfile(object):
             else:
                 # Assuming "x" is known already
                 self.B = B * np.ones(self.x.shape)
-        elif k_xB and self.x.any() and self.x_ext.any():
+        elif k_xB and self.x.any():
             self.B = k_xB * self.x**P_xB
             self.k_xB = k_xB
             self.P_xB = P_xB
@@ -407,7 +370,7 @@ class LongProfile(object):
 
     def set_x_bl(self, x_bl):
         self.x_bl = x_bl
-        self.x_ext[-1] = self.x_bl
+        self.x_ghost_downstream = self.x_bl
 
                            #+ self.dQ_ext_2cell[-1]/self.Q[-1] )
 
@@ -698,13 +661,9 @@ class LongProfile(object):
 
     def compute_length(self):
         """
-        Compute total segment length.
-        Average over external arrays for each tributary.
+        Compute total segment length, spanning the boundary ghost nodes.
         """
-        Ls = []
-        for x in self.x_ext:
-            Ls.append(x.max() - x.min())
-        self.L = np.mean(Ls, axis=0)
+        self.L = self.x_ghost_downstream - self.x_ghost_upstream
 
     def compute_equilibration_time(self):
         """

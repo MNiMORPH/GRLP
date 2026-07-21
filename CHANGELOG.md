@@ -11,6 +11,14 @@ version heading for the full notes.
 
 ## [Unreleased]
 
+### Added
+- `Network.compute_Q_s`: slope and sediment discharge at every node of every
+  segment, computed by walking the topology to each node's real neighbour (no
+  `z_ext`). It is the network-aware analogue of `LongProfile.compute_Q_s` and
+  sets `S`/`Q_s` on each segment; use it instead of calling `compute_Q_s`
+  per-segment on a network. Reproduces the previous padded per-segment output to
+  machine precision.
+
 ### Changed
 - The networked solver is **de-padded**: it assembles its matrix by walking the
   topology to each node's real neighbour, instead of maintaining padded
@@ -18,6 +26,14 @@ version heading for the full notes.
   (a single segment is a one-edge network). Results are unchanged to machine
   precision for single segments and for uniform-discharge networks; see the fix
   below for the one intended numerical change.
+- `LongProfile.compute_Q_s` is de-padded: it reconstructs its channel-head
+  (`S0`) and outlet (`z_bl`) ghost elevations from `self.z` rather than reading
+  a maintained `z_ext` array. Single-segment output is unchanged to machine
+  precision. Because a single segment cannot see its across-junction neighbours,
+  calling it on a segment that belongs to a network now raises `ValueError`
+  directing the caller to `Network.compute_Q_s` (previously it silently averaged
+  the padded per-tributary ghost arrays). `Network.compute_mean_diffusivity`
+  uses the new walked path.
 
 ### Fixed
 - Networked solver, sediment conservation at confluences: the previous

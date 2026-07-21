@@ -1073,32 +1073,28 @@ class LongProfile(object):
         return self.zanalytical
 
     def compute_Q_s(self):
-        S = []
-        Q_s = []
-        # Ensure that this function works even if there is no list involved
-        if type(self.z_ext) is np.ndarray:
-            z_ext = [ self.z_ext ]
+        """
+        Sediment discharge and slope at each point along the valley.
+        The upstream ghost elevation is reconstructed from the boundary slope
+        S0 and the downstream ghost from base level, rather than read from a
+        maintained padded z_ext array.
+        For a segment within a network, use Network.compute_Q_s instead: a lone
+        segment cannot see across its tributary junctions.
+        """
+        if len(self.upstream_segment_IDs) > 0 \
+              or len(self.downstream_segment_IDs) > 0:
+            raise ValueError('Segment is within a network; '
+                             + 'use Network.compute_Q_s instead.')
+        # Upstream ghost from the boundary slope S0; downstream from base level
+        if self.S0 is not None:
+            z_up = self.z[0] + self.S0 * self.dx_ext[0]
         else:
-            z_ext = self.z_ext
-        if type(self.dx_ext_2cell) is np.ndarray:
-            dx_ext_2cell = list(self.dx_ext_2cell)
-        else:
-            dx_ext_2cell = self.dx_ext_2cell
-        # Next, loop through slopes and sediment discharges
-        for _z, _dx in zip(z_ext, dx_ext_2cell):
-            S.append( np.abs( (_z[2:] - _z[:-2]) / _dx) / self.sinuosity )
-            Q_s.append(
-                -np.sign( _z[2:] - _z[:-2] ) \
-                * self.k_Qs * self.intermittency * self.Q * S[-1]**(7/6.)
-                )
-        self.S = np.mean(S, axis=0)
-        self.Q_s = np.mean(Q_s, axis=0)
-
-        # # old, non-network way
-        # self.S = np.abs( (self.z_ext[0][2:] - self.z_ext[0][:-2]) /
-        #                  (self.dx_ext_2cell[0]) ) / self.sinuosity
-        # self.Q_s = -np.sign( self.z_ext[0][2:] - self.z_ext[0][:-2] ) \
-        #            * self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
+            z_up = 2*self.z[0] - self.z[1]
+        z_ext = np.hstack(( z_up, self.z, self.z_bl ))
+        self.S = np.abs( (z_ext[2:] - z_ext[:-2]) /
+                         (self.dx_ext_2cell) ) / self.sinuosity
+        self.Q_s = -np.sign( z_ext[2:] - z_ext[:-2] ) \
+                   * self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
 
     def compute_channel_width(self):
         if self.D is not None:
@@ -1904,6 +1900,60 @@ class Network(object):
                 lp.z_ext[_tribi][1:-1] = lp.z
         self.update_z_ext_internal()
         self.update_z_ext_external_upstream(S0=self.S0, Q_s_0=self.Q_s_0)
+
+    def compute_Q_s(self):
+        """
+        Sediment discharge and slope at each point in the network.
+        Builds each segment's ghost elevations by walking to its real upstream
+        and downstream neighbors -- across segment boundaries at junctions --
+        instead of reading maintained z_ext arrays, then applies the same
+        slope / sediment-discharge relationship as a single segment. Sets S
+        and Q_s on each segment.
+
+        A confluence node has one ghost per incoming tributary; as for the
+        single-segment case, S and Q_s there are averaged over the tributaries.
+        """
+        for lp in self.list_of_LongProfile_objects:
+            # DOWNSTREAM GHOST: base level, or the first node of the downstream
+            # segment
+            if len(lp.downstream_segment_IDs) == 0:
+                z_dn = lp.z_bl
+                x_dn = 2*lp.x[-1] - lp.x[-2]
+            else:
+                downseg = self.list_of_LongProfile_objects[
+                              lp.downstream_segment_IDs[0]]
+                z_dn = downseg.z[0]
+                x_dn = downseg.x[0]
+            # UPSTREAM GHOST(S): one per incoming tributary. A channel head uses
+            # the boundary slope S0; a junction reaches to the last node of each
+            # upstream segment.
+            z_up = []
+            x_up = []
+            if len(lp.upstream_segment_IDs) == 0:
+                _x_up = 2*lp.x[0] - lp.x[1]
+                x_up.append( _x_up )
+                z_up.append( lp.z[0] + lp.S0 * ( lp.x[0] - _x_up ) )
+            else:
+                for upseg_ID in lp.upstream_segment_IDs:
+                    upseg = self.list_of_LongProfile_objects[upseg_ID]
+                    z_up.append( upseg.z[-1] )
+                    x_up.append( upseg.x[-1] )
+            # One padded profile per tributary; average the resulting slopes and
+            # sediment discharges (they differ only at the confluence node)
+            S = []
+            Q_s = []
+            for _zu, _xu in zip(z_up, x_up):
+                z_ext = np.hstack(( _zu, lp.z, z_dn ))
+                x_ext = np.hstack(( _xu, lp.x, x_dn ))
+                dx_ext_2cell = x_ext[2:] - x_ext[:-2]
+                S.append( np.abs( (z_ext[2:] - z_ext[:-2]) /
+                                  (dx_ext_2cell) ) / lp.sinuosity )
+                Q_s.append(
+                    -np.sign( z_ext[2:] - z_ext[:-2] ) \
+                    * lp.k_Qs * lp.intermittency * lp.Q * S[-1]**(7/6.)
+                    )
+            lp.S = np.mean( S, axis=0 )
+            lp.Q_s = np.mean( Q_s, axis=0 )
 
     def set_niter(self, niter):
         # MAKE UNIFORM IN BASE CLASS
@@ -3325,6 +3375,10 @@ class Network(object):
         the network. 
         """
         
+        # slope and Q_s, by walking the topology (de-padded); this sets S on
+        # each segment for the slope and diffusivity below
+        self.compute_Q_s()
+        
         # get dxs
         dxs = np.hstack(
             [seg.dx_ext[0][1:] for seg in self.list_of_LongProfile_objects]
@@ -3343,7 +3397,9 @@ class Network(object):
         self.mean_S = (S_stack * dxs).sum() / dxs.sum()
         
         # diffusivity
-        for seg in self.list_of_LongProfile_objects: seg.compute_diffusivity()
+        for seg in self.list_of_LongProfile_objects:
+            seg.diffusivity = (7./6.) * seg.k_Qs * seg.intermittency * seg.Q * seg.S**(1./6.) \
+                / seg.sinuosity**(7./6.) / seg.B / (1. - seg.lambda_p)
         diff_stack = np.hstack(
             [seg.diffusivity for seg in self.list_of_LongProfile_objects])
         self.mean_diffusivity = (diff_stack * dxs).sum() / dxs.sum()

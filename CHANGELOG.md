@@ -66,8 +66,26 @@ version heading for the full notes.
   through the walker: `LongProfile.build_matrices`,
   `compute_coefficient_time_varying`, `set_bcl_Neumann_RHS`,
   `set_bcl_Neumann_LHS`, and `set_bcr_Dirichlet`.
+- `LongProfile` is now fully node-based: the padded `x_ext`, `dx_ext`,
+  `dx_ext_2cell` (and the dead `dx_ext_2cell__left/cent/right`) and the padded
+  drainage area `A_ext` are no longer stored. The boundary is carried by two
+  scalar pairs, `x_ghost_upstream`/`x_ghost_downstream` (ghost-node positions,
+  set in `set_x`) and `A_ghost_upstream`/`A_ghost_downstream` (ghost drainage
+  areas, set in `set_A`), alongside the existing `Q_ghost_*`. `set_x` and
+  `set_A` still accept `x_ext=`/`A_ext=` as inputs (used locally to derive the
+  interior grid and the ghosts). Diagnostics reconstruct a local padded profile
+  inline only where a two-cell stencil needs it. Values are unchanged for the
+  `(dx, nx, x0)` and `x_ext=` grid paths.
 
 ### Fixed
+- `LongProfile.compute_Q_s` on non-uniform grids: it collapsed the two-cell
+  spacing to a single value (`list(self.dx_ext_2cell)` exploded the spacing
+  array into scalars, so every node's slope was divided by the first node's
+  spacing) and returned wrong `S` and `Q_s` wherever the grid was not uniform.
+  It now divides each node's elevation drop by that node's own spacing. This is
+  a diagnostic path (the walking solver never calls it, so evolution was never
+  affected) and was invisible on uniform grids, where all existing tests and
+  characterization goldens run. The bug predates the de-padding work.
 - Networked solver, sediment conservation at confluences: the previous
   `land_area` junction discretization did **not** conserve sediment when
   discharge varied within a confluence's segments (~0.85% imbalance at steady

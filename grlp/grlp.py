@@ -26,9 +26,15 @@ class LongProfile(object):
         self.dx_ext = None
         self.dx_2cell = None
         self.dx_ext_2cell = None
+        self.x_ghost_upstream = None # boundary ghost-node position, upstream
+        self.x_ghost_downstream = None # and downstream: the two scalars that
+                                       # replace the padded x_ext ends
         self.Q_s_0 = None
         self.Q_ghost_upstream = None
         self.Q_ghost_downstream = None
+        self.A_ghost_upstream = None # boundary ghost-node drainage area, held
+        self.A_ghost_downstream = None # so an imported-A boundary survives a
+                                       # later conversion to discharge
         self.z_bl = None
         self.ssd = 0. # distributed sources or sinks
         self.sinuosity = 1.
@@ -146,6 +152,10 @@ class LongProfile(object):
             self.dx_ext_2cell__left = self.dx_ext[:-1] - self.dx_ext_2cell
             self.dx_ext_2cell__cent = self.dx_ext[:-1] - self.dx_ext[1:]
             self.dx_ext_2cell__right = self.dx_ext[1:] - self.dx_ext_2cell
+            # Ghost-node positions by linear extrapolation (x alone leaves the
+            # boundary otherwise undefined; this is the sensible default)
+            self.x_ghost_upstream = 2*self.x[0] - self.x[1]
+            self.x_ghost_downstream = 2*self.x[-1] - self.x[-2]
         if x_ext is not None:
             if x is not None:
                 warnings.warn("\n"+
@@ -153,6 +163,10 @@ class LongProfile(object):
                                 "passing x")
             self.x_ext = np.array(x_ext)
             self.x = x_ext[1:-1]
+            # Preserve the supplied ghost positions exactly (they need not be
+            # a linear extrapolation of the interior grid)
+            self.x_ghost_upstream = self.x_ext[0]
+            self.x_ghost_downstream = self.x_ext[-1]
             self.dx_ext = np.diff(self.x_ext)
             self.dx_ext_2cell = self.x_ext[2:] - self.x_ext[:-2]
             self.dx_2cell = self.x[2:] - self.x[:-2]
@@ -164,6 +178,8 @@ class LongProfile(object):
         elif (dx is not None) and (nx is not None) and (x0 is not None):
             self.x = np.arange(x0, x0+dx*nx, dx)
             self.x_ext = np.arange(x0-dx, x0+dx*(nx+1), dx)
+            self.x_ghost_upstream = self.x_ext[0] # = x0 - dx = 2*x[0] - x[1]
+            self.x_ghost_downstream = self.x_ext[-1]
             self.dx = dx * np.ones(len(self.x) - 1)
             self.dx_ext = dx * np.ones(len(self.x) + 1)
             self.dx_2cell = np.ones(len(self.x) - 1)
@@ -208,15 +224,22 @@ class LongProfile(object):
         if A is not None:
             self.A = A
             self.A_ext = np.hstack((2*A[0]-A[1], A, 2*A[-1]-A[-2]))
+            self.A_ghost_upstream = 2*A[0] - A[1]
+            self.A_ghost_downstream = 2*A[-1] - A[-2]
         elif A_ext is not None:
             self.A_ext = A_ext
             self.A = self.A_ext[1:-1]
+            self.A_ghost_upstream = self.A_ext[0]
+            self.A_ghost_downstream = self.A_ext[-1]
         elif self.x.any() and self.x_ext.any():
             self.k_xA = k_xA
             if P_xA:
                 self.P_xA = P_xA
             self.A_ext = self.k_xA * self.x_ext**self.P_xA
             self.A = self.k_xA * self.x**self.P_xA
+            self.A_ghost_upstream = self.k_xA * self.x_ghost_upstream**self.P_xA
+            self.A_ghost_downstream = self.k_xA \
+                                       * self.x_ghost_downstream**self.P_xA
         else:
             sys.exit("Error defining variable")
 

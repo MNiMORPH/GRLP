@@ -142,14 +142,31 @@ NETWORK_TOPOLOGIES = {
 }
 
 
+def compute_Q_s_arrays(net):
+    """
+    Golden-master arrays for the walked slope / sediment-discharge diagnostic
+    (Network.compute_Q_s): the nodal slope S and sediment discharge Q_s on each
+    segment. These pin the de-padded compute_Q_s, distinct from the interior-face
+    during_flood_Qs captured as ``Qs_seg%d``.
+    """
+    net.compute_Q_s()
+    out = {}
+    for lp in net.list_of_LongProfile_objects:
+        out["cQs_S_seg%d" % lp.ID] = lp.S.copy()
+        out["cQs_Qs_seg%d" % lp.ID] = lp.Q_s.copy()
+    return out
+
+
 def run_topology_arrays(spec, S0=0.015):
     """
     Build+evolve a topology from NETWORK_TOPOLOGIES and return golden-master
-    arrays: concatenated bed elevations and per-segment during-flood Q_s.
+    arrays: concatenated bed elevations, per-segment during-flood Q_s, and the
+    walked nodal slope / sediment discharge (Network.compute_Q_s).
     """
     net = build_network(spec["x"], spec["Q"], spec["up"], spec["down"],
                         spec["x_bl"], S0=S0)
     out = {"z_all": np.hstack([lp.z for lp in net.list_of_LongProfile_objects])}
     for lp in net.list_of_LongProfile_objects:
         out["Qs_seg%d" % lp.ID] = during_flood_Qs(lp)
+    out.update(compute_Q_s_arrays(net))
     return out

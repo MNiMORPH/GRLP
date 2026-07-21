@@ -16,6 +16,11 @@ to the prescribed-``B`` behavior. Because the no-uplift equilibrium profile is
 independent of ``B``, transient snapshots and ``B``-loaded quantities
 (diffusivity, the uplift profile, arbitrary ``B(x)``) are deliberately included.
 
+Network configurations additionally capture the walked slope / sediment-discharge
+diagnostic (``Network.compute_Q_s``) as ``cQs_S_seg*`` / ``cQs_Qs_seg*``, pinning
+the de-padded ``compute_Q_s`` across single-segment, chain, and confluence
+networks.
+
 Each ``run_*`` function returns a dict of named float arrays. ``run_all``
 flattens these into ``"<config>__<array>"`` keys.
 """
@@ -23,7 +28,8 @@ flattens these into ``"<config>__<array>"`` keys.
 import numpy as np
 
 import grlp
-from network_helpers import NETWORK_TOPOLOGIES, run_topology_arrays
+from network_helpers import (NETWORK_TOPOLOGIES, run_topology_arrays,
+                             compute_Q_s_arrays)
 
 
 # Evolution schedule for single-segment configs: cumulative (nt, dt) legs.
@@ -150,6 +156,7 @@ def run_confluence(B_lists=None, Q_lists=None, S0=0.015, Qh=5.0):
         S = np.abs(np.diff(lp.z) / np.diff(lp.x))
         Q_mid = (lp.Q[:-1] + lp.Q[1:]) / 2.0
         out["Qs_seg%d" % lp.ID] = lp.k_Qs * Q_mid * S ** (7 / 6.0)
+    out.update(compute_Q_s_arrays(net))
     return out
 
 
@@ -172,7 +179,36 @@ def run_chain(S0=0.015, Qh=5.0):
     net.set_niter(3)
     net.get_z_lengths()
     net.evolve_threshold_width_river_network(nt=_NET_NT, dt=_NET_DT)
-    return {"z_all": np.hstack([lp.z for lp in net.list_of_LongProfile_objects])}
+    out = {"z_all": np.hstack([lp.z for lp in net.list_of_LongProfile_objects])}
+    out.update(compute_Q_s_arrays(net))
+    return out
+
+
+def run_single_segment_network(S0=0.015):
+    """One segment as a one-edge network, with discharge increasing downstream
+    so the channel-head and outlet ghosts (and hence compute_Q_s) actually
+    depend on the boundary treatment."""
+    x = _seg_x(1)
+    Q = 2.0 + 0.5 * np.arange(_NSEG)
+    net = grlp.Network()
+    net.initialize(
+        x_bl=_DX * (_NSEG + 1),
+        z_bl=0.0,
+        S0=[S0],
+        Q_s_0=None,
+        upstream_segment_IDs=[[]],
+        downstream_segment_IDs=[[]],
+        x=[x],
+        z=[np.zeros(_NSEG)],
+        Q=[Q],
+        B=[100.0 * np.ones(_NSEG)],
+    )
+    net.set_niter(3)
+    net.get_z_lengths()
+    net.evolve_threshold_width_river_network(nt=_NET_NT, dt=_NET_DT)
+    out = {"z_all": np.hstack([lp.z for lp in net.list_of_LongProfile_objects])}
+    out.update(compute_Q_s_arrays(net))
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -212,6 +248,7 @@ def _wavy_seg(x):
 
 # Network configs: name -> (callable, kwargs).
 NETWORK_CONFIGS = {
+    "single_segment_network": (run_single_segment_network, {}),
     "confluence_uniform_B": (run_confluence, {}),
     "chain_uniform_B":      (run_chain, {}),
     "confluence_varying_B": (

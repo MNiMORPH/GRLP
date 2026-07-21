@@ -36,6 +36,20 @@ version heading for the full notes.
     only for a standalone segment (a network head has `z_ext = None`).
 - A `Network` no longer maintains padded `x_ext` / `z_ext` / `Q_ext` arrays at
   all; the solver and its diagnostics walk the topology.
+- `LongProfile.evolve_threshold_width_river` is now a thin wrapper that solves a
+  single segment as a one-edge network through the same walking solver -- the
+  single-segment and network paths are genuinely one solver. `set_Q` carries the
+  boundary ghost discharge onto the segment (`Q_ghost_upstream` /
+  `Q_ghost_downstream`), analytic for a power-law `Q` (`k_xQ`) and linear for an
+  array, so the walker reproduces the former padded single-segment solver
+  bit-for-bit. Equilibrium profiles are unchanged to machine precision; the stiff
+  early *transient* shifts slightly at the channel head, because the walker
+  relinearises the head ghost each Picard iteration (the consistent scheme the
+  network already used) where the padded solver froze it. The single-segment
+  transient characterization goldens are regenerated to adopt this; network
+  goldens are unchanged. Sternberg gravel loss is not yet carried through the
+  walker, so standalone `evolve` raises `NotImplementedError` until it is
+  restored.
 
 ### Removed
 - The network boundary methods `update_z_ext_external_upstream`,
@@ -48,6 +62,10 @@ version heading for the full notes.
   `create_z_ext_lists`, `update_z_ext_internal`, `create_Q_ext_lists`,
   `update_Q_ext_*`, `update_dQ_ext_2cell`, and the dead padded block-matrix solve
   path.
+- The padded single-segment assembler, now that a single segment is solved
+  through the walker: `LongProfile.build_matrices`,
+  `compute_coefficient_time_varying`, `set_bcl_Neumann_RHS`,
+  `set_bcl_Neumann_LHS`, and `set_bcr_Dirichlet`.
 
 ### Fixed
 - Networked solver, sediment conservation at confluences: the previous

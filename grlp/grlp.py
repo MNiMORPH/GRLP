@@ -3090,7 +3090,8 @@ class Network(object):
         dxs = np.array([])
         for seg in self.list_of_LongProfile_objects:
             Ls = np.append( Ls, x_max - seg.x )
-            dxs = np.append( dxs, seg.dx_ext[0][1:] )
+            dxs = np.append( dxs, np.append( np.diff(seg.x),
+                                             seg.x[-1] - seg.x[-2] ) )
         self.mean_length = np.sum(Ls*dxs)/np.sum(dxs)
 
     def compute_tokunaga_metrics(self):
@@ -3377,9 +3378,13 @@ class Network(object):
         the network. 
         """
         
+        # slope and sediment discharge, by walking the topology (sets seg.S)
+        self.compute_Q_s()
+        
         # get dxs
         dxs = np.hstack(
-            [seg.dx_ext[0][1:] for seg in self.list_of_LongProfile_objects]
+            [np.append( np.diff(seg.x), seg.x[-1] - seg.x[-2] )
+             for seg in self.list_of_LongProfile_objects]
             )
             
         # discharge
@@ -3395,7 +3400,9 @@ class Network(object):
         self.mean_S = (S_stack * dxs).sum() / dxs.sum()
         
         # diffusivity
-        for seg in self.list_of_LongProfile_objects: seg.compute_diffusivity()
+        for seg in self.list_of_LongProfile_objects:
+            seg.diffusivity = (7./6.) * seg.k_Qs * seg.intermittency * seg.Q * seg.S**(1./6.) \
+                / seg.sinuosity**(7./6.) / seg.B / (1. - seg.lambda_p)
         diff_stack = np.hstack(
             [seg.diffusivity for seg in self.list_of_LongProfile_objects])
         self.mean_diffusivity = (diff_stack * dxs).sum() / dxs.sum()

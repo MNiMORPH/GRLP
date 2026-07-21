@@ -892,12 +892,12 @@ class Network(object):
                     raise ValueError(
                         "Walking solver: confluence segment %d needs >= 3 nodes "
                         "(has %d)." % (lp.ID, lengths[lp.ID]))
-                for t in lp.upstream_segment_IDs:
-                    if lengths[t] < 2:
+                for ID in lp.upstream_segment_IDs:
+                    if lengths[ID] < 2:
                         raise ValueError(
                             "Walking solver: tributary segment %d into confluence "
                             "%d needs >= 2 nodes (has %d)."
-                            % (t, lp.ID, lengths[t]))
+                            % (ID, lp.ID, lengths[ID]))
         for lp in segs:
             lp.build_LHS_coeff_C0(dt=dt)
         rows = []
@@ -906,7 +906,7 @@ class Network(object):
         RHS = np.zeros(n)
         for lp in segs:
             s = lp.ID
-            off = starts[s]
+            offset = starts[s]
             L = lengths[s]
             # per-node source term (matches build_matrices' RHS additions)
             src = (np.asarray(lp.ssd)
@@ -920,78 +920,93 @@ class Network(object):
             if z_rhs is None or np.size(z_rhs) != L:
                 z_rhs = lp.z
             for i in range(L):
-                g = off + i
+                # g: this node's index in the flattened global node vector
+                # (segment offset + local index i)
+                g = offset + i
                 # ===== multi-tributary junction: shared-flux three-node cell ====
                 # Conservation is by construction: each junction FACE carries one
-                # shared conductance D used identically by both adjacent nodes, so
-                # the sediment flux D*(z_up - z_dn) is single-valued. D/A_cell
-                # matches the interior coupling magnitude
+                # shared conductance used identically by both adjacent nodes, so
+                # the sediment flux conductance*(z_up - z_down) is single-valued.
+                # conductance/land_area matches the interior coupling magnitude
                 # (C0*7/(6 B dx**2) Q |S|**(1/6)), so a junction-adjacent node is
                 # consistent with the ordinary interior stencil on its other face.
-                def _Dface(zu, zd, Qf, xu, xd, C0f):
-                    Lf = xd - xu
-                    return C0f * (7 / 6.) * Qf * (np.abs(zu - zd) / Lf) ** (1 / 6.) / Lf
-                is_conf = (i == 0 and len(lp.upstream_segment_IDs) > 1)
-                dn_is_conf = (i == L - 1 and lp.downstream_segment_IDs
-                              and len(segs[lp.downstream_segment_IDs[0]]
-                                      .upstream_segment_IDs) > 1)
-                up_is_conf = (i == 1 and len(lp.upstream_segment_IDs) > 1)
-                if is_conf:
-                    A_c = lp.land_area_around_confluence
-                    D_cd = _Dface(lp.z[0], lp.z[1], 0.5 * (lp.Q[0] + lp.Q[1]),
-                                  lp.x[0], lp.x[1], lp.C0)
-                    csum = D_cd
+                def _face_conductance(z_up, z_down, Q, x_up, x_down, C0):
+                    L_face = x_down - x_up
+                    return C0 * (7 / 6.) * Q \
+                           * (np.abs(z_up - z_down) / L_face) ** (1 / 6.) \
+                           / L_face
+                is_confluence = (i == 0 and len(lp.upstream_segment_IDs) > 1)
+                down_is_confluence = (
+                    i == L - 1 and lp.downstream_segment_IDs
+                    and len(segs[lp.downstream_segment_IDs[0]]
+                            .upstream_segment_IDs) > 1)
+                up_is_confluence = (i == 1 and len(lp.upstream_segment_IDs) > 1)
+                if is_confluence:
+                    A_confluence = lp.land_area_around_confluence
+                    conductance_down = _face_conductance(
+                        lp.z[0], lp.z[1], 0.5 * (lp.Q[0] + lp.Q[1]),
+                        lp.x[0], lp.x[1], lp.C0)
+                    conductance_sum = conductance_down
                     rows.append(g)
                     cols.append(g + 1)
-                    vals.append(-D_cd / A_c)
-                    for t in lp.upstream_segment_IDs:
-                        us = segs[t]
-                        tg = starts[t] + lengths[t] - 1
-                        D_tc = _Dface(us.z[-1], lp.z[0], us.Q[-1],
-                                      us.x[-1], lp.x[0], lp.C0)
-                        csum += D_tc
+                    vals.append(-conductance_down / A_confluence)
+                    for ID in lp.upstream_segment_IDs:
+                        upseg = segs[ID]
+                        upseg_g = starts[ID] + lengths[ID] - 1
+                        conductance_upseg = _face_conductance(
+                            upseg.z[-1], lp.z[0], upseg.Q[-1],
+                            upseg.x[-1], lp.x[0], lp.C0)
+                        conductance_sum += conductance_upseg
                         rows.append(g)
-                        cols.append(tg)
-                        vals.append(-D_tc / A_c)
+                        cols.append(upseg_g)
+                        vals.append(-conductance_upseg / A_confluence)
                     rows.append(g)
                     cols.append(g)
-                    vals.append(1. + csum / A_c)
+                    vals.append(1. + conductance_sum / A_confluence)
                     RHS[g] = z_rhs[i]
                     continue
-                if dn_is_conf:
-                    ds = segs[lp.downstream_segment_IDs[0]]
-                    cg = starts[ds.ID]
-                    A = lp.B[-1] * 0.5 * ((lp.x[-1] - lp.x[-2]) + (ds.x[0] - lp.x[-1]))
-                    D_tc = _Dface(lp.z[-1], ds.z[0], lp.Q[-1],
-                                  lp.x[-1], ds.x[0], ds.C0)     # shared with conf
-                    D_up = _Dface(lp.z[-2], lp.z[-1], 0.5 * (lp.Q[-2] + lp.Q[-1]),
-                                  lp.x[-2], lp.x[-1], lp.C0)
+                if down_is_confluence:
+                    downseg = segs[lp.downstream_segment_IDs[0]]
+                    downseg_g = starts[downseg.ID]
+                    land_area = lp.B[-1] * 0.5 * ((lp.x[-1] - lp.x[-2])
+                                                  + (downseg.x[0] - lp.x[-1]))
+                    conductance_downseg = _face_conductance(
+                        lp.z[-1], downseg.z[0], lp.Q[-1],
+                        lp.x[-1], downseg.x[0], downseg.C0)  # shared with confluence
+                    conductance_up = _face_conductance(
+                        lp.z[-2], lp.z[-1], 0.5 * (lp.Q[-2] + lp.Q[-1]),
+                        lp.x[-2], lp.x[-1], lp.C0)
                     rows.append(g)
                     cols.append(g - 1)
-                    vals.append(-D_up / A)
+                    vals.append(-conductance_up / land_area)
                     rows.append(g)
-                    cols.append(cg)
-                    vals.append(-D_tc / A)
+                    cols.append(downseg_g)
+                    vals.append(-conductance_downseg / land_area)
                     rows.append(g)
                     cols.append(g)
-                    vals.append(1. + (D_up + D_tc) / A)
+                    vals.append(
+                        1. + (conductance_up + conductance_downseg) / land_area)
                     RHS[g] = z_rhs[i]
                     continue
-                if up_is_conf:
-                    A = lp.B[1] * 0.5 * ((lp.x[1] - lp.x[0]) + (lp.x[2] - lp.x[1]))
-                    D_cd = _Dface(lp.z[0], lp.z[1], 0.5 * (lp.Q[0] + lp.Q[1]),
-                                  lp.x[0], lp.x[1], lp.C0)       # shared with conf
-                    D_dn = _Dface(lp.z[1], lp.z[2], 0.5 * (lp.Q[1] + lp.Q[2]),
-                                  lp.x[1], lp.x[2], lp.C0)
+                if up_is_confluence:
+                    land_area = lp.B[1] * 0.5 * ((lp.x[1] - lp.x[0])
+                                                 + (lp.x[2] - lp.x[1]))
+                    conductance_up = _face_conductance(
+                        lp.z[0], lp.z[1], 0.5 * (lp.Q[0] + lp.Q[1]),
+                        lp.x[0], lp.x[1], lp.C0)  # shared with confluence
+                    conductance_down = _face_conductance(
+                        lp.z[1], lp.z[2], 0.5 * (lp.Q[1] + lp.Q[2]),
+                        lp.x[1], lp.x[2], lp.C0)
                     rows.append(g)
                     cols.append(g - 1)
-                    vals.append(-D_cd / A)
+                    vals.append(-conductance_up / land_area)
                     rows.append(g)
                     cols.append(g + 1)
-                    vals.append(-D_dn / A)
+                    vals.append(-conductance_down / land_area)
                     rows.append(g)
                     cols.append(g)
-                    vals.append(1. + (D_cd + D_dn) / A)
+                    vals.append(
+                        1. + (conductance_up + conductance_down) / land_area)
                     RHS[g] = z_rhs[i]
                     continue
                 # --- upstream neighbor (or head ghost) ---
@@ -1012,11 +1027,11 @@ class Network(object):
                         Q_up = 2 * lp.Q[0] - lp.Q[1]
                 elif len(lp.upstream_segment_IDs) == 1:
                     is_head = False
-                    us = segs[lp.upstream_segment_IDs[0]]
-                    up_g = starts[us.ID] + lengths[us.ID] - 1
-                    z_up = us.z[-1]
-                    x_up = us.x[-1]
-                    Q_up = us.Q[-1]
+                    upseg = segs[lp.upstream_segment_IDs[0]]
+                    up_g = starts[upseg.ID] + lengths[upseg.ID] - 1
+                    z_up = upseg.z[-1]
+                    x_up = upseg.x[-1]
+                    Q_up = upseg.Q[-1]
                 else:
                     raise NotImplementedError(
                         "assemble_by_walking: multi-tributary confluence "
@@ -1024,46 +1039,46 @@ class Network(object):
                         % (s, len(lp.upstream_segment_IDs)))
                 # --- downstream neighbor (or outlet ghost) ---
                 if i < L - 1:
-                    dn_g = g + 1
-                    z_dn = lp.z[i + 1]
-                    x_dn = lp.x[i + 1]
-                    Q_dn = lp.Q[i + 1]
+                    down_g = g + 1
+                    z_down = lp.z[i + 1]
+                    x_down = lp.x[i + 1]
+                    Q_down = lp.Q[i + 1]
                     is_outlet = False
                 elif len(lp.downstream_segment_IDs) == 0:
                     is_outlet = True
-                    dn_g = None
-                    x_dn = 2 * lp.x[-1] - lp.x[-2]
-                    z_dn = lp.z_bl
+                    down_g = None
+                    x_down = 2 * lp.x[-1] - lp.x[-2]
+                    z_down = lp.z_bl
                     if lp.Q_ghost_downstream is not None:
-                        Q_dn = lp.Q_ghost_downstream
+                        Q_down = lp.Q_ghost_downstream
                     else:
-                        Q_dn = 2 * lp.Q[-1] - lp.Q[-2]
+                        Q_down = 2 * lp.Q[-1] - lp.Q[-2]
                 else:
                     is_outlet = False
-                    ds = segs[lp.downstream_segment_IDs[0]]
-                    dn_g = starts[ds.ID]
-                    z_dn = ds.z[0]
-                    x_dn = ds.x[0]
-                    Q_dn = ds.Q[0]
+                    downseg = segs[lp.downstream_segment_IDs[0]]
+                    down_g = starts[downseg.ID]
+                    z_down = downseg.z[0]
+                    x_down = downseg.x[0]
+                    Q_down = downseg.Q[0]
                 # --- stencil (identical to build_matrices) ---
-                dxu = lp.x[i] - x_up
-                dxd = x_dn - lp.x[i]
-                dx2 = x_dn - x_up
-                dQ2 = Q_dn - Q_up
-                S = np.abs(z_dn - z_up) / dx2
+                dx_up = lp.x[i] - x_up
+                dx_down = x_down - lp.x[i]
+                dx_2cell = x_down - x_up
+                dQ_2cell = Q_down - Q_up
+                S = np.abs(z_down - z_up) / dx_2cell
                 C1 = lp.C0 * S ** (1 / 6.) * lp.Q[i] / lp.B[i]
-                center = -C1 / dx2 * (7 / 3. * (-1 / dxu - 1 / dxd)) + 1.
-                left = -C1 / dx2 * (7 / 3. / dxu - dQ2 / lp.Q[i] / dx2)
-                right = -C1 / dx2 * (7 / 3. / dxd + dQ2 / lp.Q[i] / dx2)
+                center = -C1 / dx_2cell * (7 / 3. * (-1 / dx_up - 1 / dx_down)) + 1.
+                left = -C1 / dx_2cell * (7 / 3. / dx_up - dQ_2cell / lp.Q[i] / dx_2cell)
+                right = -C1 / dx_2cell * (7 / 3. / dx_down + dQ_2cell / lp.Q[i] / dx_2cell)
                 rhs_g = z_rhs[i] + src[i]
                 if is_head:                       # set_bcl_Neumann
-                    right = -C1 / dx2 * 7 / 3. * (1 / dxu + 1 / dxd)
-                    rhs_g += lp.S0 * C1 * (7 / 3. / dxu - dQ2 / lp.Q[i] / dx2)
+                    right = -C1 / dx_2cell * 7 / 3. * (1 / dx_up + 1 / dx_down)
+                    rhs_g += lp.S0 * C1 * (7 / 3. / dx_up - dQ_2cell / lp.Q[i] / dx_2cell)
                 if is_outlet:                     # set_bcr_Dirichlet
-                    rhs_g += z_dn * C1 / dx2 * (
+                    rhs_g += z_down * C1 / dx_2cell * (
                         7 / 3. * (1 / (lp.x[-1] - lp.x[-2])
-                                  + 1 / (x_dn - lp.x[-1])) / 2.
-                        + dQ2 / lp.Q[i] / dx2)
+                                  + 1 / (x_down - lp.x[-1])) / 2.
+                        + dQ_2cell / lp.Q[i] / dx_2cell)
                 rows.append(g)
                 cols.append(g)
                 vals.append(center)
@@ -1071,9 +1086,9 @@ class Network(object):
                     rows.append(g)
                     cols.append(up_g)
                     vals.append(left)
-                if dn_g is not None:
+                if down_g is not None:
                     rows.append(g)
-                    cols.append(dn_g)
+                    cols.append(down_g)
                     vals.append(right)
                 RHS[g] = rhs_g
         LHSmatrix = sparse.csr_matrix((vals, (rows, cols)), shape=(n, n))
@@ -1121,13 +1136,13 @@ class Network(object):
             # Downstream ghost: base level at the outlet, else the first node
             # of the downstream segment
             if len(lp.downstream_segment_IDs) == 0:
-                z_dn = lp.z_bl
-                x_dn = 2*lp.x[-1] - lp.x[-2]
+                z_down = lp.z_bl
+                x_down = 2*lp.x[-1] - lp.x[-2]
             else:
                 downseg = self.list_of_LongProfile_objects[
                               lp.downstream_segment_IDs[0]]
-                z_dn = downseg.z[0]
-                x_dn = downseg.x[0]
+                z_down = downseg.z[0]
+                x_down = downseg.x[0]
             # Upstream ghost(s): the boundary slope S0 at a channel head, else
             # the last node of each incoming tributary
             z_up = []
@@ -1147,8 +1162,8 @@ class Network(object):
             S = []
             Q_s = []
             for _zu, _xu in zip(z_up, x_up):
-                _z = np.hstack(( _zu, lp.z, z_dn ))
-                _x = np.hstack(( _xu, lp.x, x_dn ))
+                _z = np.hstack(( _zu, lp.z, z_down ))
+                _x = np.hstack(( _xu, lp.x, x_down ))
                 _dx = _x[2:] - _x[:-2]
                 S.append( np.abs( (_z[2:] - _z[:-2]) / _dx) / lp.sinuosity )
                 Q_s.append(

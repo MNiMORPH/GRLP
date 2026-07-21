@@ -149,3 +149,39 @@ def test_network_base_level_x_position_honored():
     assert seg_moved.x_ghost_downstream == pytest.approx(mouth_end + 6000.0)
     # base level farther downstream at fixed z_bl -> gentler drop -> higher bed
     assert seg_moved.z[-1] > seg_mirror.z[-1] + 1.0
+
+
+def test_network_gravel_loss_tracks_through_confluence():
+    # Sternberg gravel loss is a purely local sink, but because compute_Q_s
+    # walks the topology, the abrasion accumulates along the whole downstream
+    # flow path -- through the confluence -- with no per-path bookkeeping. A
+    # no-loss network conserves sediment (Q_s ~ constant down the trunk); with
+    # loss, Q_s decays monotonically, and the trunk inherits an already-abraded
+    # supply from its tributaries (loss upstream of the junction carried across).
+    spec = NETWORK_TOPOLOGIES["symmetric_confluence"]
+    k_per_km = 0.05
+
+    def built(gravel):
+        net = build_network(spec["x"], spec["Q"], spec["up"], spec["down"],
+                            spec["x_bl"], evolve=False)
+        if gravel:
+            for lp in net.list_of_LongProfile_objects:
+                lp.gravel_fractional_loss_per_km = k_per_km
+        net.evolve_threshold_width_river_network(nt=1000, dt=3.0e10)
+        net.compute_Q_s()
+        return net
+
+    net0 = built(gravel=False)
+    netg = built(gravel=True)
+    mouth = net0.list_of_channel_mouth_segment_IDs[0]
+    trunk0 = net0.list_of_LongProfile_objects[mouth]
+    trunkg = netg.list_of_LongProfile_objects[mouth]
+
+    # No loss: sediment conserved along the trunk (roughly constant Q_s).
+    assert trunk0.Q_s.std() / trunk0.Q_s.mean() < 0.05
+    # With loss: Q_s decreases monotonically down the trunk (ongoing abrasion).
+    assert np.all(np.diff(trunkg.Q_s) < 0)
+    # Through the confluence: the trunk head already carries less than the no-loss
+    # supply (tributaries abraded upstream), and the deficit grows toward the mouth.
+    assert trunkg.Q_s[0] < trunk0.Q_s[0]
+    assert (trunk0.Q_s[-1] - trunkg.Q_s[-1]) > (trunk0.Q_s[0] - trunkg.Q_s[0])

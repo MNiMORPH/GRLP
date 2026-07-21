@@ -960,7 +960,7 @@ class Network(object):
                     rows.append(g)
                     cols.append(g)
                     vals.append(1. + conductance_sum / A_confluence)
-                    RHS[g] = z_rhs[i]
+                    RHS[g] = z_rhs[i] + src[i]
                     continue
                 if down_is_confluence:
                     downseg = segs[lp.downstream_segment_IDs[0]]
@@ -983,7 +983,7 @@ class Network(object):
                     cols.append(g)
                     vals.append(
                         1. + (conductance_up + conductance_downseg) / land_area)
-                    RHS[g] = z_rhs[i]
+                    RHS[g] = z_rhs[i] + src[i]
                     continue
                 if up_is_confluence:
                     land_area = lp.B[1] * 0.5 * ((lp.x[1] - lp.x[0])
@@ -1004,7 +1004,7 @@ class Network(object):
                     cols.append(g)
                     vals.append(
                         1. + (conductance_up + conductance_down) / land_area)
-                    RHS[g] = z_rhs[i]
+                    RHS[g] = z_rhs[i] + src[i]
                     continue
                 # --- upstream neighbor (or head ghost) ---
                 if i > 0:

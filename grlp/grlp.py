@@ -1905,6 +1905,58 @@ class Network(object):
         self.update_z_ext_internal()
         self.update_z_ext_external_upstream(S0=self.S0, Q_s_0=self.Q_s_0)
 
+    def compute_Q_s(self):
+        """
+        Sediment discharge and slope at each point in the network, computed by
+        walking the topology to each node's real neighbours rather than reading
+        maintained ghost arrays. Sets S and Q_s on each segment, using the same
+        slope / sediment-discharge relationship as LongProfile.compute_Q_s.
+
+        At a confluence, the head node has one upstream neighbour per incoming
+        tributary; as in the single-segment case, S and Q_s there are the
+        average over the tributaries.
+        """
+        for lp in self.list_of_LongProfile_objects:
+            # Downstream ghost: base level at the outlet, else the first node
+            # of the downstream segment
+            if len(lp.downstream_segment_IDs) == 0:
+                z_dn = lp.z_bl
+                x_dn = 2*lp.x[-1] - lp.x[-2]
+            else:
+                downseg = self.list_of_LongProfile_objects[
+                              lp.downstream_segment_IDs[0]]
+                z_dn = downseg.z[0]
+                x_dn = downseg.x[0]
+            # Upstream ghost(s): the boundary slope S0 at a channel head, else
+            # the last node of each incoming tributary
+            z_up = []
+            x_up = []
+            if len(lp.upstream_segment_IDs) == 0:
+                _xg = 2*lp.x[0] - lp.x[1]
+                x_up.append( _xg )
+                z_up.append( lp.z[0] + lp.S0 * ( lp.x[0] - _xg ) )
+            else:
+                for upseg_ID in lp.upstream_segment_IDs:
+                    upseg = self.list_of_LongProfile_objects[upseg_ID]
+                    z_up.append( upseg.z[-1] )
+                    x_up.append( upseg.x[-1] )
+            # Assemble one ghost-padded profile per upstream neighbour and apply
+            # the single-segment slope / Q_s relationship, then average (the
+            # profiles differ only at the head node)
+            S = []
+            Q_s = []
+            for _zu, _xu in zip(z_up, x_up):
+                _z = np.hstack(( _zu, lp.z, z_dn ))
+                _x = np.hstack(( _xu, lp.x, x_dn ))
+                _dx = _x[2:] - _x[:-2]
+                S.append( np.abs( (_z[2:] - _z[:-2]) / _dx) / lp.sinuosity )
+                Q_s.append(
+                    -np.sign( _z[2:] - _z[:-2] ) \
+                    * lp.k_Qs * lp.intermittency * lp.Q * S[-1]**(7/6.)
+                    )
+            lp.S = np.mean(S, axis=0)
+            lp.Q_s = np.mean(Q_s, axis=0)
+
     def set_niter(self, niter):
         # MAKE UNIFORM IN BASE CLASS
         self.niter = niter

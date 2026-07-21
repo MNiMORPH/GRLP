@@ -1698,28 +1698,25 @@ class Network(object):
 
     def assemble_by_walking(self, dt):
         """
-        De-padded global assembly (Step 1 de-pad).
+        Assemble the global LHS matrix and RHS for the whole network by walking
+        the topology to each node's upstream and downstream neighbor, rather
+        than reading padded z_ext / Q_ext ghost arrays.
 
-        Build the global LHS matrix and RHS by *walking the topology* to each
-        node's upstream/downstream neighbor, instead of reading the padded
-        ``z_ext``/``Q_ext`` ghost arrays. The per-node stencil formulas are
-        identical to :meth:`LongProfile.build_matrices` -- only neighbor lookup
-        changes -- so for a single segment this reproduces the standalone solver
-        bit-for-bit. Channel heads apply the sediment-flux Neumann boundary
-        condition, the outlet the base-level Dirichlet condition; at a
-        single-upstream junction the confluence node reaches across the segment
-        boundary and so gets the ordinary interior stencil (fixing the
-        first-order ``land_area`` junction handling in the 1-into-1 case).
+        The per-node stencil is the same as build_matrices: only the neighbor
+        lookup changes, so for a single segment this reproduces the standalone
+        solver bit-for-bit. Channel heads apply the sediment-flux (Neumann)
+        boundary condition and the outlet the base-level (Dirichlet) condition.
+        At a single-tributary junction the confluence node reaches across the
+        segment boundary and so takes the ordinary interior stencil (fixing the
+        first-order land_area junction handling in the 1-into-1 case). A
+        multi-tributary confluence uses a conservative three-node junction cell:
+        each junction face carries one shared conductance, so the sediment flux
+        across it is single-valued and sediment is conserved to machine
+        precision.
 
-        Multi-tributary confluences are not yet handled here (they will delegate
-        to the existing junction code, or later a flux-balance cell); a node with
-        more than one upstream segment raises ``NotImplementedError``.
-
-        Returns ``(LHSmatrix, RHS)`` over the global node vector, ordered by
-        segment as in ``list_of_segment_lengths``. Additive: not yet wired into
-        the evolve loop.
+        Returns (LHSmatrix, RHS) over the global node vector, ordered by segment
+        as in list_of_segment_lengths.
         """
-        segs = self.list_of_LongProfile_objects
         lengths = list(self.list_of_segment_lengths)
         starts = np.cumsum([0] + lengths)[:-1]
         n = int(np.sum(lengths))
@@ -1727,175 +1724,227 @@ class Network(object):
         # interior node and to each tributary's second-to-last node, so segments
         # adjacent to a multi-tributary confluence must be long enough. Fail
         # clearly rather than with an IndexError.
-        for lp in segs:
+        for lp in self.list_of_LongProfile_objects:
             if len(lp.upstream_segment_IDs) > 1:
                 if lengths[lp.ID] < 3:
                     raise ValueError(
                         "Walking solver: confluence segment %d needs >= 3 nodes "
                         "(has %d)." % (lp.ID, lengths[lp.ID]))
-                for t in lp.upstream_segment_IDs:
-                    if lengths[t] < 2:
+                for upseg_ID in lp.upstream_segment_IDs:
+                    if lengths[upseg_ID] < 2:
                         raise ValueError(
                             "Walking solver: tributary segment %d into confluence "
                             "%d needs >= 2 nodes (has %d)."
-                            % (t, lp.ID, lengths[t]))
-        for lp in segs:
+                            % (upseg_ID, lp.ID, lengths[upseg_ID]))
+        for lp in self.list_of_LongProfile_objects:
             lp.build_LHS_coeff_C0(dt=dt)
-        rows = []; cols = []; vals = []; RHS = np.zeros(n)
-        for lp in segs:
-            s = lp.ID; off = starts[s]; L = lengths[s]
+        rows = []
+        cols = []
+        vals = []
+        RHS = np.zeros(n)
+        for lp in self.list_of_LongProfile_objects:
+            s = lp.ID
+            off = starts[s]
+            nx = lengths[s]
             # per-node source term (matches build_matrices' RHS additions)
             src = (np.asarray(lp.ssd)
                    + np.asarray(lp.downstream_fining_subsidence_equivalent)
                    + np.asarray(lp.U)) * dt
-            src = np.broadcast_to(src, (L,))
+            src = np.broadcast_to(src, (nx,))
             # RHS uses the start-of-step elevation (zold) during Picard
             # iteration; the coefficient (C1) uses the current iterate lp.z.
             # When zold is unset (static assembly, e.g. tests) it equals lp.z.
             z_rhs = getattr(lp, "zold", None)
-            if z_rhs is None or np.size(z_rhs) != L:
+            if z_rhs is None or np.size(z_rhs) != nx:
                 z_rhs = lp.z
-            for i in range(L):
+            for i in range(nx):
                 g = off + i
-                # ===== multi-tributary junction: shared-flux three-node cell ====
-                # Conservation is by construction: each junction FACE carries one
-                # shared conductance D used identically by both adjacent nodes, so
-                # the sediment flux D*(z_up - z_dn) is single-valued. D/A_cell
-                # matches the interior coupling magnitude
-                # (C0*7/(6 B dx**2) Q |S|**(1/6)), so a junction-adjacent node is
-                # consistent with the ordinary interior stencil on its other face.
+                # Multi-tributary junction: a shared-flux three-node cell. Each
+                # junction face carries one shared conductance D used by both
+                # adjacent nodes, so the sediment flux D*(z_up - z_dn) is
+                # single-valued. D / A_cell matches the interior coupling
+                # magnitude (C0 * 7/(6 B dx**2) * Q * |S|**(1/6.)), so a
+                # junction-adjacent node stays consistent with the ordinary
+                # interior stencil on its other face.
                 def _Dface(zu, zd, Qf, xu, xd, C0f):
                     Lf = xd - xu
-                    return C0f * (7 / 6.) * Qf * (np.abs(zu - zd) / Lf) ** (1 / 6.) / Lf
-                is_conf = (i == 0 and len(lp.upstream_segment_IDs) > 1)
-                dn_is_conf = (i == L - 1 and lp.downstream_segment_IDs
-                              and len(segs[lp.downstream_segment_IDs[0]]
-                                      .upstream_segment_IDs) > 1)
-                up_is_conf = (i == 1 and len(lp.upstream_segment_IDs) > 1)
+                    return C0f * (7/6.) * Qf \
+                               * (np.abs(zu - zd) / Lf)**(1/6.) / Lf
+                is_conf = ( i == 0 and len(lp.upstream_segment_IDs) > 1 )
+                dn_is_conf = ( i == nx - 1 and lp.downstream_segment_IDs
+                               and len(self.list_of_LongProfile_objects[
+                                   lp.downstream_segment_IDs[0]]
+                                   .upstream_segment_IDs) > 1 )
+                up_is_conf = ( i == 1 and len(lp.upstream_segment_IDs) > 1 )
                 if is_conf:
                     A_c = lp.land_area_around_confluence
-                    D_cd = _Dface(lp.z[0], lp.z[1], 0.5 * (lp.Q[0] + lp.Q[1]),
+                    D_cd = _Dface(lp.z[0], lp.z[1], 0.5*(lp.Q[0] + lp.Q[1]),
                                   lp.x[0], lp.x[1], lp.C0)
                     csum = D_cd
-                    rows.append(g); cols.append(g + 1); vals.append(-D_cd / A_c)
-                    for t in lp.upstream_segment_IDs:
-                        us = segs[t]; tg = starts[t] + lengths[t] - 1
-                        D_tc = _Dface(us.z[-1], lp.z[0], us.Q[-1],
-                                      us.x[-1], lp.x[0], lp.C0)
+                    rows.append(g)
+                    cols.append(g + 1)
+                    vals.append(-D_cd / A_c)
+                    for upseg_ID in lp.upstream_segment_IDs:
+                        upseg = self.list_of_LongProfile_objects[upseg_ID]
+                        upseg_g = starts[upseg_ID] + lengths[upseg_ID] - 1
+                        D_tc = _Dface(upseg.z[-1], lp.z[0], upseg.Q[-1],
+                                      upseg.x[-1], lp.x[0], lp.C0)
                         csum += D_tc
-                        rows.append(g); cols.append(tg); vals.append(-D_tc / A_c)
-                    rows.append(g); cols.append(g); vals.append(1. + csum / A_c)
-                    RHS[g] = z_rhs[i]; continue
+                        rows.append(g)
+                        cols.append(upseg_g)
+                        vals.append(-D_tc / A_c)
+                    rows.append(g)
+                    cols.append(g)
+                    vals.append(1. + csum / A_c)
+                    RHS[g] = z_rhs[i]
+                    continue
                 if dn_is_conf:
-                    ds = segs[lp.downstream_segment_IDs[0]]; cg = starts[ds.ID]
-                    A = lp.B[-1] * 0.5 * ((lp.x[-1] - lp.x[-2]) + (ds.x[0] - lp.x[-1]))
-                    D_tc = _Dface(lp.z[-1], ds.z[0], lp.Q[-1],
-                                  lp.x[-1], ds.x[0], ds.C0)     # shared with conf
-                    D_up = _Dface(lp.z[-2], lp.z[-1], 0.5 * (lp.Q[-2] + lp.Q[-1]),
+                    downseg = self.list_of_LongProfile_objects[
+                                  lp.downstream_segment_IDs[0]]
+                    downseg_g = starts[downseg.ID]
+                    A = lp.B[-1] * 0.5 * ( (lp.x[-1] - lp.x[-2])
+                                           + (downseg.x[0] - lp.x[-1]) )
+                    # tributary-confluence face, shared with the confluence cell
+                    D_tc = _Dface(lp.z[-1], downseg.z[0], lp.Q[-1],
+                                  lp.x[-1], downseg.x[0], downseg.C0)
+                    D_up = _Dface(lp.z[-2], lp.z[-1], 0.5*(lp.Q[-2] + lp.Q[-1]),
                                   lp.x[-2], lp.x[-1], lp.C0)
-                    rows.append(g); cols.append(g - 1); vals.append(-D_up / A)
-                    rows.append(g); cols.append(cg); vals.append(-D_tc / A)
-                    rows.append(g); cols.append(g); vals.append(1. + (D_up + D_tc) / A)
-                    RHS[g] = z_rhs[i]; continue
+                    rows.append(g)
+                    cols.append(g - 1)
+                    vals.append(-D_up / A)
+                    rows.append(g)
+                    cols.append(downseg_g)
+                    vals.append(-D_tc / A)
+                    rows.append(g)
+                    cols.append(g)
+                    vals.append(1. + (D_up + D_tc) / A)
+                    RHS[g] = z_rhs[i]
+                    continue
                 if up_is_conf:
-                    A = lp.B[1] * 0.5 * ((lp.x[1] - lp.x[0]) + (lp.x[2] - lp.x[1]))
-                    D_cd = _Dface(lp.z[0], lp.z[1], 0.5 * (lp.Q[0] + lp.Q[1]),
-                                  lp.x[0], lp.x[1], lp.C0)       # shared with conf
-                    D_dn = _Dface(lp.z[1], lp.z[2], 0.5 * (lp.Q[1] + lp.Q[2]),
+                    A = lp.B[1] * 0.5 * ( (lp.x[1] - lp.x[0])
+                                          + (lp.x[2] - lp.x[1]) )
+                    # confluence-downstream face, shared with the confluence cell
+                    D_cd = _Dface(lp.z[0], lp.z[1], 0.5*(lp.Q[0] + lp.Q[1]),
+                                  lp.x[0], lp.x[1], lp.C0)
+                    D_dn = _Dface(lp.z[1], lp.z[2], 0.5*(lp.Q[1] + lp.Q[2]),
                                   lp.x[1], lp.x[2], lp.C0)
-                    rows.append(g); cols.append(g - 1); vals.append(-D_cd / A)
-                    rows.append(g); cols.append(g + 1); vals.append(-D_dn / A)
-                    rows.append(g); cols.append(g); vals.append(1. + (D_cd + D_dn) / A)
-                    RHS[g] = z_rhs[i]; continue
-                # --- upstream neighbor (or head ghost) ---
+                    rows.append(g)
+                    cols.append(g - 1)
+                    vals.append(-D_cd / A)
+                    rows.append(g)
+                    cols.append(g + 1)
+                    vals.append(-D_dn / A)
+                    rows.append(g)
+                    cols.append(g)
+                    vals.append(1. + (D_cd + D_dn) / A)
+                    RHS[g] = z_rhs[i]
+                    continue
+                # Upstream neighbor, or the channel-head ghost
                 if i > 0:
-                    up_g = g - 1; z_up = lp.z[i - 1]; x_up = lp.x[i - 1]
-                    Q_up = lp.Q[i - 1]; is_head = False
-                elif len(lp.upstream_segment_IDs) == 0:
-                    is_head = True; up_g = None
-                    x_up = 2 * lp.x[0] - lp.x[1]
-                    z_up = lp.z[0] + lp.S0 * (lp.x[0] - x_up)
-                    Q_up = 2 * lp.Q[0] - lp.Q[1]
-                elif len(lp.upstream_segment_IDs) == 1:
+                    up_g = g - 1
+                    z_up = lp.z[i-1]
+                    x_up = lp.x[i-1]
+                    Q_up = lp.Q[i-1]
                     is_head = False
-                    us = segs[lp.upstream_segment_IDs[0]]
-                    up_g = starts[us.ID] + lengths[us.ID] - 1
-                    z_up = us.z[-1]; x_up = us.x[-1]; Q_up = us.Q[-1]
+                elif len(lp.upstream_segment_IDs) == 0:
+                    is_head = True
+                    up_g = None
+                    x_up = 2*lp.x[0] - lp.x[1]
+                    z_up = lp.z[0] + lp.S0 * (lp.x[0] - x_up)
+                    Q_up = 2*lp.Q[0] - lp.Q[1]
                 else:
-                    raise NotImplementedError(
-                        "assemble_by_walking: multi-tributary confluence "
-                        "(segment %d has %d upstream segments) not yet handled"
-                        % (s, len(lp.upstream_segment_IDs)))
-                # --- downstream neighbor (or outlet ghost) ---
-                if i < L - 1:
-                    dn_g = g + 1; z_dn = lp.z[i + 1]; x_dn = lp.x[i + 1]
-                    Q_dn = lp.Q[i + 1]; is_outlet = False
+                    # single upstream tributary: reach across the junction
+                    is_head = False
+                    upseg = self.list_of_LongProfile_objects[
+                                lp.upstream_segment_IDs[0]]
+                    up_g = starts[upseg.ID] + lengths[upseg.ID] - 1
+                    z_up = upseg.z[-1]
+                    x_up = upseg.x[-1]
+                    Q_up = upseg.Q[-1]
+                # Downstream neighbor, or the outlet ghost
+                if i < nx - 1:
+                    dn_g = g + 1
+                    z_dn = lp.z[i+1]
+                    x_dn = lp.x[i+1]
+                    Q_dn = lp.Q[i+1]
+                    is_outlet = False
                 elif len(lp.downstream_segment_IDs) == 0:
-                    is_outlet = True; dn_g = None
-                    x_dn = 2 * lp.x[-1] - lp.x[-2]; z_dn = lp.z_bl
-                    Q_dn = 2 * lp.Q[-1] - lp.Q[-2]
+                    is_outlet = True
+                    dn_g = None
+                    x_dn = 2*lp.x[-1] - lp.x[-2]
+                    z_dn = lp.z_bl
+                    Q_dn = 2*lp.Q[-1] - lp.Q[-2]
                 else:
                     is_outlet = False
-                    ds = segs[lp.downstream_segment_IDs[0]]
-                    dn_g = starts[ds.ID]
-                    z_dn = ds.z[0]; x_dn = ds.x[0]; Q_dn = ds.Q[0]
-                # --- stencil (identical to build_matrices) ---
-                dxu = lp.x[i] - x_up; dxd = x_dn - lp.x[i]; dx2 = x_dn - x_up
+                    downseg = self.list_of_LongProfile_objects[
+                                  lp.downstream_segment_IDs[0]]
+                    dn_g = starts[downseg.ID]
+                    z_dn = downseg.z[0]
+                    x_dn = downseg.x[0]
+                    Q_dn = downseg.Q[0]
+                # Stencil, identical to build_matrices
+                dxu = lp.x[i] - x_up
+                dxd = x_dn - lp.x[i]
+                dx2 = x_dn - x_up
                 dQ2 = Q_dn - Q_up
                 S = np.abs(z_dn - z_up) / dx2
-                C1 = lp.C0 * S ** (1 / 6.) * lp.Q[i] / lp.B[i]
-                center = -C1 / dx2 * (7 / 3. * (-1 / dxu - 1 / dxd)) + 1.
-                left = -C1 / dx2 * (7 / 3. / dxu - dQ2 / lp.Q[i] / dx2)
-                right = -C1 / dx2 * (7 / 3. / dxd + dQ2 / lp.Q[i] / dx2)
+                C1 = lp.C0 * S**(1/6.) * lp.Q[i] / lp.B[i]
+                center = -C1 / dx2 * (7/3. * (-1/dxu - 1/dxd)) + 1.
+                left = -C1 / dx2 * (7/3. / dxu - dQ2 / lp.Q[i] / dx2)
+                right = -C1 / dx2 * (7/3. / dxd + dQ2 / lp.Q[i] / dx2)
                 rhs_g = z_rhs[i] + src[i]
                 if is_head:                       # set_bcl_Neumann
-                    right = -C1 / dx2 * 7 / 3. * (1 / dxu + 1 / dxd)
-                    rhs_g += lp.S0 * C1 * (7 / 3. / dxu - dQ2 / lp.Q[i] / dx2)
+                    right = -C1 / dx2 * 7/3. * (1/dxu + 1/dxd)
+                    rhs_g += lp.S0 * C1 * (7/3. / dxu - dQ2 / lp.Q[i] / dx2)
                 if is_outlet:                     # set_bcr_Dirichlet
                     rhs_g += z_dn * C1 / dx2 * (
-                        7 / 3. * (1 / (lp.x[-1] - lp.x[-2])
-                                  + 1 / (x_dn - lp.x[-1])) / 2.
+                        7/3. * (1/(lp.x[-1] - lp.x[-2])
+                                + 1/(x_dn - lp.x[-1])) / 2.
                         + dQ2 / lp.Q[i] / dx2)
-                rows.append(g); cols.append(g); vals.append(center)
+                rows.append(g)
+                cols.append(g)
+                vals.append(center)
                 if up_g is not None:
-                    rows.append(g); cols.append(up_g); vals.append(left)
+                    rows.append(g)
+                    cols.append(up_g)
+                    vals.append(left)
                 if dn_g is not None:
-                    rows.append(g); cols.append(dn_g); vals.append(right)
+                    rows.append(g)
+                    cols.append(dn_g)
+                    vals.append(right)
                 RHS[g] = rhs_g
         LHSmatrix = sparse.csr_matrix((vals, (rows, cols)), shape=(n, n))
         return LHSmatrix, RHS
 
     def _evolve_by_walking(self, nt, dt):
         """
-        Time-step the network through the de-padded walking assembler
-        (:meth:`assemble_by_walking`). Used for networks with no multi-tributary
-        confluence (single segments and 1-into-1 chains); the walker handles
-        those exactly and fixes the first-order junction. Proper Picard: the RHS
-        is frozen at the start-of-step elevation (``zold``) while the coefficient
-        relinearizes on the current iterate each iteration.
+        Time-step the whole network through the de-padded walking assembler
+        (assemble_by_walking), for nt steps of length dt. This handles every
+        network, including multi-tributary confluences. Picard iteration: the
+        RHS is held at the start-of-step elevation (zold), while the coefficient
+        is relinearized on the current iterate each iteration.
         """
         self.dt = dt
-        segs = self.list_of_LongProfile_objects
         lengths = list(self.list_of_segment_lengths)
         starts = np.cumsum([0] + lengths)[:-1]
         for ti in range(int(nt)):
-            for lp in segs:
+            for lp in self.list_of_LongProfile_objects:
                 lp.zold = lp.z.copy()
-            for _ in range(int(self.niter)):
+            for i_iter in range(int(self.niter)):
                 LHS, RHS = self.assemble_by_walking(dt)
                 out = spsolve(sparse.csr_matrix(LHS), RHS)
-                for lp in segs:
+                for lp in self.list_of_LongProfile_objects:
                     s = lp.ID
                     lp.z = out[starts[s]:starts[s] + lengths[s]]
             self.t += dt
-            for lp in segs:
+            for lp in self.list_of_LongProfile_objects:
                 lp.t = self.t
                 lp.dz_dt = (lp.z - lp.zold) / dt
         # Sync the padded z_ext arrays for downstream consumers that still read
         # them (LongProfile.compute_Q_s, the examples/ scripts). The walking
         # solver does not use z_ext; this keeps the final state consistent until
         # those consumers are migrated to lp.z and the padding is removed.
-        for lp in segs:
+        for lp in self.list_of_LongProfile_objects:
             for _tribi in range(len(lp.z_ext)):
                 lp.z_ext[_tribi][1:-1] = lp.z
         self.update_z_ext_internal()

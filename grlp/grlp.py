@@ -271,12 +271,16 @@ class LongProfile(object):
             if P_AQ:
                 self.P_AQ = P_AQ
             q_R = q_R/3600. # to m/s
-            Q_ext = q_R * np.minimum(A_R, self.A_ext) \
-                    * (self.A_ext/np.minimum(A_R,self.A_ext))**self.P_AQ
+            A_ext = np.hstack(( self.A_ghost_upstream, self.A,
+                                self.A_ghost_downstream ))
+            Q_ext = q_R * np.minimum(A_R, A_ext) \
+                    * (A_ext/np.minimum(A_R,A_ext))**self.P_AQ
             self.Q = Q_ext[1:-1]
         elif self.x.any() and self.x_ext.any() and k_xQ and P_xQ:
             self.Q = k_xQ * self.x**P_xQ
-            Q_ext = k_xQ * self.x_ext**P_xQ
+            _x_ext = np.hstack(( self.x_ghost_upstream, self.x,
+                                 self.x_ghost_downstream ))
+            Q_ext = k_xQ * _x_ext**P_xQ
         else:
             sys.exit("Error defining variable")
         # [was VERY helpful; currently deprecated]
@@ -590,8 +594,8 @@ class LongProfile(object):
         lambda_p = self.lambda_p
         I = self.intermittency
         # Fine, model-independent reference grid spanning the boundary nodes.
-        x0 = self.x_ext[0]
-        x_bl = self.x_ext[-1]
+        x0 = self.x_ghost_upstream
+        x_bl = self.x_ghost_downstream
         z_bl = self.z_bl
         xf = np.linspace(x0, x_bl, nx_fine)
         Bf = self.k_xB * xf**self.P_xB
@@ -618,18 +622,17 @@ class LongProfile(object):
     def compute_Q_s(self):
         S = []
         Q_s = []
-        # Reconstruct the padded profile from self.z (channel-head ghost from
-        # the boundary slope S0, outlet ghost from base level); z_ext is no
-        # longer stored.
+        # Reconstruct the padded profile from self.z and the boundary ghost-node
+        # positions (channel-head ghost elevation from the boundary slope S0,
+        # outlet ghost from base level); neither z_ext nor x_ext is stored.
+        _x_ext = np.hstack(( self.x_ghost_upstream, self.x,
+                             self.x_ghost_downstream ))
         if self.S0 is not None:
-            _z0 = self.z[0] + self.S0 * self.dx_ext[0]
+            _z0 = self.z[0] + self.S0 * (self.x[0] - self.x_ghost_upstream)
         else:
             _z0 = 2*self.z[0] - self.z[1]
         z_ext = [ np.hstack(( _z0, self.z, self.z_bl )) ]
-        if type(self.dx_ext_2cell) is np.ndarray:
-            dx_ext_2cell = [ self.dx_ext_2cell ]
-        else:
-            dx_ext_2cell = self.dx_ext_2cell
+        dx_ext_2cell = [ _x_ext[2:] - _x_ext[:-2] ]
         # Next, loop through slopes and sediment discharges
         for _z, _dx in zip(z_ext, dx_ext_2cell):
             S.append( np.abs( (_z[2:] - _z[:-2]) / _dx) / self.sinuosity )
@@ -664,13 +667,15 @@ class LongProfile(object):
             raise ValueError('Set grain size to compute channel depth.')
 
     def slope_area(self, verbose=False):
+        _x_ext = np.hstack(( self.x_ghost_upstream, self.x,
+                             self.x_ghost_downstream ))
         if self.S0 is not None:
-            _z0 = self.z[0] + self.S0 * self.dx_ext[0]
+            _z0 = self.z[0] + self.S0 * (self.x[0] - self.x_ghost_upstream)
         else:
             _z0 = 2*self.z[0] - self.z[1]
         _z_ext = np.hstack(( _z0, self.z, self.z_bl ))
         self.S = np.abs( (_z_ext[2:] - _z_ext[:-2]) \
-                         / self.dx_ext_2cell )
+                         / (_x_ext[2:] - _x_ext[:-2]) )
         logS = np.log10(self.S)
         logA = np.log10(self.A)
         out = linregress(logA[1:-1], logS[1:-1]) # remove edge effects

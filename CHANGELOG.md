@@ -18,6 +18,36 @@ version heading for the full notes.
   (a single segment is a one-edge network). Results are unchanged to machine
   precision for single segments and for uniform-discharge networks; see the fix
   below for the one intended numerical change.
+- `Network.compute_Q_s` (new): slope and sediment discharge at every network
+  node, computed by walking the topology to each node's real neighbour (no
+  `z_ext`), reusing the single-segment `LongProfile.compute_Q_s` relationship.
+  Use it instead of calling `compute_Q_s` per segment on a network.
+- Network boundary conditions no longer go through padded ghost arrays; they
+  reuse the single-segment setters:
+  - `Network.set_z_bl(z0)` is now the real base-level setter (the mouth-finding
+    logic is folded in; it was previously a broken alias). It sets `z_bl` on the
+    network's single outlet segment.
+  - `Network.set_Qs_input_upstream(S0=None, Q_s_0=None)` replaces
+    `update_z_ext_external_upstream`: it loops the channel heads and delegates to
+    `LongProfile.set_Qs_input_upstream` for the `Q_s_0` case, or sets `S0`
+    directly. Accepts a scalar or one value per head.
+  - `LongProfile.set_Qs_input_upstream` now holds the upstream ghost-node
+    elevation explicitly as `z_ghost_upstream`, writing the padded `z_ext[0]`
+    only for a standalone segment (a network head has `z_ext = None`).
+- A `Network` no longer maintains padded `x_ext` / `z_ext` / `Q_ext` arrays at
+  all; the solver and its diagnostics walk the topology.
+
+### Removed
+- The network boundary methods `update_z_ext_external_upstream`,
+  `update_z_ext_external_downstream`, and `update_x_ext_external_downstream`
+  (**breaking**): use `set_Qs_input_upstream` and `set_z_bl`. Base level is the
+  only downstream quantity the solver needs (its outlet ghost is
+  `2*x[-1] - x[-2]`).
+- The internal network padding machinery, now unused: `create_x_ext_lists`,
+  `update_x_ext_*`, `update_dx_ext`, `update_dx_2cell`, `update_dx_ext_2cell`,
+  `create_z_ext_lists`, `update_z_ext_internal`, `create_Q_ext_lists`,
+  `update_Q_ext_*`, `update_dQ_ext_2cell`, and the dead padded block-matrix solve
+  path.
 
 ### Fixed
 - Networked solver, sediment conservation at confluences: the previous
@@ -35,12 +65,13 @@ version heading for the full notes.
   `set_intermittency` *method* (`lp.set_intermittency = intermittency`) rather
   than calling it, so segment intermittency never changed and the method was
   overwritten with a float. Handles both the scalar and per-segment-list forms.
-- Networked solver, `Q_s_0 → S0` boundary conversion
-  (`update_z_ext_external_upstream`): removed a spurious intermittency factor and
-  corrected the sign, matching the single-segment `set_Qs_input_upstream`.
-  Intermittency scales the evolution rate (via `C0`), not the equilibrium slope,
-  so it must not enter this geometric inversion; and the ghost placement
-  `z_ext[0] = z[0] + S0·dx` requires a positive `S0` for a descending river. With
+- Networked solver, `Q_s_0 → S0` boundary conversion: removed a spurious
+  intermittency factor and corrected the sign. The network now performs this
+  inversion through the single-segment `set_Qs_input_upstream`, so the two agree
+  by construction. Intermittency scales the evolution rate (via `C0`), not the
+  equilibrium slope, so it must not enter this geometric inversion; and the ghost
+  placement `z_ghost_upstream = z[0] + S0·dx` requires a positive `S0` for a
+  descending river. With
   `I ≠ 1` the old form gave the wrong slope by `I^(-6/7)` and the wrong sign, so a
   network driven by sediment supply diverged from the equivalent standalone by
   hundreds of metres. Latent: all tests and examples drive networks by `S0`.

@@ -86,7 +86,7 @@ def test_Qs0_to_S0_omits_intermittency_and_is_positive(long_profile_factory, I):
         x=[x.copy()], z=[np.zeros_like(x)], Q=[a.Q.copy()], B=[a.B.copy()],
     )
     net.set_intermittency(I)
-    net.update_z_ext_external_upstream(Q_s_0=float(Qs0))
+    net.set_Qs_input_upstream(Q_s_0=float(Qs0))
     seg = net.list_of_LongProfile_objects[0]
 
     assert seg.S0 == pytest.approx(a.S0)   # equals standalone, independent of I

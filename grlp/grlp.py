@@ -366,7 +366,9 @@ class LongProfile(object):
                         ( self.k_Qs
                               * np.abs(self.Q[0])) )**(6/7.)
         # Give upstream cell the same width as the first cell in domain
-        self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
+        self.z_ghost_upstream = self.z[0] + self.S0 * self.dx[0]
+        if self.z_ext is not None:            # standalone keeps its padded array
+            self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
 
     def update_z_ext_0(self):
         """
@@ -1952,94 +1954,6 @@ class Network(object):
         # MAKE UNIFORM IN BASE CLASS
         self.niter = niter
 
-    def create_x_ext_lists(self):
-        """
-        ##########################################################
-        # GENERATE LISTS OF x_ext: 1 FOR EACH INCOMING TRIBUTARY #
-        ##########################################################
-
-        Set up "network" lists of "_ext" variables: one per upstream-linked
-        segment and a minimum of 1 if no links are present
-        Currently building this for convergent networks only
-        """
-        # Pad x_ext with nans
-        _nan1 = np.array([np.nan])
-        # Loop through long profiles (segments) in network
-        for lp in self.list_of_LongProfile_objects:
-            lp.x_ext = []
-            x_inner = np.concatenate( [_nan1, lp.x, _nan1] )
-            for _iter_i in range(np.max( (1, len(lp.upstream_segment_IDs)) )):
-                lp.x_ext.append(x_inner.copy())
-
-
-    def update_x_ext_internal(self):
-        """
-        ###################################################
-        # POPULATE x_ext LISTS WITH VALUES FROM NEIGHBORS #
-        ###################################################
-
-        x_ext[0] of downstream segment set to x[-1] of upstream segment.
-
-        The upstream-most segments have x_ext set by another function, and
-        to default to a spacing that is the same as that between x[0] and x[1].
-
-        x_ext[-1] of upstream segment set to x[0] of downstream segment.
-
-        The final downstream segment has x_ext[-1] for the lateral position
-        of the base-level cell.
-        """
-
-        # Order:
-        # Inner (close to each other): upstream.
-        # Outer (strides from each other): downstream.
-        # Right now, this is moot: Downstream = 1
-        for lp in self.list_of_LongProfile_objects:
-            _idx = 0
-            # SET UPSTREAM BOUNDARIES: INTERNAL
-            # Here, max so the downstream-most segment gets looped through
-            # too, even if it has no downseg ID
-            for i_downseg in range(np.max((1, len(lp.downstream_segment_IDs)))):
-                for upseg_ID in lp.upstream_segment_IDs:
-                    upseg = self.list_of_LongProfile_objects[upseg_ID]
-                    lp.x_ext[_idx][0] = upseg.x[-1]
-                    _idx += 1
-            # SET DOWNSTREAM BOUNDARIES: INTERNAL
-            _idx = 0
-            for downseg_ID in lp.downstream_segment_IDs:
-                # For each downstream ID, must update for each upstream
-                # ID
-                downseg = self.list_of_LongProfile_objects[downseg_ID]
-                # Min = 1 so downseg still updated for headwaters segments
-                for i_upseg in range(np.max((1, len(lp.upstream_segment_IDs)))):
-                    lp.x_ext[_idx][-1] = downseg.x[0]
-                    _idx += 1
-
-    def update_x_ext_external_upstream(self):
-        """
-        Update x_ext at external upstream boundaries.
-
-        This, together with z, provides sediment inputs as these locations.
-
-        By default, this is set to be the same as the dx between the
-        first and the second cells: The upstream boundary condition is
-        set by the slope, and so z_ext[0] can be used with a fixed x_ext[0]
-        to set this -- and then, there are fewer moving parts / places
-        with possible error.
-
-        In fact, I am writing this function to make sure that z_ext[0] is
-        *always* just at the same spacing as that between x[0] and x[1].
-        Let's keep this simple!
-
-        But nonetheless keeping this in its own function to highlight the
-        conceptual difference and in case we want to change this functionality
-        later.
-        """
-        # SET UPSTREAM BOUNDARIES: EXTERNAL
-        for ID in self.list_of_channel_head_segment_IDs:
-            lp = self.list_of_LongProfile_objects[ID]
-            for x_ext_array in lp.x_ext:
-                dx0 = lp.x[1] - lp.x[0]
-                x_ext_array[0] = lp.x[0] - dx0
 
     def set_x_bl(self, x_bl):
         """
@@ -2049,317 +1963,38 @@ class Network(object):
         """
         update_x_ext_external_downstream( x_bl )
 
-    def update_x_ext_external_downstream(self, x_base_level=None):
-        """
-        Set downstream boundary (ultimate base level, singular): External
-
-        This function will set only the downstream-most boundary condition.
-
-        It expects a list of length (1) for the class variable:
-        self.list_of_channel_mouth_segment_IDs.
-        This assumption will have to be relaxed if the code ever be updated
-        to allow multiple river mouths.
-
-        Args:
-            x0 (float): Base-level downvalley position (mouth seg x_ext[-1])
-
-        Returns:
-            None
-        """
-        if len(self.list_of_channel_mouth_segment_IDs) == 1:
-            ID = self.list_of_channel_mouth_segment_IDs[0]
-        else:
-            sys.exit( ">1 channel-mouth-segment ID listed.\n"+
-                      "Simulation not set up to manage >1 river mouth.\n"+
-                      "Exiting" )
-
-        # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
-
-        # Flag for whether x should be calculated internally
-        _calcx = False
-
-        # If provided, use x position
-        if x_base_level is not None:
-            _x_bl = x_base_level
-        # Otherwise, default to one dx beyond river-mouth position
-        else:
-            _calcx = True
-
-        lp = self.list_of_LongProfile_objects[ID]
-
-        # Loop over each 1D array within the list: each trib connection
-        for _x_ext in lp.x_ext:
-            # This should be the same each time, but nonetheless,
-            # calculating it locally for each array makes me more comfortable
-            # because I am not assuming that one equals they other.
-            # Though if they are unequal... potential big problems!
-            if _calcx:
-                _x_bl = lp.x[-1] + lp.dx[-1]
-            _x_ext[-1] = _x_bl
-
         # We should have some code to account for changes in both x and z
         # with base-level change, and remeshes the downstream-most segment,
         # as needed
 
-    def create_z_ext_lists(self):
+    def set_Qs_input_upstream(self, S0=None, Q_s_0=None):
         """
-        ##########################################################
-        # GENERATE LISTS OF z_ext: 1 FOR EACH INCOMING TRIBUTARY #
-        ##########################################################
-
-        Set up "network" lists of "_ext" variables: one per upstream-linked
-        segment and a minimum of 1 if no links are present
-        Currently building this for convergent networks only
+        Set the upstream sediment-supply boundary at each channel head, from a
+        prescribed boundary slope S0 or an input sediment discharge Q_s_0. Each
+        may be a scalar (applied at every head) or an iterable (one value per
+        head, in channel-head-ID order). Delegates per head to the single-segment
+        LongProfile.set_Qs_input_upstream for the Q_s_0 case.
         """
-        """
-        # Pad x_ext with nans
-        _nan1 = np.array([np.nan])
-        # Loop through long profiles (segments) in network
-        for lp in self.list_of_LongProfile_objects:
-            lp.z_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
-                [ np.concatenate( [_nan1, lp.z, _nan1] ) ]
-            print( "" )
-            print( lp.ID )
-            print( "" )
-            print( "Z_EXT" )
-            print( lp.z_ext[:] )
-            print( "" )
-        """
-        # z_ext messup happens after this.
-
-        # HUH! I WONDER WHAT I WAS THINKING WHEN I WROTE THAT.
-        # BUT I SEEM TO HAVE AN ANSWER.
-
-        _nan1 = np.array([np.nan])
-        for lp in self.list_of_LongProfile_objects:
-            lp.z_ext = []
-            z_inner = np.concatenate( [_nan1, lp.z, _nan1] )
-            for _iter_i in range(np.max( (1, len(lp.upstream_segment_IDs)) )):
-                lp.z_ext.append(z_inner.copy())
-
-    def update_z_ext_internal(self):
-        """
-        ###################################################
-        # POPULATE x_ext LISTS WITH VALUES FROM NEIGHBORS #
-        ###################################################
-
-        z_ext[0] of downstream segment set to z[-1] of upstream segment.
-
-        The upstream-most segments have z_ext set based on sediment-supply
-        boundary conditions, rather than being set here.
-
-        z_ext[-1] of upstream segment set to z[0] of downstream segment.
-        This simulates the "internal base level" communicated
-        among tributaries in the network.
-
-        The final downstream segment has z_ext[-1] set as base level.
-        """
-
-        # Order:
-        # Inner (close to each other): upstream.
-        # Outer (strides from each other): downstream.
-        # Right now, this is moot: Downstream = 1
-        for lp in self.list_of_LongProfile_objects:
-            # SET UPSTREAM BOUNDARIES: INTERNAL
-            _idx = 0
-            # Here, max so the downstream-most segment gets looped through
-            # too, even if it has no downseg ID
-            for i_downseg in range(np.max((1, len(lp.downstream_segment_IDs)))):
-                for upseg_ID in lp.upstream_segment_IDs:
-                    upseg = self.list_of_LongProfile_objects[upseg_ID]
-                    lp.z_ext[_idx][0] = upseg.z_ext[0][-2]
-                    _idx += 1
-            # SET DOWNSTREAM BOUNDARIES: INTERNAL
-            _idx = 0
-            for downseg_ID in lp.downstream_segment_IDs:
-                # For each downstream ID, must update for each upstream
-                # ID
-                downseg = self.list_of_LongProfile_objects[downseg_ID]
-                # Min = 1 so downseg still updated for headwaters segments
-                for i_upseg in range(np.max((1, len(lp.upstream_segment_IDs)))):
-                    lp.z_ext[_idx][-1] = downseg.z_ext[0][1]
-                    _idx += 1
-
-    def update_z_ext_external_upstream(self, S0=None, Q_s_0=None):
-        """
-        Update z_ext at external upstream boundaries.
-
-        This provides sediment inputs as these locations.
-
-        If the value is iterable, it will provide upstream boundary conditions
-        in the same order as that of the provided headwater segments.
-
-        If it is a scalar, it will provide the same value for each segment.
-
-        If self.S0 and/or self.Q_s_0 have already been set, you can run this
-        function without passing any variables.
-
-        Anything that you do pass here will overwrite previously-set values
-        for these variables.
-
-        Note: This overlaps somewhat with lp.set_Qs_input_upstream(Q_s_0).
-        However, it is more flexible (S0 or Q_s_0) and expects z_ext to
-        be a single array within a list (as opposed to an array outside of a
-        list).
-        """
-
-
-        # THIS IS RATHER MESSY AT HANDLING INTERNAL VS EXTERNAL S0, Q_S_0
-        # WORKS BETTER FOR NOW, BUT SHOULD REWRITE
-        if self.S0 is not None and self.Q_s_0 is not None:
-            # Use Q_s_0
-            pass
-
-        elif S0 is not None and Q_s_0 is not None:
-            sys.exit( "Choose only one of S0, Q_s_0.\n"+
-                      "(Q_s_0 is used to generate S0.)" )
-
-        if S0 is None and Q_s_0 is None:
-            if self.S0 is not None and self.Q_s_0 is not None:
-                warnings.warn( "\nUnclear whether to update Q_s_0 and S0 "+
-                               "based on input S0 or input Q_s_0.\n"+
-                               "Leaving function without updating values." )
-            return
-
-        # Before starting, set a bool as a scalar check.
-        _is_scalar = False
-
-        # And a flag for using Q_s_0
-        _use_Q_s_0 = False
-
-        #########################################
-        # IF Q_s_0 IS USED, FIRST CONVERT TO S0 #
-        #########################################
-
-        # First, check on whether it exists already. Set or just use this
+        heads = self.list_of_channel_head_segment_IDs
+        # Broadcast a scalar to every head, or take one value per head
+        def _per_head(val):
+            try:
+                iter(val)
+                return list(val)
+            except TypeError:
+                return [val] * len(heads)
         if Q_s_0 is not None:
-            # Set the flag
-            _use_Q_s_0 = True
-            # Set the internal variable
             self.Q_s_0 = Q_s_0
-            # Scalar or array?
-            try:
-                iter(Q_s_0)
-                Q_s_0 = np.array(Q_s_0).squeeze() # Use a numpy array
-            except:
-                _is_scalar=True
-
-        elif self.Q_s_0 is not None:
-            # Set the flag
-            _use_Q_s_0 = True
-            Q_s_0 = self.Q_s_0 # set the local variable (ease of use here)
-            try:
-                iter(Q_s_0)
-                Q_s_0 = np.array(Q_s_0).squeeze() # Enforce numpy array
-                                                  # (should be one already)
-            except:
-                _is_scalar=True
-
-        # Second, if array, check length
-        if not _is_scalar and _use_Q_s_0:
-            if len(Q_s_0) != len(self.list_of_channel_head_segment_IDs):
-                sys.exit( "Q_s_0 array length is "+str(len(Q_s_0))+'.\n'
-                          "Number of headwater segments is "+
-                            str(len(self.list_of_channel_head_segment_IDs))+
-                            '.\n'+
-                          "These should be equal or Q_s_0 should be "+
-                          "passed as a scalar\n"+
-                          "(same value everywhere)."
-                 )
-
-        # Third, set self.Q_s_0 for all the segments
-        # This is done whether Q_s_0 be scalar or array type
-        _idx = 0
-        if _use_Q_s_0:
-            for ID in self.list_of_channel_head_segment_IDs:
-                lp = self.list_of_LongProfile_objects[ID]
-                # If Q_s_0 is a scalar value, apply it everywhere
-                if _is_scalar:
-                    lp.Q_s_0 = Q_s_0
-                # Otherwise, iterate over the supplied Q_s_0
-                else:
-                    lp.Q_s_0 = Q_s_0[_idx]
-                _idx += 1
-
-        # Fourth, compute the S0 values
-        if _use_Q_s_0:
-            _Q0 = []
-            _sinuosity = []
-            _k_Qs = []
-            for ID in self.list_of_channel_head_segment_IDs:
-                lp = self.list_of_LongProfile_objects[ID]
-                # We are using Q[0] instead of (Q_ext[0] + Q_ext[1])/2
-                # Q_ext[1] = Q[0], by definitions
-                # Therefore, I will set all Q_ext[0] = Q[0].
-                # This will be superfluous for the code, but at least
-                # consistent internally
-                _Q0.append(lp.Q[0])
-                _sinuosity.append(lp.sinuosity)
-                _k_Qs.append(lp.k_Qs)
-            _Q0 = np.array(_Q0)
-            _sinuosity = np.array(_sinuosity)
-            _k_Qs = np.array(_k_Qs)
-            # Invert the transport law Q_s = k_Qs * Q * (S/sinuosity)**(7/6) for
-            # the boundary slope, matching the single-segment set_Qs_input_upstream.
-            # Intermittency is deliberately absent: it scales the evolution rate
-            # (via C0), not the equilibrium slope, so it must not enter the
-            # Q_s_0 -> S0 conversion.  The sign is +sign(Q0): the ghost is placed
-            # as z_ext[0] = z[0] + S0*dx, so S0 must be positive for a river that
-            # descends downstream (matching the S0-given code path).
-            S0 = np.sign(_Q0) * _sinuosity * \
-              ( np.abs(Q_s_0) /
-                ( _k_Qs * np.abs(_Q0) ) )**(6/7.)
-
-        ################################################
-        #        IF S0 BE PROVIDED, JUST USE IT        #
-        # OTHERWISE, THIS USES THE ABOVE-CALCULATED S0 #
-        ################################################
-
-        if S0 is not None:
+            for ID, _Qs0 in zip(heads, _per_head(Q_s_0)):
+                self.list_of_LongProfile_objects[ID].set_Qs_input_upstream(_Qs0)
+        elif S0 is not None:
             self.S0 = S0
-        else:
-            S0 = self.S0
-
-        ##print("SCALAR?", _is_scalar)
-        ##print( S0 )
-        ##print( np.atleast_1d(np.array(S0).squeeze) )
-
-        # S0 might be iterable even if Q_s_0 be not
-        try:
-            iter(S0)
-            # Enforce numpy array
-            # And ensure that it isn't squeezed down to 0D
-            # if there is just 1 S0 value given
-            S0 = np.atleast_1d(np.array(S0).squeeze())
-        except:
-            _is_scalar=True
-
-        ##print("SCALAR?", _is_scalar)
-
-        # FIFTH: Set S0 and z_ext[0]
-        _idx = 0
-        for ID in self.list_of_channel_head_segment_IDs:
-            lp = self.list_of_LongProfile_objects[ID]
-            lp.S0 = S0[_idx]
-            # if _is_scalar:
-            #     lp.S0 = S0
-            # else:
-            #     lp.S0 = S0[_idx]
-            _idx += 1
-            # Hard-coding: Expecting only one segment in list
-            # Because this is just for the channel-head segments
-            ##print("ID", lp.ID)
-            lp.z_ext[0][0] = lp.z[0] + lp.S0 * lp.dx[0]
+            for ID, _S0 in zip(heads, _per_head(S0)):
+                lp = self.list_of_LongProfile_objects[ID]
+                lp.S0 = _S0
+                lp.z_ghost_upstream = lp.z[0] + lp.S0 * lp.dx[0]
 
     def set_z_bl (self, z0):
-        """
-        Alias for `update_z_ext_external_downstream`.
-        !!!!!
-        MAYBE I SHOULD CALL z0 --> z_bl
-        """
-        update_z_ext_external_downstream( z0 )
-
-    def update_z_ext_external_downstream(self, z0):
         """
         Set downstream boundary (ultimate base level, singular): External
 
@@ -2371,11 +2006,12 @@ class Network(object):
         to allow multiple river mouths.
 
         Args:
-            z0 (float): Base-level elevation. Sets z_ext[-1] for the mouth seg
+            z0 (float): Base-level elevation. Sets z_bl for the mouth seg
 
         Returns:
             None
         """
+        # !!!!! MAYBE I SHOULD CALL z0 --> z_bl
         if len(self.list_of_channel_mouth_segment_IDs) == 1:
             ID = self.list_of_channel_mouth_segment_IDs[0]
         else:
@@ -2384,10 +2020,7 @@ class Network(object):
                       "Exiting" )
         # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
         lp = self.list_of_LongProfile_objects[ID]
-        # Loop over each 1D array within the list: each trib connection
-        for _z_ext in lp.z_ext:
-            _z_ext[-1] = z0
-            lp.z_bl = z0
+        lp.z_bl = z0
 
         # We should have some code to account for changes in both x and z
         # with base-level change, and remeshes the downstream-most segment,
@@ -2479,45 +2112,6 @@ class Network(object):
         self.graph = G
         return self.graph
 
-    def update_dx_ext(self):
-        """
-        Create dx_ext arrays -- one for each upstream link -- from x_ext.
-        """
-        for lp in self.list_of_LongProfile_objects:
-            lp.dx_ext = []
-            for x_ext in lp.x_ext:
-                lp.dx_ext.append( np.diff(x_ext) )
-
-    def update_dx_2cell(self):
-        """
-        Create dx_2cell arrays: One, internal to each segment.
-
-        This function assumes that distance increases from left to right.
-
-        Look here in case sign errors are encountered, but it also feels
-        safer to keep this as such to make sure that we don't miss such errors.
-        It is also possible that GRLP will run anyway because of the abs()
-        involved with the slope calculation.
-        """
-        for lp in self.list_of_LongProfile_objects:
-            lp.dx_2cell = lp.x[2:] - lp.x[:-2]
-
-    def update_dx_ext_2cell(self):
-        """
-        Create dx_ext arrays -- one for each upstream link -- from x_ext.
-
-        This function assumes that distance increases from left to right.
-
-        Look here in case sign errors are encountered, but it also feels
-        safer to keep this as such to make sure that we don't miss such errors.
-        It is also possible that GRLP will run anyway because of the abs()
-        involved with the slope calculation.
-        """
-        for lp in self.list_of_LongProfile_objects:
-            lp.dx_ext_2cell = []
-            for x_ext in lp.x_ext:
-                lp.dx_ext_2cell.append( x_ext[2:] - x_ext[:-2] )
-
     def update_Q(self, Q=None):
         """
         Set discharge within each segment.
@@ -2533,223 +2127,7 @@ class Network(object):
             #print( len(lp.Q) )
             _idx += 1
 
-    def create_Q_ext_lists(self):
-        """
-        ##########################################################
-        # GENERATE LISTS OF Q_ext: 1 FOR EACH INCOMING TRIBUTARY #
-        ##########################################################
 
-        Set up "network" lists of "_ext" variables: one per upstream-linked
-        segment and a minimum of 1 if no links are present
-        Currently building this for convergent networks only
-
-        Run after "update_Q"
-        """
-
-        """
-        # Pad Q_ext with nans
-        _nan1 = np.array([np.nan])
-        # Loop through long profiles (segments) in network
-        for lp in self.list_of_LongProfile_objects:
-            lp.Q_ext = np.max( (1, len(lp.upstream_segment_IDs)) ) * \
-                [ np.concatenate( [_nan1, lp.Q, _nan1] ).copy() ]
-        """
-        # ^ Even wtih .copy(), this caused the two arrays to be linked in
-        # memory. Therefore, the discharge of the second would always
-        # be chosen. This casued extreme weirdness with slopes
-        # at confluences -- it would seem as if there were more or less
-        # discharge coming from the tributaries when compared
-        # to the mainstem
-
-        _nan1 = np.array([np.nan])
-        for lp in self.list_of_LongProfile_objects:
-            lp.Q_ext = []
-            Q_inner = np.concatenate( [_nan1, lp.Q, _nan1] )
-            for _iter_i in range(np.max( (1, len(lp.upstream_segment_IDs)) )):
-                lp.Q_ext.append(Q_inner.copy())
-
-
-
-    def update_Q_ext_from_Q(self):
-        """
-        Run in order after "update_Q()" and "create_Q_ext_lists()".
-
-        This sets the [1:-1] (i.e., non-boundary) values for each Q_ext array
-        within each Q_ext list
-        """
-        for lp in self.list_of_LongProfile_objects:
-            # List of arrays
-            for Q_ext_array in lp.Q_ext:
-                Q_ext_array[1:-1] = lp.Q
-
-    def update_Q_ext_internal(self):
-        """
-        ###################################################
-        # POPULATE Q_ext LISTS WITH VALUES FROM NEIGHBORS #
-        ###################################################
-
-        Q_ext[0] of downstream segment set to Q[-1] of upstream segment.
-        This is done for each Q_ext array within the list of arrays,
-        corresponding to each tributary junction.
-
-        The upstream-most segments have Q_ext set by another function;
-        this becomes part of the broader upstream boundary condition
-        (including how Q_s_0 is managed).
-        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        REVISIT
-        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-        Q_ext[-1] of upstream segment set to Q[0] of downstream segment.
-
-        The final downstream segment has Q_ext[-1] = Q[-1], set by another
-        function:
-        Seems reasonable that at the very mouth, we have no new water inputs,
-        but the flow does need to stay continuous and exit the domain.
-        !!!!!!!!!!!!!!!!!!!!
-        DO THIS
-        !!!!!!!!!!!!!!!!!!!!
-        lp.Q_ext[
-        Run this after update_Q, to make sure that it is using
-        the most recent discharge values
-        """
-        # Order:
-        # Inner (close to each other): upstream.
-        # Outer (strides from each other): downstream.
-        # Right now, this is moot: Downstream = 1
-        for lp in self.list_of_LongProfile_objects:
-            _idx = 0
-            # SET UPSTREAM BOUNDARIES: INTERNAL
-            # Here, max so the downstream-most segment gets looped through
-            # too, even if it has no downseg ID
-            for i_downseg in range(np.max((1, len(lp.downstream_segment_IDs)))):
-                for upseg_ID in lp.upstream_segment_IDs:
-                    upseg = self.list_of_LongProfile_objects[upseg_ID]
-                    lp.x_ext[_idx][0] = upseg.x[-1]
-                    _idx += 1
-            # SET DOWNSTREAM BOUNDARIES: INTERNAL
-            _idx = 0
-            for downseg_ID in lp.downstream_segment_IDs:
-                # For each downstream ID, must update for each upstream
-                # ID
-                downseg = self.list_of_LongProfile_objects[downseg_ID]
-                # Min = 1 so downseg still updated for headwaters segments
-                for i_upseg in range(np.max((1, len(lp.upstream_segment_IDs)))):
-                    lp.x_ext[_idx][-1] = downseg.x[0]
-                    _idx += 1
-
-        # Order:
-        # Inner (close to each other): upstream.
-        # Outer (strides from each other): downstream.
-        # Right now, this is moot: Downstream = 1
-
-        for lp in self.list_of_LongProfile_objects:
-            _idx = 0
-            # SET UPSTREAM BOUNDARIES: INTERNAL
-            # Here, max so the downstream-most segment gets looped through
-            # too, even if it has no downseg ID
-            for i_downseg in range(np.max((1, len(lp.downstream_segment_IDs)))):
-                for upseg_ID in lp.upstream_segment_IDs:
-                    upseg = self.list_of_LongProfile_objects[upseg_ID]
-                    ##print( upseg )
-                    lp.Q_ext[_idx][0] = upseg.Q[-1]
-                    ##print("!!!!!!!!!!!!!!!!!!!!!!!!")
-                    ##print(_idx)
-                    ##print("Q_ext", lp.Q_ext)
-                    ##print("!!!!!!!!!!!!!!!!!!!!!!!!")
-                    _idx += 1
-            # SET DOWNSTREAM BOUNDARIES: INTERNAL
-            _idx = 0
-            for downseg_ID in lp.downstream_segment_IDs:
-                # For each downstream ID, must update for each upstream
-                # ID
-                downseg = self.list_of_LongProfile_objects[downseg_ID]
-                # Min = 1 so downseg still updated for headwaters segments
-                for i_upseg in range(np.max((1, len(lp.upstream_segment_IDs)))):
-                    lp.Q_ext[_idx][-1] = downseg.Q[0]
-                    _idx += 1
-
-    def update_Q_ext_external_upstream(self):
-        """
-        Update Q_ext at external upstream boundaries.
-
-        Based on how S0 is defined and the need for a Qs:Qw ratio to set S0,
-        the upstream slope (and sediment-supply) boundary condition,
-        Q at all upstream boundaries is simply set to be identical to the
-        same value as it is internally.
-
-        Functionally, this doesn't matter: slopes are based on Q[0]
-        rather than (Q_ext[0] + Q_ext[1])/2, where Q_ext[1] = Q[0].
-        """
-        # SET UPSTREAM BOUNDARIES: EXTERNAL
-        for ID in self.list_of_channel_head_segment_IDs:
-            lp = self.list_of_LongProfile_objects[ID]
-            for Q_ext_array in lp.Q_ext:
-                # Linearly extrapolate the ghost discharge, matching the
-                # single-segment solver (set_Q: 2*Q[0]-Q[1]).  A channel head
-                # has no tributary junction, hence no discharge discontinuity,
-                # so the two-cell centered dQ/dx used in the boundary sediment
-                # flux is well defined and second-order.  The previous constant
-                # value (Q_ext[0] = Q[0]) collapsed that difference to a
-                # one-sided, first-order estimate, biasing the injected flux and
-                # the whole equilibrium profile by O(dx).
-                Q_ext_array[0] = 2*lp.Q[0] - lp.Q[1]
-
-    def update_Q_ext_external_downstream(self):
-        """
-        Set discharge at downstream boundary (ultimate base level, singular)
-
-        It expects a list of length (1) for the class variable:
-        self.list_of_channel_mouth_segment_IDs.
-        This assumption will have to be relaxed if the code ever be updated
-        to allow multiple river mouths.
-
-        Here, we just assume that the downstream-boundary water discharge (Q)
-        is identical to the one just above -- no new tributaries join as it
-        enters the ocean, lake, river, basin, etc.
-        """
-        if len(self.list_of_channel_mouth_segment_IDs) == 1:
-            ID = self.list_of_channel_mouth_segment_IDs[0]
-        else:
-            sys.exit( ">1 channel-mouth-segment ID listed.\n"+
-                      "Simulation not set up to manage >1 river mouth.\n"+
-                      "Exiting" )
-        lp = self.list_of_LongProfile_objects[ID]
-        # Assume that there is just one river mouth
-        # Could easily make this become a loop
-        # Nope: Multiple arrays if there are also upstream segments
-        # Just loop over them all
-        for Q_ext_array in lp.Q_ext:
-                # Linearly extrapolate the ghost discharge, matching the
-                # single-segment solver (set_Q: 2*Q[-1]-Q[-2]).  The river mouth
-                # is a single outlet with no tributary junction, so -- as at a
-                # channel head -- there is no discharge discontinuity and the
-                # two-cell centered dQ/dx at the boundary is well defined.  See
-                # update_Q_ext_external_upstream for the full rationale.
-                Q_ext_array[-1] = 2*lp.Q[-1] - lp.Q[-2]
-
-    def update_dQ_ext_2cell(self):
-        """
-        Use segment adjacencies to set changes in discharge down segments.
-        For a convergent network:
-
-        Q_ext[-1] of the upstream segment should see a large-ish increase
-        because the discharge after the tributary junction will can be
-        significantly higher than that above.
-
-        Q_ext[0] of the downstream segment should see only a modest difference
-        overall (i.e., when summing the upstream tributaries), but we in fact
-        require these to be separated into a dQ_ext_upwind for each river-segment
-        combination (here, typically two tributaries joining into one
-        downstream river segment). This is needed to properly weight
-        slopes for the C1 coefficient.
-
-        # NOW BACK TO 2CELL, FOR CONGRUENCE WITH SLOPE CALCULATIONS.
-        # NEED TO SMEAR Q FOR IT TO WORK, THOUGH
-        """
-        for lp in self.list_of_LongProfile_objects:
-            lp.dQ_ext_2cell = []
-            for Q_ext_array in lp.Q_ext:
-                lp.dQ_ext_2cell.append( (Q_ext_array[2:] - Q_ext_array[:-2]) )
 
     def set_intermittency(self, intermittency):
         """
@@ -2966,40 +2344,14 @@ class Network(object):
         self.create_list_of_channel_head_segment_IDs()
         self.create_list_of_channel_mouth_segment_IDs()
 
-        # Generate arrays of x, including networked links
-        self.create_x_ext_lists()
-        self.update_x_ext_internal()
-        self.update_x_ext_external_upstream()                           # b.c.
-        self.update_x_ext_external_downstream( x_bl )                   # b.c.
-
-        # From these, generate arrays of dx
-        self.update_dx_ext()
-        self.update_dx_2cell()
-        self.update_dx_ext_2cell()
-
-        # Generate arrays of Q based on externally provided (user-set) values
+        # Set discharge within each segment
         self.update_Q( Q )
-        self.create_Q_ext_lists()
-        self.update_Q_ext_from_Q()
-        self.update_Q_ext_internal()
-        self.update_Q_ext_external_upstream()  # b.c., Q_ext[0] = Q[0]
-        self.update_Q_ext_external_downstream()   # b.c., Q_ext[-1] = Q[-1]
-        self.update_dQ_ext_2cell()
 
-        # Generate arrays of z based on externally provided (user-set) values
-        self.create_z_ext_lists()
-        self.update_z_ext_internal()
-        self.update_z_ext_external_upstream( S0 = S0, Q_s_0 = Q_s_0 )  # b.c.
-        self.update_z_ext_external_downstream( z_bl )                   # b.c.
-
-        # # Generate arrays of Q based on externally provided (user-set) values
-        # self.update_Q( Q )
-        # self.create_Q_ext_lists()
-        # self.update_Q_ext_from_Q()
-        # self.update_Q_ext_internal()
-        # self.update_Q_ext_external_upstream()  # b.c., Q_ext[0] = Q[0]
-        # self.update_Q_ext_external_downstream()   # b.c., Q_ext[-1] = Q[-1]
-        # self.update_dQ_ext_2cell()
+        # Boundary conditions: upstream sediment supply (S0 or Q_s_0) at the
+        # channel heads, and downstream base level (z_bl) at the mouth. The
+        # solver walks the topology and needs no padded x_ext / z_ext / Q_ext.
+        self.set_Qs_input_upstream( S0 = S0, Q_s_0 = Q_s_0 )            # b.c.
+        self.set_z_bl( z_bl )                                           # b.c.
 
         # Land area around each conflunece: Special case to help with dz/dt
         self.compute_land_areas_around_confluences()

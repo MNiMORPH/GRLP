@@ -118,31 +118,15 @@ def test_single_segment_network_identical_to_standalone(long_profile_factory):
     np.testing.assert_allclose(zN, a.z, rtol=0, atol=1e-9)
 
 
-def test_channel_head_ghost_discharge_is_linear_extrapolation(
-        long_profile_factory):
-    """Direct guard on the upstream fix: with varying Q the channel-head ghost
-    discharge must be the linear extrapolation 2*Q[0]-Q[1], not the old constant
-    Q[0]."""
-    ref = long_profile_factory(intermittency=1.0)
-    x = ref.x.copy()
-    dx = x[1] - x[0]
-    net = _single_segment_network(x, ref.Q, ref.B, dx)
-    seg = net.list_of_LongProfile_objects[0]
-    assert seg.Q_ext[0][0] == pytest.approx(2 * seg.Q[0] - seg.Q[1])
-    # Distinct from the former constant value (only because Q varies here).
-    assert seg.Q_ext[0][0] != pytest.approx(seg.Q[0])
-
-
-def test_outlet_ghost_discharge_is_linear_extrapolation(long_profile_factory):
-    """Direct guard on the downstream fix: the river-mouth ghost discharge must
-    be 2*Q[-1]-Q[-2], not the old constant Q[-1]."""
-    ref = long_profile_factory(intermittency=1.0)
-    x = ref.x.copy()
-    dx = x[1] - x[0]
-    net = _single_segment_network(x, ref.Q, ref.B, dx)
-    seg = net.list_of_LongProfile_objects[0]
-    assert seg.Q_ext[0][-1] == pytest.approx(2 * seg.Q[-1] - seg.Q[-2])
-    assert seg.Q_ext[0][-1] != pytest.approx(seg.Q[-1])
+# The channel-head and river-mouth ghost *discharges* were once stored in padded
+# Q_ext arrays and probed directly here.  The de-padded solver computes those
+# ghosts inline while walking the topology, so there is no Q_ext to inspect.  The
+# same behaviour -- second-order linear ghost discharge, not the old first-order
+# constant -- is guarded (and more strongly) by
+# test_single_segment_network_identical_to_standalone (machine-precision parity,
+# which fails if either boundary ghost reverts to constant),
+# test_single_segment_network_matches_analytical, and the slow convergence test
+# below.
 
 
 @pytest.mark.slow
@@ -169,32 +153,3 @@ def test_single_segment_network_second_order_convergence(long_profile_factory):
     orders = [np.log2(errs[i] / errs[i + 1]) for i in range(len(errs) - 1)]
     assert min(orders) > 1.8, "expected second-order; got orders=%r (errs=%r)" % (
         orders, errs)
-
-
-def test_ghost_discharge_linear_on_all_heads_of_a_confluence():
-    """The upstream fix must apply to every channel head, not just a lone
-    segment: build a two-tributary confluence with downstream-increasing Q in
-    each tributary and check both heads get the linear ghost discharge."""
-    d = 1000.0
-    xt = d * np.arange(1, 6.0)          # two 5-node tributaries
-    xtr = d * np.arange(6, 11.0)        # 5-node trunk below the junction
-    Qt = 2.0 + 0.1 * np.arange(5)       # increasing discharge along a tributary
-    Qtrunk = 4.0 + 0.2 * np.arange(5)   # trunk carries ~the summed, still rising
-    B = 100.0 * np.ones(5)
-    net = grlp.Network()
-    net.initialize(
-        x_bl=xtr[-1] + d, z_bl=0.0, S0=[S0, S0], Q_s_0=None,
-        upstream_segment_IDs=[[], [], [0, 1]],
-        downstream_segment_IDs=[[2], [2], []],
-        x=[xt.copy(), xt.copy(), xtr.copy()],
-        z=[np.zeros(5), np.zeros(5), np.zeros(5)],
-        Q=[Qt.copy(), Qt.copy(), Qtrunk.copy()],
-        B=[B.copy(), B.copy(), B.copy()],
-    )
-    heads = net.list_of_channel_head_segment_IDs
-    assert len(heads) == 2
-    for head in heads:
-        seg = net.list_of_LongProfile_objects[head]
-        for Q_ext_array in seg.Q_ext:
-            assert Q_ext_array[0] == pytest.approx(2 * seg.Q[0] - seg.Q[1])
-            assert Q_ext_array[0] != pytest.approx(seg.Q[0])

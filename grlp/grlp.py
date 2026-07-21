@@ -1601,6 +1601,7 @@ class Network(object):
         # solver walks the topology and needs no padded x_ext / z_ext / Q_ext.
         self.set_Qs_input_upstream( S0 = S0, Q_s_0 = Q_s_0 )            # b.c.
         self.set_z_bl( z_bl )                                           # b.c.
+        self.set_x_bl( x_bl )                                           # b.c.
 
         # Land area around each conflunece: Special case to help with dz/dt
         self.compute_land_areas_around_confluences()

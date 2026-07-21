@@ -127,3 +127,25 @@ def test_junction_elevation_drop_matches_slope(net_case):
             gap = ds.x[0] - lp.x[-1]
             junction_slope = (lp.z[-1] - ds.z[0]) / gap
             assert junction_slope > 0
+
+
+def test_network_base_level_x_position_honored():
+    # Network.initialize now applies x_bl (it was previously accepted but
+    # ignored). A base level moved seaward in x, at fixed z_bl, must shift the
+    # mouth ghost and change the solution; the walker reads x_ghost_downstream
+    # at the outlet. Networks that pass x_bl at the mirror (x[-1] + dx) are
+    # unchanged -- this exercises a genuine move.
+    x = [np.arange(0.0, 30000.0, 1000.0)]
+    Q = [10.0 * np.ones(len(x[0]))]
+    up, down = [[]], [[]]
+    mouth_end = x[0][-1]
+
+    mirror = build_network(x, Q, up, down, x_bl=mouth_end + 1000.0)
+    moved = build_network(x, Q, up, down, x_bl=mouth_end + 6000.0)
+
+    seg_mirror = mirror.list_of_LongProfile_objects[0]
+    seg_moved = moved.list_of_LongProfile_objects[0]
+    # x_bl reached the mouth's ghost position
+    assert seg_moved.x_ghost_downstream == pytest.approx(mouth_end + 6000.0)
+    # base level farther downstream at fixed z_bl -> gentler drop -> higher bed
+    assert seg_moved.z[-1] > seg_mirror.z[-1] + 1.0

@@ -28,6 +28,8 @@ class LongProfile(object):
         self.dx_ext_2cell = None
         self.z_ext = None
         self.Q_s_0 = None
+        self.Q_ghost_upstream = None
+        self.Q_ghost_downstream = None
         self.z_bl = None
         self.ssd = 0. # distributed sources or sinks
         self.sinuosity = 1.
@@ -278,6 +280,11 @@ class LongProfile(object):
         # [old material:]
         # This then combines with the 1/4 factor in the coefficients
         # for the stencil that results from (2*dx)**2
+        # Explicit boundary ghost discharges: analytic when Q is a power law,
+        # linear extrapolation when Q is an array. The walking solver uses
+        # these at a channel head / river mouth (linear fallback if unset).
+        self.Q_ghost_upstream = Q_ext[0]
+        self.Q_ghost_downstream = Q_ext[-1]
         self.dQ_ext_2cell = Q_ext[2:] - Q_ext[:-2]
         #dQ_ext_upwind = Q_ext[1:-1] - Q_ext[:-2]
         # Keep sediment supply tied to water supply, except
@@ -1163,7 +1170,8 @@ class Network(object):
                     is_head = True; up_g = None
                     x_up = 2 * lp.x[0] - lp.x[1]
                     z_up = lp.z[0] + lp.S0 * (lp.x[0] - x_up)
-                    Q_up = 2 * lp.Q[0] - lp.Q[1]
+                    Q_up = lp.Q_ghost_upstream if lp.Q_ghost_upstream \
+                           is not None else 2 * lp.Q[0] - lp.Q[1]
                 elif len(lp.upstream_segment_IDs) == 1:
                     is_head = False
                     us = segs[lp.upstream_segment_IDs[0]]
@@ -1181,7 +1189,8 @@ class Network(object):
                 elif len(lp.downstream_segment_IDs) == 0:
                     is_outlet = True; dn_g = None
                     x_dn = 2 * lp.x[-1] - lp.x[-2]; z_dn = lp.z_bl
-                    Q_dn = 2 * lp.Q[-1] - lp.Q[-2]
+                    Q_dn = lp.Q_ghost_downstream if lp.Q_ghost_downstream \
+                           is not None else 2 * lp.Q[-1] - lp.Q[-2]
                 else:
                     is_outlet = False
                     ds = segs[lp.downstream_segment_IDs[0]]

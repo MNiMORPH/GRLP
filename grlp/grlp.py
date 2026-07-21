@@ -153,7 +153,7 @@ class LongProfile(object):
             self.x_ghost_downstream = self.x[-1] + dx # = 2*x[-1] - x[-2]
             self.dx = dx * np.ones(len(self.x) - 1)
             self.dx_2cell = np.ones(len(self.x) - 1)
-        else:
+        elif x is None:
             sys.exit("Need x OR x_ext OR (dx, nx, x0)")
         self.nx = len(self.x)
         self.L = self.x_ghost_downstream - self.x_ghost_upstream

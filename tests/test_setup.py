@@ -58,6 +58,20 @@ def test_set_x_from_x_ext_recovers_interior():
     assert lp.nx == len(x_ext) - 2
 
 
+def test_set_x_from_x_alone_builds_usable_grid():
+    # Passing x alone is a documented option: it must build a usable grid with
+    # linearly extrapolated ghost positions, not fall through to sys.exit.
+    x = np.arange(10000.0, 10000.0 + 1000.0 * 50, 1000.0)
+    lp = grlp.LongProfile()
+    lp.set_x(x=x, verbose=False)
+
+    assert lp.nx == 50
+    np.testing.assert_allclose(lp.x, x)
+    assert lp.x_ghost_upstream == pytest.approx(x[0] - 1000.0)
+    assert lp.x_ghost_downstream == pytest.approx(x[-1] + 1000.0)
+    assert lp.L == pytest.approx(lp.x_ghost_downstream - lp.x_ghost_upstream)
+
+
 # --------------------------------------------------------------------------- #
 # Initial bed: set_z
 # --------------------------------------------------------------------------- #

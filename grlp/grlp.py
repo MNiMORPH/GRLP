@@ -391,17 +391,6 @@ class LongProfile(object):
         # Only one segment: towards applying boundary condition upstream
         self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
 
-    def compute_coefficient_time_varying(self):
-        if self.S0 is not None:
-            self.update_z_ext_0()
-        # !!!C0!!!
-        # NOT YET UPDATED
-        # KEEPING self.dx_ext_2cell INSTEAD OF USING MORE PRECISE OPTION
-        # Just used for 1-seg modeling
-        dzdx_0_16 = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
-                         / self.dx_ext_2cell )**(1/6.)
-        self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
-
     def set_z_bl(self, z_bl):
         """
         Set the right-hand Dirichlet boundary conditions, i.e. the base level,
@@ -416,38 +405,6 @@ class LongProfile(object):
         self.x_bl = x_bl
         self.x_ext[-1] = self.x_bl
 
-    def set_bcr_Dirichlet(self):
-        # !!!C0!!!
-        # UPDATED BUT JUST USING dx_ext_2cell
-        #self.bcr = self.z_bl * ( self.C1[-1] * 7/3. \
-        # z_bl not set. Hm.
-        # Possibly because it is midway through the network
-        # Maybe I really do need to update how I pass things here...
-        # !!!!!!!!!!!!!!!! JUST MAKE SOMETHING RUN
-        ##self.z_bl = 0
-
-        #sys.exit("ERROR: UNSUPPORTED DQ_EXT_2CELL")
-        if type(self.x_ext) is list:
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! HACk to make it work for now
-            # !!!! NO LONGER BEING USED FOR NETWORK; CHANGE BACK FOR SINGLE CHANNEL
-            # OR JUST REMOVE
-            # IS USED, FOR RIVER MOUTH. BUT MAYBE IT DOESN'T MATTER?
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            self.bcr = self.z_bl * self.C1[-1] / self.dx_ext_2cell[0][-1] * (
-                         7/3. * ( 1/(self.x_ext[0][-1] - self.x_ext[0][-2]) )
-                         +
-                         self.dQ_ext_2cell[0][-1]/self.Q[-1]
-                         * 1/self.dx_ext_2cell[0][-1]
-                         )
-                      # !!!!!!!!!!!!!!!!!
-                      # dQ_ext_2cell --> dQ_ext_2cell[0]. Expecting list! HACK.
-        else:
-            # Why do I average over the last two dx here?
-            self.bcr = self.z_bl * self.C1[-1] / self.dx_ext_2cell[-1] * (
-                           7/3. * ( 1/self.dx_ext[-2] + 1/self.dx_ext[-1])/2.
-                           + self.dQ_ext_2cell[-1]/self.Q[-1]
-                           * 1/ self.dx_ext_2cell[-1]
-                           )
                            #+ self.dQ_ext_2cell[-1]/self.Q[-1] )
 
          # I HAVE NOT CHECKED WHY PREV CODE DIDN'T HAVE A DX IN THE LAST LINE
@@ -457,90 +414,6 @@ class LongProfile(object):
          # (WHEN I CHANGED TO "UPWIND". JUST CHANGED BACK, AND STILL DON'T KNOW.
          # IN ANY CASE, THE TESTS INCLUDE Z_BL = 0, SO BCR = 0 AND THIS CAN'T
          # BE THE SOURCE OF AN ERROR.
-
-    def set_bcl_Neumann_RHS(self):
-        """
-        Boundary condition on the left (conventionally upstream) side of the
-        domain.
-
-        This is for the RHS of the equation as a result of the ghost-node
-        approach for the Neumann upstream boundary condition with a prescribed
-        transport slope.
-
-        This equals 2*dx * S_0 * left_coefficients
-        (2*dx is replaced with the x_ext{i+1} - x_ext{i-1} for the irregular
-        grid case)
-        """
-        # Give upstream cell the same width as the first cell in domain
-        # 2*dx * S_0 * left_coefficients
-        # !!!C0!!!
-        # UPDATED BUT JUST USING dx_ext_2cell
-        #self.bcl = self.dx_ext_2cell[0] * self.S0 * \
-        #                    -self.C1[0] * ( 7/3./self.dx_ext[0]
-        #                    - self.dQ_ext_2cell[0]/self.Q[0]/self.dx_ext_2cell[0] )
-        # !!!C0!!!
-        # Probably not so easy to update as just updating C1
-        # BECAUSE IT IS CHANGING THE RHS
-        if type(self.x_ext) is list:
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! HACk to make it work for now
-            # !!!! NO LONGER BEING USED FOR NETWORK; CHANGE BACK FOR SINGLE CHANNEL
-            # OR JUST REMOVE
-            # YES! IS USED, WHEN THERE ARE NO UPSTREAM SEGMENTS
-            # SHOULD IT STILL BE, OR SHOULD NEW METHOD BE USED?
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            #self.bcl = self.dx_ext_2cell[0][0] * -self.S0 * \
-            #                    self.C1[0] / self.dx_ext_2cell[0][0] \
-            #                    * ( 7/3./self.dx_ext[0][0]
-            #                    - self.dQ_ext_2cell[0][0]/self.Q[0]/self.dx_ext_2cell[0][0] )
-            # RESTORED OLD SIGN CONVENTION HERE: POSITIVE EVEN THOUGH
-            # IT REASONABLY SHOULD BE FLIPPED
-            # CONSIDER BREAKING THIS AT SOME LATER POINT.
-            self.bcl = self.S0 * \
-                                self.C1[0] \
-                                * ( 7/3./self.dx_ext[0][0]
-                                - self.dQ_ext_2cell[0][0]/self.Q[0]/self.dx_ext_2cell[0][0] )
-                                # !!!!!!!!!!!!!!!!!
-                                # dQ_ext_2cell --> dQ_ext_2cell[0]. Expecting list! HACK.
-        else:
-            #self.bcl = self.dx_ext_2cell[0] * -self.S0 * \
-            #                    -self.C1[0] / self.dx_ext_2cell[0] \
-            #                    * ( 7/3./self.dx_ext[0]
-            #                    - self.dQ_ext_2cell[0]/self.Q[0]/self.dx_ext_2cell[0] )
-            # RESTORED OLD SIGN CONVENTION HERE: POSITIVE EVEN THOUGH
-            # IT REASONABLY SHOULD BE FLIPPED
-            # CONSIDER BREAKING THIS AT SOME LATER POINT.
-            self.bcl = self.S0 * \
-                                self.C1[0] \
-                                * ( 7/3./self.dx_ext[0]
-                                - self.dQ_ext_2cell[0]/self.Q[0]/self.dx_ext_2cell[0] )
-
-    def set_bcl_Neumann_LHS(self):
-        """
-        Boundary condition on the left (conventionally upstream) side of the
-        domain.
-
-        This changes the right diagonal on the LHS of the equation using a
-        ghost-node approach by defining a boundary slope that is calculated
-        as a function of input water-to-sediment supply ratio.
-
-        LHS = coeff_right at 0 + coeff_left at 0, with appropriate dx
-              for boundary (already supplied)
-        """
-        # !!!C0!!!
-        # UPDATED BUT JUST USING dx_ext_2cell
-        #self.right[0] = -self.C1[0] * 7/3. \
-        if type(self.x_ext) is list:
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! HACK TEST
-            # NO LONGER IN USE!
-            # raise ValueError('Ooh!')
-            # YES! IS USED, WHEN THERE ARE NO UPSTREAM SEGMENTS
-            # SHOULD IT STILL BE, OR SHOULD NEW METHOD BE USED?
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            self.right[0] = -self.C1[0] / self.dx_ext_2cell[0][0] * 7/3. \
-                             * (1/self.dx_ext[0][0] + 1/self.dx_ext[0][1])
-        else:
-            self.right[0] = -self.C1[0] / self.dx_ext_2cell[0] * 7/3. \
-                             * (1/self.dx_ext[0] + 1/self.dx_ext[1])
 
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
         """
@@ -590,50 +463,6 @@ class LongProfile(object):
         self.C0 = self.k_Qs * self.intermittency \
                     / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \
                     * self.dt
-
-    def build_matrices(self):
-        """
-        Build the tridiagonal matrix (LHS) and the RHS matrix for the solution
-        """
-        self.compute_coefficient_time_varying()
-        # !!!C0!!!
-        # UPDATED WITH STRAIGHT self.dx_ext_2cell
-        self.left = -self.C1 / self.dx_ext_2cell \
-                        * ( (7/3.)/self.dx_ext[:-1]
-                        - self.dQ_ext_2cell/self.Q/self.dx_ext_2cell )
-        self.center = -self.C1 / self.dx_ext_2cell \
-                              * ( (7/3.)
-                              * (-1/self.dx_ext[:-1]
-                                 -1/self.dx_ext[1:]) ) \
-                                 + 1.
-        self.right = -self.C1 / self.dx_ext_2cell \
-                              * ( (7/3.)/self.dx_ext[1:] # REALLY?
-                                  + self.dQ_ext_2cell/self.Q/self.dx_ext_2cell )
-        # Apply boundary conditions if the segment is at the edges of the
-        # network (both if there is only one segment!)
-        if len(self.upstream_segment_IDs) == 0:
-            #print self.dx_ext_2cell
-            self.set_bcl_Neumann_LHS()
-            self.set_bcl_Neumann_RHS()
-        else:
-            self.bcl = 0. # no b.c.-related changes
-        if len(self.downstream_segment_IDs) == 0:
-            self.set_bcr_Dirichlet()
-        else:
-            self.bcr = 0. # no b.c.-related changes
-        self.left = np.roll(self.left, -1)
-        self.right = np.roll(self.right, 1)
-        self.diagonals = np.vstack((self.left, self.center, self.right))
-        self.offsets = np.array([-1, 0, 1])
-        self.LHSmatrix = spdiags(self.diagonals, self.offsets, len(self.z),
-                            len(self.z), format='csr')
-        self.RHS = np.hstack(( self.bcl+self.z[0],
-                               self.z[1:-1],
-                               self.bcr+self.z[-1])) \
-                               + self.ssd * self.dt \
-                               + self.downstream_fining_subsidence_equivalent \
-                                      *self.dt \
-                               + self.U * self.dt
 
     def analytical_threshold_width(self, P_xQ=None, x0=None, x1=None,
                                    z0=None, z1=None):

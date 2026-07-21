@@ -1047,7 +1047,13 @@ class Network(object):
                 elif len(lp.downstream_segment_IDs) == 0:
                     is_outlet = True
                     down_g = None
-                    x_down = 2 * lp.x[-1] - lp.x[-2]
+                    # Base-level node: elevation z_bl at position
+                    # x_ghost_downstream (settable via set_x_bl to move the
+                    # mouth in x; defaults to one cell beyond the last node).
+                    if lp.x_ghost_downstream is not None:
+                        x_down = lp.x_ghost_downstream
+                    else:
+                        x_down = 2 * lp.x[-1] - lp.x[-2]
                     z_down = lp.z_bl
                     if lp.Q_ghost_downstream is not None:
                         Q_down = lp.Q_ghost_downstream
@@ -1137,7 +1143,10 @@ class Network(object):
             # of the downstream segment
             if len(lp.downstream_segment_IDs) == 0:
                 z_down = lp.z_bl
-                x_down = 2*lp.x[-1] - lp.x[-2]
+                if lp.x_ghost_downstream is not None:
+                    x_down = lp.x_ghost_downstream
+                else:
+                    x_down = 2*lp.x[-1] - lp.x[-2]
             else:
                 downseg = self.list_of_LongProfile_objects[
                               lp.downstream_segment_IDs[0]]
@@ -1178,13 +1187,28 @@ class Network(object):
         self.niter = niter
 
 
-    def set_x_bl(self, x_bl):
+    def set_x_bl(self, x_bl=None):
         """
-        Alias for `update_x_ext_external_downstream`.
+        Set the downstream base-level node's x-position on the single river
+        mouth: move the outlet ghost to x_bl (node-based; defaults to one cell
+        beyond the last node). Pairs with set_z_bl (elevation) to place base
+        level at (x_bl, z_bl); the walker reads x_ghost_downstream at the outlet.
+
+        Expects a single channel-mouth segment (as set_z_bl does).
         !!!!!
         MAYBE I SHOULD CALL z0 --> z_bl
         """
-        update_x_ext_external_downstream( x_bl )
+        if len(self.list_of_channel_mouth_segment_IDs) == 1:
+            ID = self.list_of_channel_mouth_segment_IDs[0]
+        else:
+            sys.exit( ">1 channel-mouth-segment ID listed.\n"+
+                      "Simulation not set up to manage >1 river mouth.\n"+
+                      "Exiting" )
+        lp = self.list_of_LongProfile_objects[ID]
+        # Default: one cell beyond the mouth (the linear-extrapolation ghost)
+        if x_bl is None:
+            x_bl = lp.x[-1] + lp.dx[-1]
+        lp.set_x_bl( x_bl )
 
         # We should have some code to account for changes in both x and z
         # with base-level change, and remeshes the downstream-most segment,

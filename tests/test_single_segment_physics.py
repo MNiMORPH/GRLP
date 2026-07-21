@@ -50,6 +50,25 @@ def test_irregular_grid_matches_analytical():
     assert np.abs(lp.z - z_analytical).max() / relief < 1e-3
 
 
+def test_base_level_x_position_moves_outlet():
+    # Base level can move in x as well as z. Moving the mouth's x-position
+    # downstream at fixed z_bl stretches the terminal drop, so the equilibrium
+    # responds; the default (one cell beyond the mouth) is the mirror ghost and
+    # must be bit-for-bit with not calling set_x_bl at all.
+    a, _ = _base()
+    a.evolve_threshold_width_river(nt=200, dt=1e13)
+
+    b, _ = _base()
+    b.set_x_bl(b.x[-1] + b.dx[-1])   # the default ghost position
+    b.evolve_threshold_width_river(nt=200, dt=1e13)
+    np.testing.assert_allclose(b.z, a.z, rtol=0, atol=1e-12)
+
+    c, _ = _base()
+    c.set_x_bl(c.x[-1] + 5000.0)     # base level 5 km farther seaward
+    c.evolve_threshold_width_river(nt=200, dt=1e13)
+    assert np.abs(c.z - a.z).max() > 1.0
+
+
 def test_compute_Q_s_uses_per_node_spacing_on_irregular_grid():
     # compute_Q_s must divide each node's 2-cell elevation drop by that node's
     # own 2-cell spacing. A straight-line profile has a constant slope at any

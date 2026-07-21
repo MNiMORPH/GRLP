@@ -388,16 +388,6 @@ class LongProfile(object):
         self.x_bl = x_bl
         self.x_ghost_downstream = self.x_bl
 
-                           #+ self.dQ_ext_2cell[-1]/self.Q[-1] )
-
-         # I HAVE NOT CHECKED WHY PREV CODE DIDN'T HAVE A DX IN THE LAST LINE
-         # WITH DQ/Q
-         # AND NOW I'VE JUST INCLUDED THE SAME DQ, BUT IN JUST ONE CELL
-         # INSTEAD OF TWO.
-         # (WHEN I CHANGED TO "UPWIND". JUST CHANGED BACK, AND STILL DON'T KNOW.
-         # IN ANY CASE, THE TESTS INCLUDE Z_BL = 0, SO BCR = 0 AND THIS CAN'T
-         # BE THE SOURCE OF AN ERROR.
-
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
         """
         Solve the triadiagonal matrix through time, with a given

@@ -11,6 +11,15 @@ version heading for the full notes.
 
 ## [Unreleased]
 
+### Added
+- `LongProfile.set_S0`: set the upstream boundary by its slope `S0` directly,
+  rather than by the sediment supply `Q_s_0`. Convenient when the slope is known
+  independently -- e.g. the present equilibrium slope measured from a DEM. It
+  derives the equivalent `Q_s_0` from `S0` and the current discharge (the exact
+  inverse of the `Q_s_0 -> S0` relation) and applies it through
+  `set_Qs_input_upstream`, so the boundary remains a sediment supply: a later
+  change in `Q` adjusts the boundary slope, as a physical forcing should.
+
 ### Changed
 - The networked solver is **de-padded**: it assembles its matrix by walking the
   topology to each node's real neighbour, instead of maintaining padded

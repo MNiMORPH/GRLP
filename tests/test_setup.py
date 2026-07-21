@@ -74,14 +74,15 @@ def test_set_z_linear_slope_and_downstream_boundary():
     assert lp.z[-1] == pytest.approx(0.0)
 
 
-def test_set_z_ext_is_collinear_with_z():
+def test_set_z_is_linear_from_S0():
     S0 = 1.5e-2
     lp = grlp.LongProfile()
     lp.set_x(dx=1000.0, nx=90, x0=10000.0)
     lp.set_z(S0=-S0, z1=0.0)
 
-    # The ghost nodes continue the same straight line.
-    np.testing.assert_allclose(np.diff(lp.z_ext) / np.diff(lp.x_ext), -S0)
+    # set_z(S0) lays down a straight line of slope -S0. z_ext is no longer
+    # stored; the upstream ghost is set later, by set_Qs_input_upstream.
+    np.testing.assert_allclose(np.diff(lp.z) / np.diff(lp.x), -S0)
 
 
 # --------------------------------------------------------------------------- #
@@ -151,7 +152,7 @@ def test_Qs_input_sets_upstream_ghost_node():
     # set_Qs_input_upstream lifts the upstream ghost node so its slope to the
     # first interior node equals the transport slope S0.
     lp = make_long_profile()
-    ghost_slope = (lp.z_ext[0] - lp.z[0]) / lp.dx_ext[0]
+    ghost_slope = (lp.z_ghost_upstream - lp.z[0]) / lp.dx[0]
     assert ghost_slope == pytest.approx(lp.S0, rel=1e-12)
 
 

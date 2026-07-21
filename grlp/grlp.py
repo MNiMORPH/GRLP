@@ -26,7 +26,6 @@ class LongProfile(object):
         self.dx_ext = None
         self.dx_2cell = None
         self.dx_ext_2cell = None
-        self.z_ext = None
         self.Q_s_0 = None
         self.Q_ghost_upstream = None
         self.Q_ghost_downstream = None
@@ -193,16 +192,11 @@ class LongProfile(object):
         """
         if z is not None:
             self.z = z
-            if self.z_ext is None:
-                self.z_ext = np.hstack((2*z[0]-z[1], z, 2*z[-1]-z[-2]))
         elif z_ext is not None:
-            self.z_ext = z_ext
             if self.z is not None:
                 self.z = z_ext[1:-1]
         elif self.x.any() and self.x_ext.any() and (S0 is not None):
             self.z = self.x * S0 + (z1 - self.x[-1] * S0)
-            self.z_ext = self.x_ext * S0 + (z1 - self.x[-1] * S0)
-            #print self.z_ext
         else:
             sys.exit("Error defining variable")
         #self.dz = self.z_ext[2:] - self.z_ext[:-2] # dz over 2*dx!
@@ -374,22 +368,6 @@ class LongProfile(object):
                               * np.abs(self.Q[0])) )**(6/7.)
         # Give upstream cell the same width as the first cell in domain
         self.z_ghost_upstream = self.z[0] + self.S0 * self.dx[0]
-        if self.z_ext is not None:            # standalone keeps its padded array
-            self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
-
-    def update_z_ext_0(self):
-        """
-        Give upstream cell the same width as the first cell in domain.
-        Used only for GRLP alone (non-networked mode)
-
-        Q1: z_ext and boundary conditions
-
-        Q2: z_ext and C1
-            self.C1 = self.C0 * dzdx_0_16 * self.Q / self.B
-        And C0 has all local variables.
-        """
-        # Only one segment: towards applying boundary condition upstream
-        self.z_ext[0] = self.z[0] + self.S0 * self.dx_ext[0]
 
     def set_z_bl(self, z_bl):
         """
@@ -399,7 +377,6 @@ class LongProfile(object):
         For 1D single-segment mode, not network.
         """
         self.z_bl = z_bl
-        self.z_ext[-1] = self.z_bl
 
     def set_x_bl(self, x_bl):
         self.x_bl = x_bl
@@ -440,12 +417,6 @@ class LongProfile(object):
         net.set_niter(self.niter)
         net.get_z_lengths()
         net.evolve_threshold_width_river_network(nt, dt)
-        # Keep the padded z_ext in sync for the diagnostics that still read it
-        # (compute_Q_s, slope_area); removed once those are de-padded.
-        self.z_ext[1:-1] = self.z
-        if self.S0 is not None:
-            self.update_z_ext_0()
-        self.z_ext[-1] = self.z_bl
         self.Qs_internal = 1/(1-self.lambda_p) * np.cumsum(self.dz_dt) \
                             * self.B + self.Q_s_0
 
@@ -598,7 +569,7 @@ class LongProfile(object):
         # Fine, model-independent reference grid spanning the boundary nodes.
         x0 = self.x_ext[0]
         x_bl = self.x_ext[-1]
-        z_bl = self.z_ext[-1]
+        z_bl = self.z_bl
         xf = np.linspace(x0, x_bl, nx_fine)
         Bf = self.k_xB * xf**self.P_xB
         Qf = self.k_xQ * xf**self.P_xQ
@@ -624,11 +595,14 @@ class LongProfile(object):
     def compute_Q_s(self):
         S = []
         Q_s = []
-        # Ensure that this function works even if there is no list involved
-        if type(self.z_ext) is np.ndarray:
-            z_ext = [ self.z_ext ]
+        # Reconstruct the padded profile from self.z (channel-head ghost from
+        # the boundary slope S0, outlet ghost from base level); z_ext is no
+        # longer stored.
+        if self.S0 is not None:
+            _z0 = self.z[0] + self.S0 * self.dx_ext[0]
         else:
-            z_ext = self.z_ext
+            _z0 = 2*self.z[0] - self.z[1]
+        z_ext = [ np.hstack(( _z0, self.z, self.z_bl )) ]
         if type(self.dx_ext_2cell) is np.ndarray:
             dx_ext_2cell = list(self.dx_ext_2cell)
         else:
@@ -667,7 +641,12 @@ class LongProfile(object):
             raise ValueError('Set grain size to compute channel depth.')
 
     def slope_area(self, verbose=False):
-        self.S = np.abs( (self.z_ext[2:] - self.z_ext[:-2]) \
+        if self.S0 is not None:
+            _z0 = self.z[0] + self.S0 * self.dx_ext[0]
+        else:
+            _z0 = 2*self.z[0] - self.z[1]
+        _z_ext = np.hstack(( _z0, self.z, self.z_bl ))
+        self.S = np.abs( (_z_ext[2:] - _z_ext[:-2]) \
                          / self.dx_ext_2cell )
         logS = np.log10(self.S)
         logA = np.log10(self.A)

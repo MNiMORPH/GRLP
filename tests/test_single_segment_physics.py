@@ -146,19 +146,16 @@ def test_base_level_fall_reequilibrates():
 # Sternberg gravel loss
 # --------------------------------------------------------------------------- #
 
-@pytest.mark.xfail(reason="Sternberg gravel loss is not yet handled by the "
-                          "unified walking solver; evolve raises "
-                          "NotImplementedError.",
-                   raises=NotImplementedError, strict=True)
 def test_sternberg_gravel_loss_exponential_decay():
     # A per-km abrasion coefficient makes bedload discharge decay downstream
-    # following Sternberg's law, Qs = Qs0 * exp(-k * x).
+    # following Sternberg's law, Qs = Qs0 * exp(-k * x). The walking solver
+    # relinearizes the abrasion sink each Picard iteration.
     k_per_km = 0.02
     lp, Qs0 = _base(intermittency=1.0)
     lp.set_Sternberg_gravel_loss(gravel_fractional_loss_per_km=k_per_km)
     lp.evolve_threshold_width_river(nt=300, dt=1e13)
     lp.compute_Q_s()
     assert not np.isnan(lp.z).any()
-    x_km = (lp.x - lp.x_ext[0]) / 1000.0
+    x_km = (lp.x - lp.x_ghost_upstream) / 1000.0
     predicted = Qs0 * np.exp(-k_per_km * x_km)
     assert np.abs(lp.Q_s - predicted).max() / Qs0 < 0.05

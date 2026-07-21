@@ -403,9 +403,6 @@ class LongProfile(object):
             warnings.warn("Unset boundary conditions for river segment"+
                           "in network.\n"+
                           "Local solution on segment will not be sensible.")
-        if self.gravel_fractional_loss_per_km is not None:
-            raise NotImplementedError( "Sternberg gravel loss is not yet "+
-                          "handled by the unified walking solver." )
         self.nt = nt
         self.ID = 0
         net = Network( [self] )
@@ -1113,10 +1110,17 @@ class Network(object):
         segs = self.list_of_LongProfile_objects
         lengths = list(self.list_of_segment_lengths)
         starts = np.cumsum([0] + lengths)[:-1]
+        # Sternberg gravel loss enters as a distributed sink that depends on the
+        # (evolving) sediment discharge, so it must be relinearized each Picard
+        # iteration. Skip the recompute entirely when no segment sets it.
+        gravel_loss_active = any(
+            lp.gravel_fractional_loss_per_km is not None for lp in segs)
         for ti in range(int(nt)):
             for lp in segs:
                 lp.zold = lp.z.copy()
             for _ in range(int(self.niter)):
+                if gravel_loss_active:
+                    self.update_gravel_loss()
                 LHS, RHS = self.assemble_by_walking(dt)
                 out = spsolve(sparse.csr_matrix(LHS), RHS)
                 for lp in segs:
@@ -1126,6 +1130,22 @@ class Network(object):
             for lp in segs:
                 lp.t = self.t
                 lp.dz_dt = (lp.z - lp.zold) / dt
+
+    def update_gravel_loss(self):
+        """
+        Recompute the Sternberg gravel-abrasion sink on every segment that sets
+        it, from the current profile, so it stays consistent within the
+        semi-implicit Picard iteration (the sink depends on Q_s, which depends
+        on the evolving z). compute_Q_s walks the topology, so the sediment
+        discharge -- and hence the abrasion -- accumulates through the network:
+        a grain abrades along its whole downstream path, across confluences.
+        """
+        self.compute_Q_s()
+        for lp in self.list_of_LongProfile_objects:
+            if lp.gravel_fractional_loss_per_km is not None:
+                lp.downstream_fining_subsidence_equivalent = \
+                    - lp.gravel_fractional_loss_per_km / 1000. * lp.Q_s \
+                    / ( (1 - lp.lambda_p) * lp.B )
 
     def compute_Q_s(self):
         """

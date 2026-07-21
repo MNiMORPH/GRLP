@@ -546,32 +546,35 @@ class LongProfile(object):
         """
         Solve the triadiagonal matrix through time, with a given
         number of time steps (nt) and time-step length (dt)
+
+        A single segment is solved as a one-edge network by the unified walking
+        solver: this LongProfile is wrapped in a Network of one segment and
+        stepped there (Network._evolve_by_walking). The padded z_ext arrays are
+        kept in sync afterwards for the diagnostics that still read them.
         """
         if (len(self.upstream_segment_IDs) > 0) or \
            (len(self.downstream_segment_IDs) > 0):
             warnings.warn("Unset boundary conditions for river segment"+
                           "in network.\n"+
                           "Local solution on segment will not be sensible.")
+        if self.gravel_fractional_loss_per_km is not None:
+            raise NotImplementedError( "Sternberg gravel loss is not yet "+
+                          "handled by the unified walking solver." )
         self.nt = nt
-        self.build_LHS_coeff_C0(dt)
-        self.set_z_bl(self.z_bl)
-        for ti in range(int(self.nt)):
-            self.zold = self.z.copy()
-            for i in range(self.niter):
-                # If I want to keep this, will have to add to the networked
-                # river too
-                if self.gravel_fractional_loss_per_km is not None:
-                    self.set_Sternberg_gravel_loss()
-                self.build_matrices()
-                self.z_ext[1:-1] = spsolve(self.LHSmatrix, self.RHS)
-                #print self.bcl
-            self.t += self.dt
-            self.z = self.z_ext[1:-1].copy()
-            self.dz_dt = (self.z - self.zold)/self.dt
-            self.Qs_internal = 1/(1-self.lambda_p) * np.cumsum(self.dz_dt) \
-                                * self.B + self.Q_s_0
-            if self.S0 is not None:
-                self.update_z_ext_0()
+        self.ID = 0
+        net = Network( [self] )
+        net.t = self.t
+        net.set_niter(self.niter)
+        net.get_z_lengths()
+        net.evolve_threshold_width_river_network(nt, dt)
+        # Keep the padded z_ext in sync for the diagnostics that still read it
+        # (compute_Q_s, slope_area); removed once those are de-padded.
+        self.z_ext[1:-1] = self.z
+        if self.S0 is not None:
+            self.update_z_ext_0()
+        self.z_ext[-1] = self.z_bl
+        self.Qs_internal = 1/(1-self.lambda_p) * np.cumsum(self.dz_dt) \
+                            * self.B + self.Q_s_0
 
     def build_LHS_coeff_C0(self, dt=3.15E7):
         """

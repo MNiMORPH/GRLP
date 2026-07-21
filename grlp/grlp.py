@@ -395,8 +395,8 @@ class LongProfile(object):
 
         A single segment is solved as a one-edge network by the unified walking
         solver: this LongProfile is wrapped in a Network of one segment and
-        stepped there (Network._evolve_by_walking). The padded z_ext arrays are
-        kept in sync afterwards for the diagnostics that still read them.
+        stepped there (Network._evolve_by_walking). No padded ghost arrays are
+        maintained; the diagnostics read the node-based fields directly.
         """
         if (len(self.upstream_segment_IDs) > 0) or \
            (len(self.downstream_segment_IDs) > 0):
@@ -924,12 +924,20 @@ class Network(object):
                 # Conservation is by construction: each junction FACE carries one
                 # shared conductance used identically by both adjacent nodes, so
                 # the sediment flux conductance*(z_up - z_down) is single-valued.
-                # conductance/land_area matches the interior coupling magnitude
-                # (C0*7/(6 B dx**2) Q |S|**(1/6)), so a junction-adjacent node is
-                # consistent with the ordinary interior stencil on its other face.
+                # conductance/land_area matches the interior coupling magnitude,
+                # so a junction-adjacent node is consistent with the ordinary
+                # interior stencil on its other face.
                 def _face_conductance(z_up, z_down, Q, x_up, x_down, C0):
+                    # Semi-implicit sediment-flux coefficient: conductance * dz
+                    # = k_Qs * I * Q * (S/sinuosity)**(7/6) = Q_s at Picard
+                    # convergence (S**(1/6) from the current iterate times one
+                    # implicit power of S). This is the flux coefficient itself,
+                    # NOT the linearized (7/6) Jacobian dQ_s/dS: using the
+                    # Jacobian converges the junction cell to the *linearized*
+                    # balance, which under-applies distributed sources (uplift,
+                    # ssd, gravel loss) by exactly 6/7 at every confluence.
                     L_face = x_down - x_up
-                    return C0 * (7 / 6.) * Q \
+                    return C0 * Q \
                            * (np.abs(z_up - z_down) / L_face) ** (1 / 6.) \
                            / L_face
                 is_confluence = (i == 0 and len(lp.upstream_segment_IDs) > 1)

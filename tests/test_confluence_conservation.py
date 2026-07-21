@@ -131,3 +131,91 @@ def test_confluence_convergence_order():
     orders = [np.log2(abs(d1 / d2)), np.log2(abs(d2 / d3))]
     # converges (differences shrink); at least first order.
     assert min(orders) > 0.8, "junction elevation not converging: orders=%r" % orders
+
+
+def test_confluence_conserves_with_uplift():
+    """With uplift, the confluence cell is not a pure conserver -- it *generates*
+    sediment over its land area, exactly (1-lambda)*U*A. This is the quantitative
+    guard on the junction source balance: it fails (short by 6/7) if the cell
+    uses the linearized Jacobian conductance, and holds only with the
+    semi-implicit sediment-flux coefficient (conductance*dz = Q_s). Complements
+    the supply-only conservation tests above."""
+    nseg = 30
+    dx = 1000.0
+    xt = dx * np.arange(1, nseg + 1.0)
+    xtr = dx * np.arange(nseg + 1, 2 * nseg + 1.0)
+    U = 5.0e-4 / 3.15e7                          # ~0.5 mm/yr, in m/s
+    net = grlp.Network()
+    net.initialize(
+        x_bl=dx * (2 * nseg + 1), z_bl=0.0, S0=[1.5e-2, 1.5e-2], Q_s_0=None,
+        upstream_segment_IDs=[[], [], [0, 1]],
+        downstream_segment_IDs=[[2], [2], []],
+        x=[xt.copy(), xt.copy(), xtr.copy()], z=[np.zeros(nseg)] * 3,
+        Q=[10.0 * np.ones(nseg), 10.0 * np.ones(nseg), 20.0 * np.ones(nseg)],
+        B=[100.0 * np.ones(nseg)] * 3,
+    )
+    for lp in net.list_of_LongProfile_objects:
+        lp.set_intermittency(1.0)
+        lp.set_uplift_rate(U)                    # initialize hardcodes U=0
+    net.set_niter(4)
+    net.get_z_lengths()
+    net.evolve_threshold_width_river_network(nt=6000, dt=1e12)
+
+    seg = net.list_of_LongProfile_objects
+    kQs = seg[0].k_Qs
+
+    conf = seg[2]
+    # Balance over the confluence node's own control volume (land area A): the
+    # flux out its downstream face, minus the flux entering across the junction-
+    # crossing faces (each tributary's terminal node -> the confluence node),
+    # equals the uplift sediment generated in that cell, (1-lambda)*U*A. The
+    # tributaries' *interior* faces would span three source-bearing nodes, so the
+    # crossing faces are the correct control surface.
+    S_out = -(conf.z[1] - conf.z[0]) / (conf.x[1] - conf.x[0])
+    outflux = kQs * (conf.Q[0] + conf.Q[1]) / 2.0 * S_out ** (7 / 6.0)
+    influx = sum(
+        kQs * seg[t].Q[-1]
+        * ((seg[t].z[-1] - conf.z[0]) / (conf.x[0] - seg[t].x[-1])) ** (7 / 6.0)
+        for t in (0, 1))
+    generation = (1 - conf.lambda_p) * U * conf.land_area_around_confluence
+    assert (outflux - influx) == pytest.approx(generation, rel=1e-6)
+
+
+def test_three_way_confluence_conserves():
+    """Three tributaries meeting at one node (an N-way junction, N > 2). The
+    is_confluence assembly loops over all upstream tributaries, so it handles any
+    number, but every other confluence test uses binary junctions. Sediment must
+    conserve across the 3-way junction (supply-driven, no uplift)."""
+    nseg = 25
+    dx = 1000.0
+    xt = dx * np.arange(1, nseg + 1.0)
+    xtr = dx * np.arange(nseg + 1, 2 * nseg + 1.0)
+    net = grlp.Network()
+    net.initialize(
+        x_bl=dx * (2 * nseg + 1), z_bl=0.0, S0=[1.5e-2, 1.5e-2, 1.5e-2],
+        Q_s_0=None,
+        upstream_segment_IDs=[[], [], [], [0, 1, 2]],
+        downstream_segment_IDs=[[3], [3], [3], []],
+        x=[xt.copy(), xt.copy(), xt.copy(), xtr.copy()],
+        z=[np.zeros(nseg)] * 4,
+        Q=[5.0 * np.ones(nseg)] * 3 + [15.0 * np.ones(nseg)],
+        B=[100.0 * np.ones(nseg)] * 4,
+    )
+    for lp in net.list_of_LongProfile_objects:
+        lp.set_intermittency(1.0)
+    net.set_niter(4)
+    net.get_z_lengths()
+    net.evolve_threshold_width_river_network(nt=3000, dt=1e12)
+
+    seg = net.list_of_LongProfile_objects
+    kQs = seg[0].k_Qs
+
+    def qs(lp, first=False):
+        S = -np.diff(lp.z) / np.diff(lp.x)
+        Qf = (lp.Q[:-1] + lp.Q[1:]) / 2.0
+        f = kQs * Qf * S ** (7 / 6.0)
+        return f[0] if first else f[-1]
+
+    influx = sum(qs(seg[t]) for t in (0, 1, 2))
+    outflux = qs(seg[3], first=True)
+    assert outflux == pytest.approx(influx, rel=1e-6)

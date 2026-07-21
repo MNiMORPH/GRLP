@@ -50,6 +50,20 @@ def test_irregular_grid_matches_analytical():
     assert np.abs(lp.z - z_analytical).max() / relief < 1e-3
 
 
+def test_compute_Q_s_uses_per_node_spacing_on_irregular_grid():
+    # compute_Q_s must divide each node's 2-cell elevation drop by that node's
+    # own 2-cell spacing. A straight-line profile has a constant slope at any
+    # spacing (the centered 2-cell difference is exact for a line), so the
+    # interior slope must come out uniform. A bug that collapses the spacing to
+    # a single value makes S scale with the local spacing and vary node-to-node.
+    rng = np.random.default_rng(1)
+    spacings = 500.0 + 1000.0 * rng.random(30)
+    x_ext = np.concatenate(([8000.0], 8000.0 + np.cumsum(spacings)))
+    lp, _ = _base(x_ext=x_ext, S0=0.015)  # z is linear (set_z), not yet evolved
+    lp.compute_Q_s()
+    assert np.allclose(lp.S[1:-1], 0.015, rtol=1e-9, atol=0)
+
+
 def test_irregular_grid_is_actually_irregular():
     # Guard the test above: confirm the spacing really is non-uniform.
     rng = np.random.default_rng(0)

@@ -627,7 +627,7 @@ class LongProfile(object):
             _z0 = 2*self.z[0] - self.z[1]
         z_ext = [ np.hstack(( _z0, self.z, self.z_bl )) ]
         if type(self.dx_ext_2cell) is np.ndarray:
-            dx_ext_2cell = list(self.dx_ext_2cell)
+            dx_ext_2cell = [ self.dx_ext_2cell ]
         else:
             dx_ext_2cell = self.dx_ext_2cell
         # Next, loop through slopes and sediment discharges

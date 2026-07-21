@@ -900,9 +900,14 @@ class Network(object):
                             % (t, lp.ID, lengths[t]))
         for lp in segs:
             lp.build_LHS_coeff_C0(dt=dt)
-        rows = []; cols = []; vals = []; RHS = np.zeros(n)
+        rows = []
+        cols = []
+        vals = []
+        RHS = np.zeros(n)
         for lp in segs:
-            s = lp.ID; off = starts[s]; L = lengths[s]
+            s = lp.ID
+            off = starts[s]
+            L = lengths[s]
             # per-node source term (matches build_matrices' RHS additions)
             src = (np.asarray(lp.ssd)
                    + np.asarray(lp.downstream_fining_subsidence_equivalent)
@@ -936,51 +941,82 @@ class Network(object):
                     D_cd = _Dface(lp.z[0], lp.z[1], 0.5 * (lp.Q[0] + lp.Q[1]),
                                   lp.x[0], lp.x[1], lp.C0)
                     csum = D_cd
-                    rows.append(g); cols.append(g + 1); vals.append(-D_cd / A_c)
+                    rows.append(g)
+                    cols.append(g + 1)
+                    vals.append(-D_cd / A_c)
                     for t in lp.upstream_segment_IDs:
-                        us = segs[t]; tg = starts[t] + lengths[t] - 1
+                        us = segs[t]
+                        tg = starts[t] + lengths[t] - 1
                         D_tc = _Dface(us.z[-1], lp.z[0], us.Q[-1],
                                       us.x[-1], lp.x[0], lp.C0)
                         csum += D_tc
-                        rows.append(g); cols.append(tg); vals.append(-D_tc / A_c)
-                    rows.append(g); cols.append(g); vals.append(1. + csum / A_c)
-                    RHS[g] = z_rhs[i]; continue
+                        rows.append(g)
+                        cols.append(tg)
+                        vals.append(-D_tc / A_c)
+                    rows.append(g)
+                    cols.append(g)
+                    vals.append(1. + csum / A_c)
+                    RHS[g] = z_rhs[i]
+                    continue
                 if dn_is_conf:
-                    ds = segs[lp.downstream_segment_IDs[0]]; cg = starts[ds.ID]
+                    ds = segs[lp.downstream_segment_IDs[0]]
+                    cg = starts[ds.ID]
                     A = lp.B[-1] * 0.5 * ((lp.x[-1] - lp.x[-2]) + (ds.x[0] - lp.x[-1]))
                     D_tc = _Dface(lp.z[-1], ds.z[0], lp.Q[-1],
                                   lp.x[-1], ds.x[0], ds.C0)     # shared with conf
                     D_up = _Dface(lp.z[-2], lp.z[-1], 0.5 * (lp.Q[-2] + lp.Q[-1]),
                                   lp.x[-2], lp.x[-1], lp.C0)
-                    rows.append(g); cols.append(g - 1); vals.append(-D_up / A)
-                    rows.append(g); cols.append(cg); vals.append(-D_tc / A)
-                    rows.append(g); cols.append(g); vals.append(1. + (D_up + D_tc) / A)
-                    RHS[g] = z_rhs[i]; continue
+                    rows.append(g)
+                    cols.append(g - 1)
+                    vals.append(-D_up / A)
+                    rows.append(g)
+                    cols.append(cg)
+                    vals.append(-D_tc / A)
+                    rows.append(g)
+                    cols.append(g)
+                    vals.append(1. + (D_up + D_tc) / A)
+                    RHS[g] = z_rhs[i]
+                    continue
                 if up_is_conf:
                     A = lp.B[1] * 0.5 * ((lp.x[1] - lp.x[0]) + (lp.x[2] - lp.x[1]))
                     D_cd = _Dface(lp.z[0], lp.z[1], 0.5 * (lp.Q[0] + lp.Q[1]),
                                   lp.x[0], lp.x[1], lp.C0)       # shared with conf
                     D_dn = _Dface(lp.z[1], lp.z[2], 0.5 * (lp.Q[1] + lp.Q[2]),
                                   lp.x[1], lp.x[2], lp.C0)
-                    rows.append(g); cols.append(g - 1); vals.append(-D_cd / A)
-                    rows.append(g); cols.append(g + 1); vals.append(-D_dn / A)
-                    rows.append(g); cols.append(g); vals.append(1. + (D_cd + D_dn) / A)
-                    RHS[g] = z_rhs[i]; continue
+                    rows.append(g)
+                    cols.append(g - 1)
+                    vals.append(-D_cd / A)
+                    rows.append(g)
+                    cols.append(g + 1)
+                    vals.append(-D_dn / A)
+                    rows.append(g)
+                    cols.append(g)
+                    vals.append(1. + (D_cd + D_dn) / A)
+                    RHS[g] = z_rhs[i]
+                    continue
                 # --- upstream neighbor (or head ghost) ---
                 if i > 0:
-                    up_g = g - 1; z_up = lp.z[i - 1]; x_up = lp.x[i - 1]
-                    Q_up = lp.Q[i - 1]; is_head = False
+                    up_g = g - 1
+                    z_up = lp.z[i - 1]
+                    x_up = lp.x[i - 1]
+                    Q_up = lp.Q[i - 1]
+                    is_head = False
                 elif len(lp.upstream_segment_IDs) == 0:
-                    is_head = True; up_g = None
+                    is_head = True
+                    up_g = None
                     x_up = 2 * lp.x[0] - lp.x[1]
                     z_up = lp.z[0] + lp.S0 * (lp.x[0] - x_up)
-                    Q_up = lp.Q_ghost_upstream if lp.Q_ghost_upstream \
-                           is not None else 2 * lp.Q[0] - lp.Q[1]
+                    if lp.Q_ghost_upstream is not None:
+                        Q_up = lp.Q_ghost_upstream
+                    else:
+                        Q_up = 2 * lp.Q[0] - lp.Q[1]
                 elif len(lp.upstream_segment_IDs) == 1:
                     is_head = False
                     us = segs[lp.upstream_segment_IDs[0]]
                     up_g = starts[us.ID] + lengths[us.ID] - 1
-                    z_up = us.z[-1]; x_up = us.x[-1]; Q_up = us.Q[-1]
+                    z_up = us.z[-1]
+                    x_up = us.x[-1]
+                    Q_up = us.Q[-1]
                 else:
                     raise NotImplementedError(
                         "assemble_by_walking: multi-tributary confluence "
@@ -988,20 +1024,31 @@ class Network(object):
                         % (s, len(lp.upstream_segment_IDs)))
                 # --- downstream neighbor (or outlet ghost) ---
                 if i < L - 1:
-                    dn_g = g + 1; z_dn = lp.z[i + 1]; x_dn = lp.x[i + 1]
-                    Q_dn = lp.Q[i + 1]; is_outlet = False
+                    dn_g = g + 1
+                    z_dn = lp.z[i + 1]
+                    x_dn = lp.x[i + 1]
+                    Q_dn = lp.Q[i + 1]
+                    is_outlet = False
                 elif len(lp.downstream_segment_IDs) == 0:
-                    is_outlet = True; dn_g = None
-                    x_dn = 2 * lp.x[-1] - lp.x[-2]; z_dn = lp.z_bl
-                    Q_dn = lp.Q_ghost_downstream if lp.Q_ghost_downstream \
-                           is not None else 2 * lp.Q[-1] - lp.Q[-2]
+                    is_outlet = True
+                    dn_g = None
+                    x_dn = 2 * lp.x[-1] - lp.x[-2]
+                    z_dn = lp.z_bl
+                    if lp.Q_ghost_downstream is not None:
+                        Q_dn = lp.Q_ghost_downstream
+                    else:
+                        Q_dn = 2 * lp.Q[-1] - lp.Q[-2]
                 else:
                     is_outlet = False
                     ds = segs[lp.downstream_segment_IDs[0]]
                     dn_g = starts[ds.ID]
-                    z_dn = ds.z[0]; x_dn = ds.x[0]; Q_dn = ds.Q[0]
+                    z_dn = ds.z[0]
+                    x_dn = ds.x[0]
+                    Q_dn = ds.Q[0]
                 # --- stencil (identical to build_matrices) ---
-                dxu = lp.x[i] - x_up; dxd = x_dn - lp.x[i]; dx2 = x_dn - x_up
+                dxu = lp.x[i] - x_up
+                dxd = x_dn - lp.x[i]
+                dx2 = x_dn - x_up
                 dQ2 = Q_dn - Q_up
                 S = np.abs(z_dn - z_up) / dx2
                 C1 = lp.C0 * S ** (1 / 6.) * lp.Q[i] / lp.B[i]
@@ -1017,11 +1064,17 @@ class Network(object):
                         7 / 3. * (1 / (lp.x[-1] - lp.x[-2])
                                   + 1 / (x_dn - lp.x[-1])) / 2.
                         + dQ2 / lp.Q[i] / dx2)
-                rows.append(g); cols.append(g); vals.append(center)
+                rows.append(g)
+                cols.append(g)
+                vals.append(center)
                 if up_g is not None:
-                    rows.append(g); cols.append(up_g); vals.append(left)
+                    rows.append(g)
+                    cols.append(up_g)
+                    vals.append(left)
                 if dn_g is not None:
-                    rows.append(g); cols.append(dn_g); vals.append(right)
+                    rows.append(g)
+                    cols.append(dn_g)
+                    vals.append(right)
                 RHS[g] = rhs_g
         LHSmatrix = sparse.csr_matrix((vals, (rows, cols)), shape=(n, n))
         return LHSmatrix, RHS
@@ -1249,8 +1302,10 @@ class Network(object):
         """
         def upstream_node(seg_id):
             lp = self.list_of_LongProfile_objects[seg_id]
-            return ("source", seg_id) if not lp.upstream_segment_IDs \
-                else ("jcn", seg_id)
+            if not lp.upstream_segment_IDs:
+                return ("source", seg_id)
+            else:
+                return ("jcn", seg_id)
 
         def downstream_node(seg_id):
             lp = self.list_of_LongProfile_objects[seg_id]

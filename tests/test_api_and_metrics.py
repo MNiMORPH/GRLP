@@ -70,8 +70,7 @@ def _balanced_tree():
     up = [[], [], [], [], [0, 1], [2, 3], [4, 5]]
     down = [[4], [4], [5], [5], [6], [6], []]
     net = build_network(x, Q, up, down, D * 13, S0=0.015)
-    for lp in net.list_of_LongProfile_objects:
-        lp.compute_Q_s()
+    net.compute_Q_s()
     return net
 
 

@@ -12,7 +12,7 @@ against the interior arrays.
 import numpy as np
 import pytest
 
-from conftest import make_long_profile
+from conftest import make_long_profile, STEADY_NT, STEADY_DT
 import grlp
 
 
@@ -158,6 +158,32 @@ def test_Qs_input_sets_upstream_ghost_node():
     lp = make_long_profile()
     ghost_slope = (lp.z_ghost_upstream - lp.z[0]) / lp.dx[0]
     assert ghost_slope == pytest.approx(lp.S0, rel=1e-12)
+
+
+def test_set_S0_recovers_slope_and_matches_Qs_input():
+    # Forcing by slope must reproduce forcing by the equivalent sediment supply:
+    # set_S0 derives that supply (intermittency-free inverse; the helper runs
+    # at I=0.8) and delegates to set_Qs_input_upstream.
+    ref = make_long_profile(S0=0.015)
+    alt = make_long_profile(S0=0.015)
+    alt.set_S0(0.015)
+    assert alt.S0 == pytest.approx(0.015, rel=1e-12)
+    assert alt.Q_s_0 == pytest.approx(ref.Q_s_0, rel=1e-12)
+    ref.evolve_threshold_width_river(nt=STEADY_NT, dt=STEADY_DT)
+    alt.evolve_threshold_width_river(nt=STEADY_NT, dt=STEADY_DT)
+    np.testing.assert_allclose(alt.z, ref.z, rtol=0, atol=1e-12)
+
+
+def test_set_S0_boundary_slope_responds_to_discharge():
+    # Under set_S0 the boundary is stored as a sediment supply, so raising the
+    # water discharge lowers the boundary slope -- a physical forcing drives the
+    # boundary, rather than S0 being pinned independent of Q. S0 ~ Q**(-6/7).
+    lp = make_long_profile()
+    lp.set_S0(0.015)
+    S0_before = lp.S0
+    lp.set_Q(Q=2.0 * lp.Q)
+    assert lp.S0 < S0_before
+    assert lp.S0 == pytest.approx(S0_before * 2.0 ** (-6 / 7.0), rel=1e-12)
 
 
 def test_intermittency_is_stored():

@@ -359,6 +359,22 @@ class LongProfile(object):
         # Give upstream cell the same width as the first cell in domain
         self.z_ghost_upstream = self.z[0] + self.S0 * self.dx[0]
 
+    def set_S0(self, S0):
+        """
+        Set the upstream boundary by its slope S0 rather than by the sediment
+        supply Q_s_0 -- convenient when the slope is known independently, e.g.
+        measured from a DEM. The equivalent Q_s_0 is derived from S0 and the
+        current discharge (the exact inverse of the relation in
+        set_Qs_input_upstream) and applied through that setter, so the boundary
+        remains a sediment supply: a later change in Q adjusts the boundary
+        slope, as a real physical forcing should.
+        S0 follows the boundary convention (sinuosity external, positive for a
+        river descending downstream); its sign is taken from the discharge.
+        """
+        Q_s_0 = self.k_Qs * np.abs(self.Q[0]) \
+                    * ( np.abs(S0) / self.sinuosity )**(7/6.)
+        self.set_Qs_input_upstream(Q_s_0)
+
     def set_z_bl(self, z_bl):
         """
         Set the right-hand Dirichlet boundary conditions, i.e. the base level,

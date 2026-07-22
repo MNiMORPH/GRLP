@@ -37,7 +37,7 @@ def test_walk_1into1_chain_equals_single_segment(long_profile_factory):
         for lp in net.list_of_LongProfile_objects:
             lp.set_intermittency(1.0)
         net.set_niter(5); net.get_z_lengths()
-        return net.assemble_by_walking(DT)
+        return grlp.solver.assemble(net, DT)
 
     single = grlp.Network()
     single.initialize(

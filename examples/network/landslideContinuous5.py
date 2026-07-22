@@ -111,11 +111,11 @@ net.get_z_lengths()
 # WHEN RUN FOR NT=10, GET BACKWARDS SLOPE ON TRIBUTARY
 # THIS IS WHERE WE NEED TO ADD IN CLOSED BASINS AS ANOTHER SEGMENT TYPE
 net.evolve_threshold_width_river_network(nt=100, dt=100*dt)
-lp = net.list_of_LongProfile_objects[2]
+landslide_seg = net.list_of_LongProfile_objects[2]
 
 # Landslide sediment pulse: raise the bed at this node (node-based; the old
 # padded z_ext bumps drove the solve, so the effective pulse was 30)
-lp.z[2] += 30
+landslide_seg.z[2] += 30
 
 for lp in net.list_of_LongProfile_objects:
     # If not downstream-most segment
@@ -147,7 +147,8 @@ for i in range(nsteps):
                          'k-', linewidth=1, alpha=1)
             plt.plot(lp.x, lp.z, '-', linewidth=1, alpha=1)#, label=lp.)
     if i < (nsteps-1):
-        lp.z[2] += 30
+        # continuous supply: keep dumping at the same landslide location
+        landslide_seg.z[2] += 30
 
 for lp in net.list_of_LongProfile_objects:
     # If not downstream-most segment

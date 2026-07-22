@@ -113,9 +113,9 @@ net.get_z_lengths()
 net.evolve_threshold_width_river_network(nt=100, dt=100*dt)
 lp = net.list_of_LongProfile_objects[2]
 
-lp.z[2] += 20
-lp.z_ext[0][3] += 30
-lp.z_ext[1][3] += 30
+# Landslide sediment pulse: raise the bed at this node (node-based; the old
+# padded z_ext bumps drove the solve, so the effective pulse was 30)
+lp.z[2] += 30
 
 for lp in net.list_of_LongProfile_objects:
     # If not downstream-most segment
@@ -126,7 +126,8 @@ for lp in net.list_of_LongProfile_objects:
             _zjoin = [lp.z[-1], dsseg.z[0]]
             plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)
     else:
-        plt.plot(lp.x_ext[0][-2:], lp.z_ext[0][-2:], 'k-', linewidth=4, alpha=.5)
+        plt.plot([lp.x[-1], lp.x_ghost_downstream], [lp.z[-1], lp.z_bl],
+                 'k-', linewidth=4, alpha=.5)
     plt.plot(lp.x, lp.z, '-', linewidth=4, alpha=.5)#, label=lp.)
 
 for i in range(10):
@@ -140,7 +141,8 @@ for i in range(10):
                 _zjoin = [lp.z[-1], dsseg.z[0]]
                 plt.plot(_xjoin, _zjoin, 'k-', linewidth=1, alpha=1)
         else:
-            plt.plot(lp.x_ext[0][-2:], lp.z_ext[0][-2:], 'k-', linewidth=4, alpha=1)
+            plt.plot([lp.x[-1], lp.x_ghost_downstream], [lp.z[-1], lp.z_bl],
+                     'k-', linewidth=4, alpha=1)
         plt.plot(lp.x, lp.z, '-', linewidth=1, alpha=1)#, label=lp.)
 
 

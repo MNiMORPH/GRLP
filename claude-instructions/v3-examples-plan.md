@@ -53,11 +53,12 @@ distilled here.
   `basic_FM20240807.py` or `along_stream_sources_FM20240807.py`.
   → machinery (`Shreve_Random_Network`, DEM routing) to **`grlp/`**; the driver to
   **`templates/`**. Highest priority.
-- **Yanshui width** — `Downloads/width_aw.py` (OLD API) +
-  `Dropbox/Papers/Completed/LandslidesOlivia/GRLP_baselevel.py` (modern API).
-  Real DEM + coupled valley-width dynamics + landslide-driven base-level rise.
-  Ties into the #32 valley-realism roadmap. → width machinery to **`grlp/`**;
-  driver(s) to **`templates/`**.
+- **Yanshui width — EXCLUDED, do NOT include.** Ongoing UNPUBLISHED work with a
+  colleague; Andy lacks permission to ship it. (Yanshui/Taiwan dynamic
+  valley-width prototype, DEM-driven, using a colleague's lateral-response +
+  migration-velocity formulation; `Downloads/width_aw.py` is Andy's variant,
+  dated 2026-07. NB the survey wrongly paired it with the 2018 Dominica
+  `GRLP_baselevel.py` — unrelated.) Keep out of examples/ and templates/.
 
 ### Reference-tier (keep as reference; not featured examples)
 
@@ -202,7 +203,7 @@ All v3-clean (no removed API). Each loads a `grass-whitewater-*.json` network.
   pyproject unchanged (`packages=["grlp"]` explicit, so `preprocessing/` ships
   with the repo but not with pip — like examples/templates/tests).
   Future: may grow into GIS tools (spin-out trigger = raster/GRASS deps).
-  Then external pull-ins (Fergus, Yanshui).
+  (Fergus/Shreve done via the in-package generator port; Yanshui EXCLUDED — see above.)
 - **Still to write** (greenfield `examples/`): `set_S0` and `set_x_bl` demos — the
   v3-feature coverage gap.
 - Open: does `deprecated/` (currently `examples/deprecated/`) move to repo root to

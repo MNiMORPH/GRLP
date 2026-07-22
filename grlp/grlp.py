@@ -586,34 +586,15 @@ class LongProfile(object):
         return self.zanalytical
 
     def compute_Q_s(self):
-        S = []
-        Q_s = []
-        # Reconstruct the padded profile from self.z and the boundary ghost-node
-        # positions (channel-head ghost elevation from the boundary slope S0,
-        # outlet ghost from base level); neither z_ext nor x_ext is stored.
-        _x_ext = np.hstack(( self.x_ghost_upstream, self.x,
-                             self.x_ghost_downstream ))
-        if self.S0 is not None:
-            _z0 = self.z[0] + self.S0 * (self.x[0] - self.x_ghost_upstream)
-        else:
-            _z0 = 2*self.z[0] - self.z[1]
-        z_ext = [ np.hstack(( _z0, self.z, self.z_bl )) ]
-        dx_ext_2cell = [ _x_ext[2:] - _x_ext[:-2] ]
-        # Next, loop through slopes and sediment discharges
-        for _z, _dx in zip(z_ext, dx_ext_2cell):
-            S.append( np.abs( (_z[2:] - _z[:-2]) / _dx) / self.sinuosity )
-            Q_s.append(
-                -np.sign( _z[2:] - _z[:-2] ) \
-                * self.k_Qs * self.intermittency * self.Q * S[-1]**(7/6.)
-                )
-        self.S = np.mean(S, axis=0)
-        self.Q_s = np.mean(Q_s, axis=0)
-
-        # # old, non-network way
-        # self.S = np.abs( (self.z_ext[0][2:] - self.z_ext[0][:-2]) /
-        #                  (self.dx_ext_2cell[0]) ) / self.sinuosity
-        # self.Q_s = -np.sign( self.z_ext[0][2:] - self.z_ext[0][:-2] ) \
-        #            * self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
+        """
+        Slope and sediment discharge at each node. A single segment is solved
+        as a one-edge network (exactly as evolve_threshold_width_river does),
+        so its slopes and sediment discharges come from walking to each node's
+        real neighbour -- the channel-head ghost from the boundary slope S0, the
+        outlet ghost from base level -- rather than from a padded z_ext array.
+        Sets self.S and self.Q_s.
+        """
+        Network( [self] ).compute_Q_s()
 
     def compute_channel_width(self):
         if self.D is not None:
@@ -633,15 +614,12 @@ class LongProfile(object):
             raise ValueError('Set grain size to compute channel depth.')
 
     def slope_area(self, verbose=False):
-        _x_ext = np.hstack(( self.x_ghost_upstream, self.x,
-                             self.x_ghost_downstream ))
-        if self.S0 is not None:
-            _z0 = self.z[0] + self.S0 * (self.x[0] - self.x_ghost_upstream)
-        else:
-            _z0 = 2*self.z[0] - self.z[1]
-        _z_ext = np.hstack(( _z0, self.z, self.z_bl ))
-        self.S = np.abs( (_z_ext[2:] - _z_ext[:-2]) \
-                         / (_x_ext[2:] - _x_ext[:-2]) )
+        # Slope from the unified walk (a one-edge network). compute_Q_s returns
+        # the down-valley channel slope (divided by sinuosity); the slope-area
+        # analysis uses the topographic gradient dz/dx, so multiply sinuosity
+        # back in.
+        self.compute_Q_s()
+        self.S = self.S * self.sinuosity
         logS = np.log10(self.S)
         logA = np.log10(self.A)
         out = linregress(logA[1:-1], logS[1:-1]) # remove edge effects

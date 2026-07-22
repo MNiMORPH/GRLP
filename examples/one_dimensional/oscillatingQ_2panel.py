@@ -98,7 +98,13 @@ for i in range(nt):
     #                     + np.mean(1/((lp.Q[:-1]+lp.Q[1:])/2.) * np.diff(lp.Q)/lp.dx)
     #                     - np.mean( 1/((lp.B[:-1]+lp.B[1:])/2.) * np.diff(lp.B)/lp.dx))
     #                    * np.mean(lp.Q/lp.B * lp.S * np.abs(lp.S)**(7/6.)) )
-    Sint = np.diff( (lp.z_ext[:-1]+lp.z_ext[1:])/2. )
+    # Boundary-augmented profile: the model is node-based and exposes no padded
+    # array, so reconstruct the two ghost elevations explicitly -- upstream from
+    # the fixed boundary slope S0 (recomputed each step, never stale), outlet at
+    # base level z_bl.
+    _z0 = lp.z[0] + lp.S0 * ( lp.x[0] - lp.x_ghost_upstream )
+    z_bnd = np.hstack(( _z0, lp.z, lp.z_bl ))
+    Sint = np.diff( (z_bnd[:-1]+z_bnd[1:])/2. )
     mean_driver.append( np.mean( (7/6.*( 1/((Sint[:-1]+Sint[1:])/2.)  * np.diff(Sint)/lp.dx)
                          + (1/((lp.Q[:-1]+lp.Q[1:])/2.) * np.diff(lp.Q)/lp.dx)
                          - ( 1/((lp.B[:-1]+lp.B[1:])/2.) * np.diff(lp.B)/lp.dx))

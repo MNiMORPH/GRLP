@@ -41,14 +41,12 @@ Q_s_out_3 = []
 time_transient_kyr = np.arange(30, 601, 30)
 
 z0 = lp.z.copy()
-z_ext_0 = lp.z_ext.copy()
 
 lp.intermittency = 1.
 
 """
 # Return to old values
 lp.z = z0.copy()
-lp.z_ext = z_ext_0.copy()
 lp.set_z_bl(z1)
 lp.set_Qs_input_upstream(0)
 """
@@ -74,7 +72,8 @@ excess_Qs_in_valley_equivalent = excess_Qs_in / ( (1-lp.lambda_p) * lp.B )
 
 # More process based
 #dA = np.diff(lp.A)
-dA = (lp.A_ext[2:] - lp.A_ext[:-2])/2.
+A_ext = np.hstack(( lp.A_ghost_upstream, lp.A, lp.A_ghost_downstream ))
+dA = (A_ext[2:] - A_ext[:-2])/2.
 L_channel = dA**(4/7.) # Hack, pretending it works on an area-slice
 # Production and decay
 sed_input = 1E1*dA * U/3.15E7 * np.exp(-lambda_sternberg * L_channel)

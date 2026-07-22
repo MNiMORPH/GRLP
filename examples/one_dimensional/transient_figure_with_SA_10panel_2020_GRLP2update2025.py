@@ -71,7 +71,6 @@ ax1.plot(lp.x/1000., lp.z + 500, color='.5', linewidth=4)
 ax1sa.loglog(lp.A[2:-1]/1E6, lp.S[2:-1], '-', color='.5', linewidth=4)
 
 z0 = lp.z.copy()
-z_ext_0 = lp.z_ext.copy()
 
 lp.intermittency = 1.
 
@@ -117,7 +116,6 @@ plt.tight_layout()
 
 # Return to old values
 lp.z = z0.copy()
-lp.z_ext = z_ext_0.copy()
 lp.set_z_bl(z1)
 lp.set_Qs_input_upstream(Qs0)
 lp.slope_area(verbose=True)
@@ -167,7 +165,6 @@ plt.tight_layout()
 
 # Return to old values
 lp.z = z0.copy()
-lp.z_ext = z_ext_0.copy()
 lp.set_z_bl(z1)
 lp.set_Qs_input_upstream(Qs0)
 lp.slope_area(verbose=True)
@@ -219,7 +216,6 @@ plt.tight_layout()
 
 # Return to old values
 lp.z = z0.copy()
-lp.z_ext = z_ext_0.copy()
 lp.set_z_bl(z1)
 lp.set_Qs_input_upstream(Qs0)
 U = 0.
@@ -272,7 +268,6 @@ plt.tight_layout()
 
 # Return to old values
 lp.z = z0.copy()
-lp.z_ext = z_ext_0.copy()
 lp.set_z_bl(z1)
 lp.set_Qs_input_upstream(Qs0)
 lp.set_Q(k_xQ=1.433776163432246e-05*2., P_xQ=7/4.*0.7)

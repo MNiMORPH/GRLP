@@ -107,3 +107,6 @@ ENV/
 netBLrise.gif
 BLrise_movie_frames/
 examples/McNab_et_al_GRL/figures/
+
+# Local literature PDFs (copyrighted; kept locally for docs work, never committed)
+docs/literature/

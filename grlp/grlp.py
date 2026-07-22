@@ -7,6 +7,7 @@ from scipy.stats import linregress
 import networkx as nx
 import warnings
 import sys
+import copy
 
 class LongProfile(object):
     """
@@ -2018,6 +2019,180 @@ class Network(object):
         self.compute_tokunaga_metrics()
         self.compute_jarvis_E()
         self.compute_mean_diffusivity()
+
+    def plot(self, show=True):
+        """
+        Build a planform plot of the network and (optionally) show it.
+
+        Segments are laid out on alternating sides of the trunk, ordered by
+        topological length, with overlaps resolved; returns the planform
+        coordinates. Works on any Network, synthetic or DEM-derived. (Formerly
+        the free function build_synthetic_network.plot_network.)
+        """
+
+        def check_for_segment_conflicts(ID, segs_by_topo_length, net, ys):
+            """
+            Check for segments that overlap with the given segment.
+            """
+
+            seg = net.list_of_LongProfile_objects[ID]
+            x_max = seg.x.max()
+            x_min = seg.x.min()
+            y = ys[ID]
+
+            for other_topo_length in segs_by_topo_length.keys():
+                for other_ID in segs_by_topo_length[other_topo_length]:
+                    if other_ID != ID:
+
+                        other_seg = net.list_of_LongProfile_objects[other_ID]
+                        other_x_max = other_seg.x.max()
+                        other_x_min = other_seg.x.min()
+                        other_y = ys[other_ID]
+
+                        if (
+                            (other_x_min <= x_min <= other_x_max) or
+                            (other_x_min <= x_max <= other_x_max)
+                            ):
+                            if y == other_y:
+                                return other_ID
+
+                        if other_seg.downstream_segment_IDs:
+                            down_y = ys[other_seg.downstream_segment_IDs[0]]
+                            if (
+                                (x_min <= other_x_max <= x_max) and
+                                (min(other_y,down_y) <= y <= max(other_y,down_y))
+                                ):
+                                return other_ID
+
+                        # # Don't think I need this bit...
+                        # if seg.downstream_segment_IDs:
+                        #     down_ID = seg.downstream_segment_IDs[0]
+                        #     if down_ID != other_ID:
+                        #         down_y = ys[down_ID]
+                        #         if (
+                        #             (other_x_min <= x_max <= other_x_max) and
+                        #             (min(y,down_y) <= other_y <= max(y,down_y))
+                        #             ):
+                        #             return other_ID
+
+            return False
+
+        def create_planform(net, ys):
+            """
+            Generate the final x and y coordinates to plot.
+            """
+
+            planform = {}
+            for i,seg in enumerate(net.list_of_LongProfile_objects):
+                # Downstream connection point: the first node of the downstream
+                # segment, or -- at the outlet -- the base-level ghost position
+                if seg.downstream_segment_IDs:
+                    x_down = net.list_of_LongProfile_objects[
+                                 seg.downstream_segment_IDs[0]].x[0]
+                elif seg.x_ghost_downstream is not None:
+                    x_down = seg.x_ghost_downstream
+                else:
+                    x_down = 2*seg.x[-1] - seg.x[-2]
+                if not seg.downstream_segment_IDs:
+                    x = np.hstack(( seg.x, x_down, x_down ))/1000.
+                    y = np.hstack(( np.full(len(seg.x),ys[i]), ys[i], ys[i] ))
+                else:
+                    x = np.hstack(( seg.x, x_down, x_down ))/1000.
+                    y = np.hstack((
+                        np.full(len(seg.x),ys[i]),
+                        ys[i],
+                        ys[seg.downstream_segment_IDs[0]]
+                        ))
+                planform[i] = {'x': x, 'y': y}
+            return planform
+
+        def plot_planform(planform):
+            """
+            Plot the planform.
+            """
+
+            for i in planform:
+                plt.plot(planform[i]['x'], planform[i]['y'])
+            plt.show()
+
+        # ---- Topological lengths (sets self.max_topological_length)
+        self.compute_topological_lengths()
+
+        # ---- Organise segments by distance upstream (topological length)
+        # Used later to check for conflicts between segments.
+        segs_by_topo_length = {0: [], self.max_topological_length+2: []}
+        for i in range(1,self.max_topological_length+2):
+            segs_by_topo_length[i] = []
+        for i,seg in enumerate(self.list_of_LongProfile_objects):
+            topo_length = len(self.find_downstream_IDs(seg.ID))
+            segs_by_topo_length[topo_length].append(seg.ID)
+
+        # ---- Set up arrays to fill
+        ys = np.full( len(self.list_of_LongProfile_objects), np.nan )
+        sides = np.full( len(self.list_of_LongProfile_objects), 0)
+        up_sides = np.full( len(self.list_of_LongProfile_objects), -1)
+        connections = [
+            [np.nan,np.nan] for i in range(len(self.list_of_LongProfile_objects))
+            ]
+
+        # ---- Loop over segments building planform
+        for i,seg in enumerate(self.list_of_LongProfile_objects):
+
+            # ---- Check if outlet
+            if not seg.downstream_segment_IDs:
+                ys[i] = 0.
+                connections[i][1] = copy.copy(ys[i])
+
+            # ---- Otherwise, add segment on to downstream one
+            else:
+
+                # Some info about the segment
+                down_ID = seg.downstream_segment_IDs[0]
+                topo_length = len(self.find_downstream_IDs(seg.ID))
+
+                # Add segment based on relationship to downstream segment
+                # Record what side of downstream segment the segment is on
+                # Update "up_sides" so that next segment goes on the other side
+                ys[i] = ys[down_ID] + up_sides[down_ID]
+                sides[i] = copy.copy(up_sides[down_ID])
+                up_sides[down_ID] *= -1
+
+                # Check for conflict
+                conflicting_id = check_for_segment_conflicts(
+                    seg.ID, segs_by_topo_length, self, ys)
+
+                # If there is a conflict, move downstream until reaching a segment
+                # with the right direction to fix the conflict
+                if conflicting_id:
+                    seg_to_adjust = seg.ID
+                    if seg.x.max() >= \
+                        self.list_of_LongProfile_objects[conflicting_id].x.max():
+                        while sides[conflicting_id] != sides[seg_to_adjust]:
+                            seg_to_adjust = (
+                                self.list_of_LongProfile_objects[seg_to_adjust]. \
+                                downstream_segment_IDs[0])
+                    else:
+                        while sides[seg.ID] == sides[seg_to_adjust]:
+                            seg_to_adjust = (
+                                self.list_of_LongProfile_objects[seg_to_adjust]. \
+                                downstream_segment_IDs[0])
+
+                # Move everything upstream of that segment out the way until the
+                # conflict is addressed
+                while check_for_segment_conflicts(
+                    seg.ID, segs_by_topo_length, self, ys):
+                    up_IDs_down_ID = self.find_upstream_IDs(seg_to_adjust)
+                    ys[up_IDs_down_ID] += sides[seg_to_adjust]
+
+        # ---- Get everything starting from zero and positive
+        ys -= ys.min() - 1.
+
+        # ---- Create final planform
+        planform = create_planform(self, ys)
+        if show:
+            plot_planform(planform)
+
+        return planform
 
 
 

@@ -82,9 +82,12 @@ version heading for the full notes.
   set in `set_x`) and `A_ghost_upstream`/`A_ghost_downstream` (ghost drainage
   areas, set in `set_A`), alongside the existing `Q_ghost_*`. `set_x` and
   `set_A` still accept `x_ext=`/`A_ext=` as inputs (used locally to derive the
-  interior grid and the ghosts). Diagnostics reconstruct a local padded profile
-  inline only where a two-cell stencil needs it. Values are unchanged for the
-  `(dx, nx, x0)` and `x_ext=` grid paths.
+  interior grid and the ghosts). The single-segment diagnostics `compute_Q_s`
+  and `slope_area` delegate to the walking solver (a single segment is a
+  one-edge network, exactly as `evolve_threshold_width_river` does), so no
+  padded `z_ext` is built or exposed anywhere -- slopes come from walking to
+  each node's real neighbour. Values are unchanged for the `(dx, nx, x0)` and
+  `x_ext=` grid paths.
 
 ### Fixed
 - `LongProfile.compute_Q_s` on non-uniform grids: it collapsed the two-cell

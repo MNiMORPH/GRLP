@@ -143,12 +143,19 @@ v3-clean (no port needed):
 Drop: `RioSantaCruz2023b.py` — identical to `RioSantaCruz2023.py` but for one
 blank line (line 67). Duplicate.
 
-Proposed 1D placement: `analytical_*` + `Basic1D*` + `base_level_fall_transience`
-+ `sudden_bl_fall_U0` + `oscillatingQ_2panel` (after port) → **examples/**;
-`RioSantaCruz2023` + `transient_…10panel` (after port) → **templates/**;
-`test_uplift_equals_qs` → **tests/** (after port) or examples; `Alluvial_Neumann`
-→ examples or reference; `oscillatingQ_2panel_outrange` → drop or fold into the
-single oscillatingQ example.
+**DONE — 1D sort complete** (commits `5017db7`, `886e213`). Final placement:
+- **`examples/one_dimensional/`** (10, all verified to run on v3):
+  `analytical_numerical` + `_uplift` + `_irregular_grid`, `analytical_concavity`,
+  `Basic1D`, `Basic1D-var-dx`, `base_level_fall_transience`, `sudden_bl_fall_U0`,
+  `oscillatingQ_2panel`, `test_uplift_equals_qs` (kept as a validation demo).
+- **`templates/one_dimensional/`** (4): `RioSantaCruz2023`,
+  `transient_…10panel`, `Alluvial_Neumann_2018_2` (own FD solver),
+  `oscillatingQ_2panel_outrange` (period-sweep animation).
+- **Dropped**: `RioSantaCruz2023b` (exact duplicate).
+
+`z_ext` fully removed from the library first: single-segment diagnostics
+delegate to the walk (no padded array anywhere). All 1D examples ported off
+`z_ext`/`A_ext`.
 
 ## VERIFIED — `network/` machinery candidates (SET B)
 
@@ -167,16 +174,18 @@ main block. Lift into the library:
   keep the better one's machinery, consolidate.
 All v3-clean (no removed API). Each loads a `grass-whitewater-*.json` network.
 
-## Where we left off / open decisions
+## Where we left off / next
 
-- Andy had **begun** moving in-repo scripts into this scheme before the junction
-  bug pulled us away — confirm which were already placed before re-sorting.
-- Machinery tier (`grlp/`) is the least-certain classification — confirm
-  smooth_despike / monotone are genuinely reusable machinery vs. one-off drivers.
-- Reference-vs-feature call on Rio Santa Cruz (check variant `b`).
-- Suggested working order: start with `one_dimensional/` (smallest, teaching
-  core), establish the port-and-run pattern, then tackle the 26-file `network/`
-  pile and the external pull-ins.
+- **`one_dimensional/` DONE** (sorted, ported, gated). `z_ext` removed library-wide.
+- **Next: `network/`** (26 files) — the big one. Two-move sort applies: first lift
+  the smooth_despike + monotone machinery into `grlp/` (confirmed reusable, see
+  SET B above), then triage the drivers (whitewater real-DEM, Perrot, landslide,
+  NewNetwork_N, netBL*) into `examples/network/` vs `templates/network/`. Many use
+  removed API → port or template. Then the external pull-ins (Fergus, Yanshui).
+- **Still to write** (greenfield `examples/`): `set_S0` and `set_x_bl` demos — the
+  v3-feature coverage gap.
+- Open: does `deprecated/` (currently `examples/deprecated/`) move to repo root to
+  match the new `examples/`/`templates/` siblings?
 
 ## Release gate (v3.0.0)
 

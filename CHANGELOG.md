@@ -29,6 +29,13 @@ version heading for the full notes.
   inverse of the `Q_s_0 -> S0` relation) and applies it through
   `set_Qs_input_upstream`, so the boundary remains a sediment supply: a later
   change in `Q` adjusts the boundary slope, as a physical forcing should.
+- `Network.plot()`: draw a network's branching planform. Moved here from the
+  free function `build_synthetic_network.plot_network` (it operates on any
+  `Network`) and ported off the removed `x_ext` arrays. Guarded, with the
+  synthetic-network generator, by `tests/test_build_synthetic_network.py`.
+- `examples/network/shreve_random_network.py`: generate a Shreve (1974) random
+  network and run GRLP on it -- the quickest "install and run" network setup,
+  no DEM required.
 
 ### Changed
 - The networked solver is **de-padded**: it assembles its matrix by walking the
@@ -100,6 +107,13 @@ version heading for the full notes.
   `x_ext=` grid paths.
 
 ### Fixed
+- `build_synthetic_network` was shipped in the package (and exported:
+  `grlp.generate_random_network`, `grlp.Shreve_Random_Network`) but had been left
+  un-ported when the de-pad removed `z_ext`/`x_ext`, so it raised on use.
+  `generate_random_network` now computes sediment discharge via the network walk
+  (`net.compute_Q_s()`) instead of a per-segment loop that failed on network
+  members; the network plotting moved to `Network.plot()` (see Added) off the
+  removed `x_ext`. The generator now runs on v3 and is guarded by a smoke test.
 - `LongProfile.compute_Q_s` on non-uniform grids: it collapsed the two-cell
   spacing to a single value (`list(self.dx_ext_2cell)` exploded the spacing
   array into scalars, so every node's slope was divided by the first node's

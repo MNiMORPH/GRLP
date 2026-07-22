@@ -38,6 +38,15 @@ version heading for the full notes.
   no DEM required.
 
 ### Changed
+- The network **solver is extracted** into a new `grlp/solver.py` and is no longer
+  part of the `Network` class. `Network.evolve_threshold_width_river_network` calls
+  `grlp.solver.evolve`; the assembler moved from `Network.assemble_by_walking` to
+  `grlp.solver.assemble(net, dt)`. The solver operates on a duck-typed network and
+  imports neither `Network` nor `LongProfile`, so the dependency is one-way
+  (`grlp.py` -> `solver.py`). Internal refactor, no numerical change; a single
+  `LongProfile` is still solved as its one-edge network. `Network` now holds the
+  data, topology, analysis, and plotting -- the descriptors of a network -- while
+  the solver is the separate engine.
 - Network analysis is consolidated onto the `Network` class. Hack's-law fitting,
   previously free functions in `build_synthetic_network`, is now
   `Network.find_hack_parameters()` / `find_hack_parameters_non_dim()`, beside the

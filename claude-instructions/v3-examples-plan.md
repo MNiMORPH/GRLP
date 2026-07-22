@@ -177,11 +177,24 @@ All v3-clean (no removed API). Each loads a `grass-whitewater-*.json` network.
 ## Where we left off / next
 
 - **`one_dimensional/` DONE** (sorted, ported, gated). `z_ext` removed library-wide.
-- **Next: `network/`** (26 files) — the big one. Two-move sort applies: first lift
-  the smooth_despike + monotone machinery into `grlp/` (confirmed reusable, see
-  SET B above), then triage the drivers (whitewater real-DEM, Perrot, landslide,
-  NewNetwork_N, netBL*) into `examples/network/` vs `templates/network/`. Many use
-  removed API → port or template. Then the external pull-ins (Fergus, Yanshui).
+- **`network/` sort + example porting DONE.** Placement:
+  - `examples/network/` (8, all run on v3): `NewNetwork_1/2/3/5segments`,
+    `netBLfall`, `landslide5`, `landslideContinuous5`, `netBLrise_animation` (new:
+    FuncAnimation → gif, replaced the frame-dumper). Ported off removed API (shared
+    outlet-connector plot `lp.x_ext[0][-2:]` → `[x[-1],x_ghost_downstream],[z[-1],z_bl]`;
+    base level via `set_z_bl`/`set_x_bl`; landslide pulse `lp.z[2] += 30`).
+  - `templates/network/`: 5 `whitewater_2m_net*` + 3 whitewater JSONs; `perrot_newnet`
+    (+ Perrot SVG; needs external grass-perrot.json).
+  - `examples/network_debugging/`: Test3segs, TestQ.
+  - `examples/deprecated/network/`: landslideContinuousUpper5, perrot_net,
+    NewNetwork_5segments_2-3-reverse, netBLfall_movieframes, netLandslide_movieframes.
+  - **FLAG:** `landslideContinuous5` in-loop perturbation hits the LAST segment
+    (loop-variable leak), not segment 2 where the initial pulse lands. Preserved
+    as-is; ask Andy whether to fix to segment 2 for teaching clarity.
+- **Next in `network/`: machinery lift** — `monotone`/`monotone2` +
+  `smooth_despike_network`/`_coarsen_network`/`_coarsen_network_3DEP` (still in
+  `examples/network/`) → consolidate into a `grlp/` submodule. Design-heavy new
+  library API; its own step. Then external pull-ins (Fergus, Yanshui).
 - **Still to write** (greenfield `examples/`): `set_S0` and `set_x_bl` demos — the
   v3-feature coverage gap.
 - Open: does `deprecated/` (currently `examples/deprecated/`) move to repo root to

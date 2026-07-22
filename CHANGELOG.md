@@ -38,6 +38,16 @@ version heading for the full notes.
   no DEM required.
 
 ### Changed
+- Network analysis is consolidated onto the `Network` class. Hack's-law fitting,
+  previously free functions in `build_synthetic_network`, is now
+  `Network.find_hack_parameters()` / `find_hack_parameters_non_dim()`, beside the
+  other `compute_*` analysis (`grlp.find_network_hack_parameters(net)` ->
+  `net.find_hack_parameters()`). The list-based topology helpers `downstream_IDs`
+  / `upstream_IDs` are now private generation-internal functions
+  (`_downstream_IDs`/`_upstream_IDs`); the one public traversal API is
+  `Network.find_downstream_IDs` / `find_upstream_IDs`. `build_synthetic_network`
+  now holds only network generation. (`find_hack_parameters_non_dim` also fixed:
+  it referenced an undefined `net.sources`, now the channel-head segment IDs.)
 - The networked solver is **de-padded**: it assembles its matrix by walking the
   topology to each node's real neighbour, instead of maintaining padded
   `z_ext`/`Q_ext` ghost arrays. Single-thread and network now share one solver

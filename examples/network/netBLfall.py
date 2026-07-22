@@ -121,10 +121,11 @@ for lp in net.list_of_LongProfile_objects:
             _zjoin = [lp.z[-1], dsseg.z[0]]
             plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)
     else:
-        plt.plot(lp.x_ext[0][-2:], lp.z_ext[0][-2:], 'k-', linewidth=4, alpha=.5)
+        plt.plot([lp.x[-1], lp.x_ghost_downstream], [lp.z[-1], lp.z_bl],
+                 'k-', linewidth=4, alpha=.5)
     plt.plot(lp.x, lp.z, '-', linewidth=4, alpha=.5)#, label=lp.)
 
-net.update_z_ext_external_downstream(-30)
+net.set_z_bl(-30)
 
 nsteps = 200
 for i in range(nsteps):
@@ -139,7 +140,8 @@ for i in range(nsteps):
                     _zjoin = [lp.z[-1], dsseg.z[0]]
                     plt.plot(_xjoin, _zjoin, 'k-', linewidth=1, alpha=1)
             else:
-                plt.plot(lp.x_ext[0][-2:], lp.z_ext[0][-2:], 'k-', linewidth=1, alpha=1)
+                plt.plot([lp.x[-1], lp.x_ghost_downstream], [lp.z[-1], lp.z_bl],
+                         'k-', linewidth=1, alpha=1)
             plt.plot(lp.x, lp.z, 'k-', linewidth=1, alpha=.2)#, label=lp.)
 
 for lp in net.list_of_LongProfile_objects:
@@ -151,7 +153,8 @@ for lp in net.list_of_LongProfile_objects:
             _zjoin = [lp.z[-1], dsseg.z[0]]
             plt.plot(_xjoin, _zjoin, 'k-', linewidth=3, alpha=.5)
     else:
-        plt.plot(lp.x_ext[0][-2:], lp.z_ext[0][-2:], 'k-', linewidth=3, alpha=.5)
+        plt.plot([lp.x[-1], lp.x_ghost_downstream], [lp.z[-1], lp.z_bl],
+                 'k-', linewidth=3, alpha=.5)
     plt.plot(lp.x, lp.z, 'k-', linewidth=3, alpha=.5)#, label=lp.)
 
 plt.xlabel('Distance downvalley in network [m]', fontsize=16)

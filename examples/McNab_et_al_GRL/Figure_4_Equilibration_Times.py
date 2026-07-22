@@ -1,4 +1,6 @@
 from grlp import *
+import numpy as np
+import matplotlib.pyplot as plt
 
 def predict_hack_length(area, k=1.85, h=0.54):
     return k*(area**h)

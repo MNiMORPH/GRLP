@@ -1,4 +1,6 @@
 from grlp import *
+import numpy as np
+import matplotlib.pyplot as plt
 from copy import deepcopy
 from matplotlib import cm
 from matplotlib.colors import LinearSegmentedColormap

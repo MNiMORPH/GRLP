@@ -102,3 +102,7 @@ ENV/
 
 # vi
 *.swp
+
+# Generated example animation output
+netBLrise.gif
+BLrise_movie_frames/

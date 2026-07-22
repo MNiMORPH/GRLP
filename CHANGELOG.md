@@ -12,6 +12,16 @@ version heading for the full notes.
 ## [Unreleased]
 
 ### Added
+- `preprocessing/`: a DEM-network input cleaner, run *before* GRLP to turn a
+  river network extracted from a DEM (a GRASS node-link JSON) into a clean,
+  committed GRLP input. Consolidates cleaning machinery that had been duplicated
+  across five example scripts into `preprocessing/network_preprocessing.py`
+  (despike + diffusive smooth, pure-NumPy monotone envelope, symmetric
+  running-mean smoothing, along-`s` coarsening, node-link JSON I/O, and a
+  `preprocess_network()` pipeline), plus a `clean_network.py` CLI driver. It is
+  **not** part of the installed `grlp` package -- cleaning is a pre-run step that
+  produces an inspectable, reproducible input artifact, not a model runtime
+  dependency. Guarded by `tests/test_network_preprocessing.py`.
 - `LongProfile.set_S0`: set the upstream boundary by its slope `S0` directly,
   rather than by the sediment supply `Q_s_0`. Convenient when the slope is known
   independently -- e.g. the present equilibrium slope measured from a DEM. It

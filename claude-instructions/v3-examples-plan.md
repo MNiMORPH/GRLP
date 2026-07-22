@@ -191,10 +191,18 @@ All v3-clean (no removed API). Each loads a `grass-whitewater-*.json` network.
   - **FLAG:** `landslideContinuous5` in-loop perturbation hits the LAST segment
     (loop-variable leak), not segment 2 where the initial pulse lands. Preserved
     as-is; ask Andy whether to fix to segment 2 for teaching clarity.
-- **Next in `network/`: machinery lift** — `monotone`/`monotone2` +
-  `smooth_despike_network`/`_coarsen_network`/`_coarsen_network_3DEP` (still in
-  `examples/network/`) → consolidate into a `grlp/` submodule. Design-heavy new
-  library API; its own step. Then external pull-ins (Fergus, Yanshui).
+- **Machinery lift DONE.** The 5 preprocessing scripts consolidated into
+  `preprocessing/` (repo root, NOT in the `grlp` package — cleaning is a pre-run
+  step producing a committed input artifact, not a model dependency; decided with
+  Andy). `preprocessing/network_preprocessing.py` (despike+smooth, pure-NumPy
+  monotone envelope, symmetric running mean, coarsen, JSON I/O, `preprocess_network()`
+  pipeline — sklearn/isotonic dropped, no new dep) + `clean_network.py` CLI driver
+  + README. Guarded by `tests/test_network_preprocessing.py` (4 tests). 5 old
+  scripts removed. `examples/network/` now = just the 8 teaching examples.
+  pyproject unchanged (`packages=["grlp"]` explicit, so `preprocessing/` ships
+  with the repo but not with pip — like examples/templates/tests).
+  Future: may grow into GIS tools (spin-out trigger = raster/GRASS deps).
+  Then external pull-ins (Fergus, Yanshui).
 - **Still to write** (greenfield `examples/`): `set_S0` and `set_x_bl` demos — the
   v3-feature coverage gap.
 - Open: does `deprecated/` (currently `examples/deprecated/`) move to repo root to

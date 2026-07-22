@@ -590,7 +590,7 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
     
     
     # ---- Compute Qs
-    for seg in net.list_of_LongProfile_objects: seg.compute_Q_s()
+    net.compute_Q_s()
     
     
     return net, net_topo

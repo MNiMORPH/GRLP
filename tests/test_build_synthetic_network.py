@@ -51,8 +51,12 @@ def test_network_plot_returns_planform():
     assert net.max_topological_length >= 1
 
 
-def test_find_network_hack_parameters():
+def test_find_hack_parameters():
     net, topo = _make_network(magnitude=8)
-    out = grlp.find_network_hack_parameters(net)
+    out = net.find_hack_parameters()
     assert set(("k", "p", "d", "Q")).issubset(out.keys())
     assert np.isfinite(out["k"]) and np.isfinite(out["p"])
+    # non-dimensional variant (fixed net.sources -> channel-head IDs)
+    nd = net.find_hack_parameters_non_dim()
+    assert set(("k_src", "p_src", "k_seg", "p_seg")).issubset(nd.keys())
+    assert np.isfinite(nd["k_src"]) and np.isfinite(nd["p_src"])

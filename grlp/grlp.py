@@ -8,6 +8,48 @@ import networkx as nx
 import warnings
 import sys
 import copy
+from scipy.optimize import minimize
+
+
+def _power_law(x, k, p):
+    """
+    Simple power law: y = k*(x^p).
+    """
+    return k * (x**p)
+
+
+def _power_law_misfit(pars, x, y):
+    """
+    Compute misfit between some data x,y and power law with given parameters.
+
+    k = pars[0]
+    p = pars[1]
+    x = data x
+    y = data y
+    """
+    k = pars[0]
+    p = pars[1]
+    modely = _power_law(x, k, p)
+    misfit = np.mean( np.sqrt( (modely - y)**2. ) )
+    return misfit
+
+
+def _optimize_power_law(x, y):
+    """
+    Find optimal power law parameters for data x, y.
+    """
+    x_scale = x / max(x)
+    y_scale = y / max(y)
+    fit = minimize(
+        _power_law_misfit,
+        [1.,1.],
+        args=(x_scale,y_scale),
+        bounds=[[0,None],[0,None]])
+    k_scale = fit.x[0]
+    p = fit.x[1]
+    k = k_scale / (max(x)**p) * max(y)
+    return k, p
+
 
 class LongProfile(object):
     """
@@ -2019,6 +2061,61 @@ class Network(object):
         self.compute_tokunaga_metrics()
         self.compute_jarvis_E()
         self.compute_mean_diffusivity()
+
+    def find_hack_parameters(self):
+        """
+        Find optimal Hack parameters for this network.
+
+        First get distances downstream from source for each network segment.
+        Then optimise power law describing increasing discharge downstream.
+        """
+        d = []
+        Q = []
+        for lp in self.list_of_LongProfile_objects:
+            up_IDs = self.find_upstream_IDs(lp.ID)
+            ds = []
+            for up_id in up_IDs:
+                ds.append(min(self.list_of_LongProfile_objects[up_id].x))
+            d.append(np.max(lp.x) - min(ds))
+            Q.append(np.mean(lp.Q))
+        k, p = _optimize_power_law(d, Q)
+        return {'k': k, 'p': p, 'd': d, 'Q': Q}
+
+    def find_hack_parameters_non_dim(self):
+        """
+        Non-dimensional Hack parameters for this network: power laws relating
+        topological length to the numbers of upstream sources and segments.
+        """
+        self.create_list_of_channel_head_segment_IDs()
+        sources = self.list_of_channel_head_segment_IDs
+        topo_lengths = []
+        upstream_sources = []
+        upstream_segments = []
+        for seg in self.list_of_LongProfile_objects:
+
+            up_IDs = self.find_upstream_IDs(seg.ID)
+            upstream_segments.append(len(up_IDs))
+            up_sources = [ID for ID in up_IDs if ID in sources]
+            upstream_sources.append(len(up_sources))
+
+            topo_length = 0
+            for s in up_sources:
+                topo_length_i = 0
+                down_IDs = self.find_downstream_IDs(s)
+                for down_ID in down_IDs:
+                    topo_length_i += 1
+                    if down_ID == seg.ID:
+                        break
+                topo_length = max(topo_length, topo_length_i)
+            topo_lengths.append(topo_length)
+
+        k_src, p_src = _optimize_power_law(
+            np.array(topo_lengths), np.array(upstream_sources))
+        k_seg, p_seg = _optimize_power_law(
+            np.array(topo_lengths), np.array(upstream_segments))
+        return {'k_src': k_src, 'p_src': p_src, 'k_seg': k_seg, 'p_seg': p_seg,
+                'lengths': topo_lengths, 'sources': upstream_sources,
+                'segments': upstream_segments}
 
     def plot(self, show=True):
         """

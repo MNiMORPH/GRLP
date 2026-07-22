@@ -1,40 +1,37 @@
 import random
 import copy
-from scipy.optimize import minimize
 from grlp import *
 
 
-def downstream_IDs(down_ls, i):
+def _downstream_IDs(down_ls, i):
     """
-    Search list of downstream IDs, return all segments downstream of
-    specified point.
+    All segments downstream of a given point, from a raw downstream-ID list.
 
-    Uses recursive call of _downstream_IDs function.
-
+    Generation-internal: used while building topology, before a Network (and
+    its Network.find_downstream_IDs) exists.
     """
     IDs = []
-    def _downstream_IDs(down_ls, i):
+    def _recurse(down_ls, i):
         IDs.append(i)
         if down_ls[i]:
-            _downstream_IDs(down_ls, down_ls[i][0])
-    _downstream_IDs(down_ls, i)
+            _recurse(down_ls, down_ls[i][0])
+    _recurse(down_ls, i)
     return IDs
 
 
-def upstream_IDs(up_ls, i):
+def _upstream_IDs(up_ls, i):
     """
-    Search list of upstrean IDs, return all segments upstream of
-    specified point.
+    All segments upstream of a given point, from a raw upstream-ID list.
 
-    Uses recursive call of _upstream_IDs function.
-
+    Generation-internal: used while building topology, before a Network (and
+    its Network.find_upstream_IDs) exists.
     """
     IDs = []
-    def _upstream_IDs(up_ls, i):
+    def _recurse(up_ls, i):
         IDs.append(i)
         for j in up_ls[i]:
-            _upstream_IDs(up_ls, j)
-    _upstream_IDs(up_ls, i)
+            _recurse(up_ls, j)
+    _recurse(up_ls, i)
     return IDs
 
 
@@ -45,7 +42,7 @@ def generate_x_domain(segment_lengths, downstream_segments, min_nxs, approx_dx):
     for i,L in enumerate(segment_lengths):
         nx = max(min_nxs, int(L/approx_dx))
         dx = L / nx
-        down_IDs = downstream_IDs(downstream_segments, i)[1:]
+        down_IDs = _downstream_IDs(downstream_segments, i)[1:]
         down_x = sum([segment_lengths[j] for j in down_IDs])
         x0 = - down_x - segment_lengths[i]
         x1 = x0 + segment_lengths[i]
@@ -87,7 +84,7 @@ def generate_discharges(supply_discharges, internal_discharges,
         # Then, the minimum discharge is the maximum minus that supplied
         # internally to that segment.
         else:
-            up_IDs = upstream_IDs(upstream_segments, i)
+            up_IDs = _upstream_IDs(upstream_segments, i)
             max_discharge = sum(
                 [supply_discharges[j] + internal_discharges[j] for j in up_IDs]
                 )
@@ -256,7 +253,7 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
     else:
         supply_areas = []
         for i in range(len(net_topo.upstream_segment_IDs)):
-            if len(upstream_IDs(net_topo.upstream_segment_IDs, i)) == 1:
+            if len(_upstream_IDs(net_topo.upstream_segment_IDs, i)) == 1:
                 supply_areas.append(1.)
             else:
                 supply_areas.append(0.)
@@ -281,7 +278,7 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         scl_areas = []
         for i in range(len(net_topo.upstream_segment_IDs)):
             area = 0
-            up_IDs = upstream_IDs(net_topo.upstream_segment_IDs, i)
+            up_IDs = _upstream_IDs(net_topo.upstream_segment_IDs, i)
             for ID in up_IDs:
                 area += supply_areas[ID] + internal_areas[ID]
             area -= internal_areas[i]/2.
@@ -607,7 +604,7 @@ class Shreve_Random_Network:
             lengths = []
             for i in range(len(self.upstream_segment_IDs)):
                 length = 0
-                down_IDs = downstream_IDs(self.downstream_segment_IDs, i)
+                down_IDs = _downstream_IDs(self.downstream_segment_IDs, i)
                 for j in down_IDs:
                     length += self.segment_lengths[j]
                 lengths.append(length)
@@ -652,91 +649,3 @@ class Shreve_Random_Network:
                 )
 
 
-def power_law(x, k, p):
-    """
-    Simple power law: y = k*(x^p).
-    """
-    return k * (x**p)
-
-def power_law_misfit(pars, x, y):
-    """
-    Compute misfit between some data x,y and power law with given parameters.
-    
-    k = pars[0]
-    p = pars[1]
-    x = data x
-    y = data y
-    """
-    k = pars[0]
-    p = pars[1]
-    modely = power_law(x, k, p)
-    misfit = np.mean( np.sqrt( (modely - y)**2. ) )
-    return misfit
-    
-def optimize_power_law(x, y):
-    """
-    Find optimal power law parameters for data x, y.
-    """
-    x_scale = x / max(x)
-    y_scale = y / max(y)
-    fit = minimize(
-        power_law_misfit, 
-        [1.,1.], 
-        args=(x_scale,y_scale), 
-        bounds=[[0,None],[0,None]])
-    k_scale = fit.x[0]
-    p = fit.x[1]
-    k = k_scale / (max(x)**p) * max(y)
-    return k, p
-    
-def find_network_hack_parameters(net):
-    """
-    Find optimal Hack parameters for a given network object.
-    
-    First get distances downstream from source for each network segment. Then
-    optimise power law describing increasing discharge downstream.
-    """
-    d = []
-    Q = []
-    for lp in net.list_of_LongProfile_objects:
-        upstream_IDs = net.find_upstream_IDs(lp.ID)
-        ds = []
-        for up_id in upstream_IDs:
-            ds.append(min(net.list_of_LongProfile_objects[up_id].x))
-        d.append(np.max(lp.x) - min(ds))
-        Q.append(np.mean(lp.Q))
-    k, p = optimize_power_law(d, Q)
-    return {'k': k, 'p': p, 'd': d, 'Q': Q}
-
-def find_network_hack_parameters_non_dim(net):
-    """
-    Find optimal Hack parameters for a given network object.
-    
-    First get distances downstream from source for each network segment. Then
-    optimise power law describing increasing discharge downstream.
-    """
-    
-    topo_lengths = []
-    upstream_sources = []
-    upstream_segments = []
-    for seg in net.list_of_LongProfile_objects:
-            
-        up_IDs = net.find_upstream_IDs(seg.ID)
-        upstream_segments.append(len(up_IDs))
-        up_sources = [ID for ID in up_IDs if ID in net.sources]
-        upstream_sources.append(len(up_sources))
-        
-        topo_length = 0
-        for s in up_sources:
-            topo_length_i = 0
-            down_IDs = net.find_downstream_IDs(s)
-            for down_ID in down_IDs:
-                topo_length_i += 1
-                if down_ID == seg.ID:
-                    break
-            topo_length = max(topo_length, topo_length_i)
-        topo_lengths.append(topo_length)
-
-    k_src, p_src = optimize_power_law(np.array(topo_lengths), np.array(upstream_sources))
-    k_seg, p_seg = optimize_power_law(np.array(topo_lengths), np.array(upstream_segments))
-    return {'k_src': k_src, 'p_src': p_src, 'k_seg': k_seg, 'p_seg': p_seg, 'lengths': topo_lengths, 'sources': upstream_sources, 'segments': upstream_segments}

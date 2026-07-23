@@ -53,7 +53,7 @@ def _optimize_power_law(x, y):
     return k, p
 
 
-class LongProfile(object):
+class Segment(object):
     """
     Gravel-bed river long-profile solution builder and solver
     """
@@ -869,6 +869,12 @@ class LongProfile(object):
             lag -= 0.5*period
 
         return lag
+
+
+# Transitional alias: the class is now `Segment` (a network member). Phase 2 of
+# the refactor replaces this with a lightweight 1-D `LongProfile` wrapper that
+# composes a Segment. See claude-instructions/segment-wrapper-refactor.md.
+LongProfile = Segment
 
 
 class Network(object):

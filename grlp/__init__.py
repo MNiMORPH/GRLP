@@ -14,7 +14,7 @@ from ._version import __version__
 # grlp.X). Curated so the star-import gives the classes and network-generation
 # functions, not the imported third-party modules.
 __all__ = [
-    "LongProfile", "Network",
+    "Segment", "LongProfile", "Network",
     "generate_random_network", "Shreve_Random_Network",
     "generate_x_domain", "generate_discharges", "generate_ssds",
     "generate_variable_widths", "generate_zs",

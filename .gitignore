@@ -115,3 +115,9 @@ examples/McNab_et_al_GRL/figures/
 # Local literature PDFs (copyrighted; kept locally for docs work, never committed).
 # The literature notes (README.md) ARE tracked; only the PDFs are ignored.
 docs/literature/*.pdf
+
+# Standalone interactive demo build artifacts (JupyterLite / Pyodide)
+interactive_demo/pypi/
+interactive_demo/_output/
+interactive_demo/.jupyterlite.doit.db
+interactive_demo/jupyter_lite_config.json

@@ -382,12 +382,10 @@ class Segment(object):
             pass
         else:
             raise ValueError('You must define gravel_fractional_loss_per_km.')
-        self.compute_Q_s()
-        # gravel_fractional_loss_per_km is per kilometer; divide by 1000 to get
-        # the per-meter coefficient used against the (metre-based) geometry.
-        self.downstream_fining_subsidence_equivalent = \
-                - self.gravel_fractional_loss_per_km / 1000. * self.Q_s \
-                / ( (1-self.lambda_p) * self.B )
+        # The abrasion sink (downstream_fining_subsidence_equivalent) depends on
+        # Q_s, which needs the network walk, so the solver recomputes it from the
+        # current profile each Picard step (grlp.solver.update_gravel_loss). We
+        # only store the per-kilometre coefficient here.
 
     def set_niter(self, niter):
         self.niter = niter
@@ -629,17 +627,6 @@ class Segment(object):
         self.zanalytical = np.interp(self.x, xf, zf)
         return self.zanalytical
 
-    def compute_Q_s(self):
-        """
-        Slope and sediment discharge at each node. A single segment is solved
-        as a one-edge network (exactly as evolve_threshold_width_river does),
-        so its slopes and sediment discharges come from walking to each node's
-        real neighbour -- the channel-head ghost from the boundary slope S0, the
-        outlet ghost from base level -- rather than from a padded z_ext array.
-        Sets self.S and self.Q_s.
-        """
-        Network( [self] ).compute_Q_s()
-
     def compute_channel_width(self):
         if self.D is not None:
             self.b = 0.17 / ( self.g**.5
@@ -656,6 +643,73 @@ class Segment(object):
                         * self.tau_star_c * self.D / self.S
         else:
             raise ValueError('Set grain size to compute channel depth.')
+
+
+class LongProfile(object):
+    """
+    A single gravel-bed river long profile: the 1-D convenience wrapper.
+
+    Composes one ``Segment`` and the one-edge ``Network`` that solves it, and
+    exposes the friendly standalone API. Configuration and data forward to the
+    ``Segment`` (via ``__getattr__`` / ``__setattr__``); the time integration and
+    the 1-D analyses that need the network walk (``compute_Q_s``, ``slope_area``,
+    diffusivity, and the gain/lag spectral suite) are defined here, running on
+    the owned ``Network``. To build a multi-segment network, use ``Segment``
+    objects and ``Network`` directly -- a ``LongProfile`` is standalone-only.
+    """
+
+    def __init__(self):
+        # These two attributes live on the wrapper itself; every other attribute
+        # access forwards to the composed Segment.
+        self.segment = Segment()
+        self._network = None
+
+    def __getattr__(self, name):
+        # Reached only when `name` is not found on the wrapper itself; forward to
+        # the composed Segment. Guard the two real attributes to avoid recursion
+        # before they are set (e.g. during copy/unpickle).
+        if name in ("segment", "_network"):
+            raise AttributeError(name)
+        return getattr(self.segment, name)
+
+    def __setattr__(self, name, value):
+        if name in ("segment", "_network"):
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self.segment, name, value)
+
+    def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
+        """
+        Advance the profile `nt` steps of length `dt` [s].
+
+        The owned one-edge ``Network`` runs the unified walking solver; boundary
+        conditions come from the segment's setters (upstream sediment supply or
+        slope; downstream base level).
+        """
+        seg = self.segment
+        seg.nt = nt
+        seg.ID = 0
+        net = self._net()
+        net.t = seg.t
+        net.set_niter(seg.niter)
+        net.get_z_lengths()
+        net.evolve_threshold_width_river_network(nt, dt)
+        seg.Qs_internal = 1 / (1 - seg.lambda_p) * np.cumsum(seg.dz_dt) \
+                          * seg.B + seg.Q_s_0
+
+    def _net(self):
+        """The owned one-edge Network wrapping this profile's Segment."""
+        if self._network is None:
+            self._network = Network([self.segment])
+        return self._network
+
+    def compute_Q_s(self):
+        """
+        Slope and sediment discharge at each node, via the owned one-edge
+        network (which walks to each node's real neighbour). Sets S and Q_s on
+        the segment.
+        """
+        self._net().compute_Q_s()
 
     def slope_area(self, verbose=False):
         # Slope from the unified walk (a one-edge network). compute_Q_s returns
@@ -778,8 +832,7 @@ class Segment(object):
         """
         self.compute_diffusivity()
         cos_term, sin_term = self.compute_Qs_series_terms(period, nsum)
-        return np.sqrt( (A_Qs/(A_Qs - A_Q) - sin_term)**2. + cos_term**2. ) \
-
+        return np.sqrt( (A_Qs/(A_Qs - A_Q) - sin_term)**2. + cos_term**2. )
 
     def compute_z_lag(self, period, nsum=100):
         """
@@ -803,7 +856,7 @@ class Segment(object):
             if i != len(self.x)-1:
                 if lag[i+1] > lag[i] and lag[i+1] - lag[i] > period/4.:
                     lag[:i+1] += period/2.
-                    
+
         # At least for parameter ranges we are interested in, we expect that
         # lag at the inlet should not be too big. So we can also catch
         # cycle-skipping that effects the whole length of the valley by
@@ -844,60 +897,6 @@ class Segment(object):
             lag -= 0.5*period
 
         return lag
-
-
-class LongProfile(object):
-    """
-    A single gravel-bed river long profile: the 1-D convenience wrapper.
-
-    Composes one ``Segment`` and the one-edge ``Network`` that solves it, and
-    exposes the friendly standalone API. Configuration, data, and the
-    segment-level diagnostics forward to the ``Segment`` (via ``__getattr__`` /
-    ``__setattr__``); only the time integration is defined here, running on the
-    owned ``Network``. To build a multi-segment network, use ``Segment`` objects
-    and ``Network`` directly -- a ``LongProfile`` is standalone-only.
-    """
-
-    def __init__(self):
-        # These two attributes live on the wrapper itself; every other attribute
-        # access forwards to the composed Segment.
-        self.segment = Segment()
-        self._network = None
-
-    def __getattr__(self, name):
-        # Reached only when `name` is not found on the wrapper itself; forward to
-        # the composed Segment. Guard the two real attributes to avoid recursion
-        # before they are set (e.g. during copy/unpickle).
-        if name in ("segment", "_network"):
-            raise AttributeError(name)
-        return getattr(self.segment, name)
-
-    def __setattr__(self, name, value):
-        if name in ("segment", "_network"):
-            object.__setattr__(self, name, value)
-        else:
-            setattr(self.segment, name, value)
-
-    def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
-        """
-        Advance the profile `nt` steps of length `dt` [s].
-
-        The owned one-edge ``Network`` runs the unified walking solver; boundary
-        conditions come from the segment's setters (upstream sediment supply or
-        slope; downstream base level).
-        """
-        seg = self.segment
-        seg.nt = nt
-        seg.ID = 0
-        if self._network is None:
-            self._network = Network([seg])
-        net = self._network
-        net.t = seg.t
-        net.set_niter(seg.niter)
-        net.get_z_lengths()
-        net.evolve_threshold_width_river_network(nt, dt)
-        seg.Qs_internal = 1 / (1 - seg.lambda_p) * np.cumsum(seg.dz_dt) \
-                          * seg.B + seg.Q_s_0
 
 
 class Network(object):

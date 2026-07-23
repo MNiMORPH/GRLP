@@ -119,3 +119,32 @@ def test_deprecated_perturbation_warns():
     lp.analytical_threshold_width()  # sets k_a, P_a used by the old method
     with pytest.warns(DeprecationWarning):
         lp.analytical_threshold_width_perturbation()
+
+
+def test_uplift_defaults_to_zero():
+    # A freshly constructed LongProfile has zero uplift, so U is a usable
+    # number, not an unset attribute.
+    assert grlp.LongProfile().U == 0.0
+
+
+def test_evolve_without_set_uplift_rate():
+    # Uplift is optional: a profile must evolve without ever calling
+    # set_uplift_rate. The solver reads lp.U, so the constructor default
+    # (U = 0) has to be in place -- otherwise this raises
+    # AttributeError: 'LongProfile' object has no attribute 'U'.
+    lp = grlp.LongProfile()
+    lp.basic_constants()
+    lp.bedload_lumped_constants()
+    lp.set_hydrologic_constants()
+    lp.set_x(dx=1000.0, nx=50, x0=5e3)
+    lp.set_z(S0=-0.01, z1=0.0)
+    lp.set_A(k_xA=1.0)
+    lp.set_Q(k_xQ=1.433776163432246e-05, P_xQ=7 / 4.0 * 0.7)
+    lp.set_B(k_xB=10.0, P_xB=0.0)
+    lp.set_niter(3)
+    lp.set_z_bl(0.0)
+    Qs0 = lp.k_Qs * lp.Q[0] * 0.01 ** (7 / 6.0)
+    lp.set_Qs_input_upstream(Qs0)
+    # No set_uplift_rate call.
+    lp.evolve_threshold_width_river(nt=10, dt=1e13)
+    assert np.all(np.isfinite(lp.z))

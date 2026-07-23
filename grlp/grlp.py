@@ -86,6 +86,8 @@ class LongProfile(object):
         self.downstream_segment_IDs = []
         self.ID = None
         self.downstream_fining_subsidence_equivalent = 0.
+        self.U = 0. # uplift/subsidence source-sink [m/s]; 0 by default so a
+                    # profile evolves without an explicit set_uplift_rate call
         self.gravel_fractional_loss_per_km = None
         #self.downstream_dx = None # not necessary if x_ext given
         #self.basic_constants()

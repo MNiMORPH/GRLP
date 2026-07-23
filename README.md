@@ -1,5 +1,6 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3740658.svg)](https://doi.org/10.5281/zenodo.3740658)
 [![tests](https://github.com/MNiMORPH/GRLP/actions/workflows/tests.yml/badge.svg)](https://github.com/MNiMORPH/GRLP/actions/workflows/tests.yml)
+[![Documentation Status](https://readthedocs.org/projects/grlp/badge/?version=latest)](https://grlp.readthedocs.io/en/latest/?badge=latest)
 
 # gravel-river-long-profile
 
@@ -13,11 +14,46 @@ Key assumptions are that:
 
 The code-base structure, in short, is as follows:
 * The **grlp** folder holds the core program
-  * `grlp.py` contains the equations and solvers.
+  * `grlp.py` contains the equations and the `LongProfile` and `Network` classes.
+  * `solver.py` assembles and solves the network sparse-matrix system.
   * `build_synthetic_network.py` generates networks to run and test GRLP.
 * The **examples** folder contains general examples (in the subfolders) as well as tutorial code for a one-dimensional model.
   * `run_grlp.py` contains comments intended to help you learn how to write your own models.
   * `example_1d.ipynb` is a Jupyter notebook containing more extensive tutorial information.
+* The **preprocessing** folder holds an optional input-cleaning step that turns network geometry (e.g. from a DEM) into GRLP inputs; run it before GRLP, not as part of it.
+
+## Documentation
+
+Full documentation is hosted on Read the Docs: **<https://grlp.readthedocs.io>**. It covers installation, a quickstart, the theory and governing equations, the example scripts, and a complete API reference.
+
+## Python API
+
+GRLP's main entry points:
+* **`grlp.LongProfile`** — a single gravel-bed river long profile. Set its geometry and forcing (`set_x`, `set_z`, `set_Q`, `set_B`; boundaries `set_Qs_input_upstream`/`set_S0` upstream and `set_z_bl`/`set_x_bl` downstream), then evolve with `evolve_threshold_width_river`.
+* **`grlp.Network`** — a drainage network of long-profile segments joined at confluences, evolved together with `evolve_threshold_width_river_network`. Every solution is a network solution; a single profile is the trivial one-edge case.
+* **`grlp.generate_random_network`** — build a random Shreve network to run without a DEM.
+
+A minimal single-profile run:
+
+```python
+import grlp
+
+lp = grlp.LongProfile()
+lp.basic_constants()
+lp.bedload_lumped_constants()
+lp.set_hydrologic_constants()
+lp.set_x(dx=1000, nx=251, x0=0)
+lp.set_z(S0=7.2e-4, z1=0)
+lp.set_Q(700.)
+lp.set_B(10000.)
+lp.set_niter(3)
+lp.set_z_bl(0.)
+lp.set_uplift_rate(0.)
+lp.set_Qs_input_upstream(lp.k_Qs * lp.Q[0] * 7.2e-4**(7/6.))
+lp.evolve_threshold_width_river(nt=10, dt=1e14)   # evolve toward steady state
+```
+
+Full class and function documentation is in the [API reference](https://grlp.readthedocs.io/en/latest/api.html).
 
 ## Sources to cite
 

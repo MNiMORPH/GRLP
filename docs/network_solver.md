@@ -4,8 +4,9 @@ GRLP evolves a gravel-bed river long profile by a semi-implicit (Picard-iterated
 solve of a diffusion-like equation for bed elevation `z`. On a single segment
 this is a tridiagonal system. On a **network** of segments joined at confluences,
 GRLP assembles and solves **one global sparse linear system** over all nodes,
-built by walking the channel topology. This note describes that assembly
-(`Network.assemble_by_walking` / `Network._evolve_by_walking`).
+built by walking the channel topology. This note describes that assembly, which
+lives in the `grlp.solver` module (`grlp.solver.assemble` /
+`grlp.solver.evolve`).
 
 ## What changed, and why
 
@@ -69,11 +70,12 @@ coefficient lands at the cross-segment position `(g, neighbour_global_index)`.
 
 ## The stencil is the single-segment stencil
 
-The per-node coefficients (`C1`, the `7/3` terms, the Neumann channel-head and
-Dirichlet river-mouth boundary modifications) are **identical** to the
-single-segment `LongProfile.build_matrices`. Only the *neighbour lookup* differs
-(walk the topology vs. index a padded ghost array). For a one-segment network the
-global matrix is exactly the standalone tridiagonal system, bit-for-bit.
+The per-node coefficients (`C1`, the `7/3` terms) come from
+`LongProfile.build_LHS_coeff_C0` — the same helper applied to every node — and
+the walker itself adds the Neumann channel-head and Dirichlet river-mouth
+boundary modifications. Only the *neighbour lookup* differs (walk the topology
+vs. index a padded ghost array). For a one-segment network the global matrix is
+exactly the standalone tridiagonal system, bit-for-bit.
 
 ## Confluences: a conservative junction cell
 
@@ -113,7 +115,7 @@ structure* — only for *conservation* at the junction (the flux cell above).
 
 ## Time stepping
 
-`Network._evolve_by_walking` runs the semi-implicit scheme: for each step it
+`grlp.solver.evolve` runs the semi-implicit scheme: for each step it
 freezes the right-hand side at the start-of-step elevation (`zold`) and
 Picard-iterates, re-assembling and re-solving `LHSmatrix z = RHS` with `spsolve`
 while the coefficients relinearize on the current iterate.

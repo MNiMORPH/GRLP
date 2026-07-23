@@ -79,16 +79,12 @@ intersphinx_mapping = {
 templates_path = ["_templates"]
 
 # Files/dirs Sphinx should NOT try to build as pages:
-#   - literature/     : working notes that link to copyrighted (untracked) PDFs
-#   - network_solver.md: design note whose method names predate the solver
-#                        extraction (assemble_by_walking -> solver.assemble);
-#                        integrate after it is refreshed.
+#   - literature/ : working notes that link to copyrighted (untracked) PDFs
 exclude_patterns = [
     "_build",
     "Thumbs.db",
     ".DS_Store",
     "literature/*",
-    "network_solver.md",
     "requirements.txt",
 ]
 

@@ -26,6 +26,7 @@ Key assumptions:
 installation
 quickstart
 theory
+network_solver
 examples
 api
 citing

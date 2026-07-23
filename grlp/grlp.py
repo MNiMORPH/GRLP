@@ -905,27 +905,39 @@ class Network(object):
     Gravel-bed river long-profile solution builder and solver
     """
 
-    def __init__(self, list_of_LongProfile_objects=None):
+    def __init__(self, segments=None):
         """
         Instantiate the Network object with a list of Long Profile objects.
         Other funcitons will iterate over this network and its connectivity
         to create a full tridiagonal matrix solver.
         """
-        self.list_of_LongProfile_objects = list_of_LongProfile_objects
+        self.segments = segments
         self.t = 0
         self.Q_s_0 = None
         self.S0 = None
 
+    @property
+    def list_of_LongProfile_objects(self):
+        """
+        Backward-compatible alias for `segments` (the network's list of Segment
+        objects). Prefer `segments`.
+        """
+        return self.segments
+
+    @list_of_LongProfile_objects.setter
+    def list_of_LongProfile_objects(self, value):
+        self.segments = value
+
     def build_ID_list(self):
         self.IDs = []
-        for lp in self.list_of_LongProfile_objects:
+        for lp in self.segments:
             # IDs
             self.IDs.append(lp.ID)
         self.IDs = np.array(self.IDs)
 
     def get_z_lengths(self):
         self.list_of_segment_lengths = []
-        for lp in self.list_of_LongProfile_objects:
+        for lp in self.segments:
             self.list_of_segment_lengths.append(len(lp.z))
 
     def compute_Q_s(self):
@@ -939,7 +951,7 @@ class Network(object):
         tributary; as in the single-segment case, S and Q_s there are the
         average over the tributaries.
         """
-        for lp in self.list_of_LongProfile_objects:
+        for lp in self.segments:
             # Downstream ghost: base level at the outlet, else the first node
             # of the downstream segment
             if len(lp.downstream_segment_IDs) == 0:
@@ -949,7 +961,7 @@ class Network(object):
                 else:
                     x_down = 2*lp.x[-1] - lp.x[-2]
             else:
-                downseg = self.list_of_LongProfile_objects[
+                downseg = self.segments[
                               lp.downstream_segment_IDs[0]]
                 z_down = downseg.z[0]
                 x_down = downseg.x[0]
@@ -963,7 +975,7 @@ class Network(object):
                 z_up.append( lp.z[0] + lp.S0 * ( lp.x[0] - _xg ) )
             else:
                 for upseg_ID in lp.upstream_segment_IDs:
-                    upseg = self.list_of_LongProfile_objects[upseg_ID]
+                    upseg = self.segments[upseg_ID]
                     z_up.append( upseg.z[-1] )
                     x_up.append( upseg.x[-1] )
             # Assemble one ghost-padded profile per upstream neighbour and apply
@@ -1008,7 +1020,7 @@ class Network(object):
             sys.exit( ">1 channel-mouth-segment ID listed.\n"+
                       "Simulation not set up to manage >1 river mouth.\n"+
                       "Exiting" )
-        lp = self.list_of_LongProfile_objects[ID]
+        lp = self.segments[ID]
         # Default: one cell beyond the mouth (the linear-extrapolation ghost)
         if x_bl is None:
             x_bl = lp.x[-1] + lp.dx[-1]
@@ -1037,11 +1049,11 @@ class Network(object):
         if Q_s_0 is not None:
             self.Q_s_0 = Q_s_0
             for ID, _Qs0 in zip(heads, _per_head(Q_s_0)):
-                self.list_of_LongProfile_objects[ID].set_Qs_input_upstream(_Qs0)
+                self.segments[ID].set_Qs_input_upstream(_Qs0)
         elif S0 is not None:
             self.S0 = S0
             for ID, _S0 in zip(heads, _per_head(S0)):
-                lp = self.list_of_LongProfile_objects[ID]
+                lp = self.segments[ID]
                 lp.S0 = _S0
                 lp.z_ghost_upstream = lp.z[0] + lp.S0 * lp.dx[0]
 
@@ -1070,7 +1082,7 @@ class Network(object):
                       "Simulation not set up to manage >1 river mouth.\n"+
                       "Exiting" )
         # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
-        lp = self.list_of_LongProfile_objects[ID]
+        lp = self.segments[ID]
         lp.z_bl = z0
 
         # We should have some code to account for changes in both x and z
@@ -1158,21 +1170,21 @@ class Network(object):
         source, an empty downstream list marks the outlet).
         """
         def upstream_node(seg_id):
-            lp = self.list_of_LongProfile_objects[seg_id]
+            lp = self.segments[seg_id]
             if not lp.upstream_segment_IDs:
                 return ("source", seg_id)
             else:
                 return ("jcn", seg_id)
 
         def downstream_node(seg_id):
-            lp = self.list_of_LongProfile_objects[seg_id]
+            lp = self.segments[seg_id]
             if not lp.downstream_segment_IDs:
                 return ("outlet",)
             return ("jcn", lp.downstream_segment_IDs[0])
 
         G = nx.DiGraph()
         self._edge_of_segment = {}
-        for lp in self.list_of_LongProfile_objects:
+        for lp in self.segments:
             u, v = upstream_node(lp.ID), downstream_node(lp.ID)
             G.add_edge(u, v, segment_id=lp.ID, segment=lp)
             self._edge_of_segment[lp.ID] = (u, v)
@@ -1188,7 +1200,7 @@ class Network(object):
         # Update Q (list of arrays)
         _idx = 0
         # Then pass the information to each long-profile object
-        for lp in self.list_of_LongProfile_objects:
+        for lp in self.segments:
             #print( _idx )
             lp.Q = Q[_idx]
             #print( len(lp.Q) )
@@ -1206,11 +1218,11 @@ class Network(object):
         except:
             _isscalar = True
         if _isscalar:
-            for lp in self.list_of_LongProfile_objects:
+            for lp in self.segments:
                 lp.set_intermittency(intermittency)
         else:
             i = 0
-            for lp in self.list_of_LongProfile_objects:
+            for lp in self.segments:
                 lp.set_intermittency(intermittency[i])
                 i += 1
 
@@ -1224,13 +1236,13 @@ class Network(object):
         width below
         This is a first attempt
         """
-        for lp in self.list_of_LongProfile_objects:
+        for lp in self.segments:
             # COULD CLEAN THIS UP
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             if len(lp.upstream_segment_IDs) > 0:
                 land_areas_above_confluence = []
                 for ID in lp.upstream_segment_IDs:
-                    upseg = self.list_of_LongProfile_objects[ID]
+                    upseg = self.segments[ID]
                     half_dx = ( lp.x[0] - upseg.x[-1] ) / 2.
                     representative_width = upseg.B[-1]
                     land_areas_above_confluence.append( half_dx *
@@ -1308,7 +1320,7 @@ class Network(object):
         ############################################################
 
         _build_segments = True
-        if self.list_of_LongProfile_objects is not None:
+        if self.segments is not None:
             if overwrite:
                 print("Overwriting prior network segments.")
             else:
@@ -1331,7 +1343,7 @@ class Network(object):
             for i in range(nseg):
                 segments.append( Segment() )
         # Class var; clunkier name
-        self.list_of_LongProfile_objects = segments
+        self.segments = segments
 
         i = 0
         for lp in segments:
@@ -1426,7 +1438,7 @@ class Network(object):
 
         """
         # DEBUG
-        lp = self.list_of_LongProfile_objects[0]
+        lp = self.segments[0]
         i = 0
         print( lp.z_ext )
         print( lp.x_ext )
@@ -1485,19 +1497,19 @@ class Network(object):
         
         # First get downstream distance at outlet.
         x_max = (
-            self.list_of_LongProfile_objects[self.channel_mouth_segment_ID].x[-1]
+            self.segments[self.channel_mouth_segment_ID].x[-1]
             )
             
         # Get average path lengths from heads to outlet
         Ls = []
         for i in self.list_of_channel_head_segment_IDs:
-            Ls.append( x_max - self.list_of_LongProfile_objects[i].x[0] )
+            Ls.append( x_max - self.segments[i].x[0] )
         self.mean_head_length = np.mean(Ls)
         
         # Get average path lengths from all points to outlet, weighted by dx.
         Ls = np.array([])
         dxs = np.array([])
-        for seg in self.list_of_LongProfile_objects:
+        for seg in self.segments:
             Ls = np.append( Ls, x_max - seg.x )
             dxs = np.append( dxs, np.append( np.diff(seg.x),
                                              seg.x[-1] - seg.x[-2] ) )
@@ -1519,10 +1531,10 @@ class Network(object):
         for i in self.orders[:-1]:
             for stream in self.streams_by_order[i]:
                 for ID in stream:
-                    seg = self.list_of_LongProfile_objects[ID]
+                    seg = self.segments[ID]
                     downID = seg.downstream_segment_IDs[0]
                     if downID not in stream:
-                        down_seg = self.list_of_LongProfile_objects[downID]
+                        down_seg = self.segments[downID]
                         adjacentID = [
                             id
                             for id in down_seg.upstream_segment_IDs
@@ -1572,7 +1584,7 @@ class Network(object):
         # First compute topological length for each segment.
         # Number of segments to the outlet, including the segment itself.
         self.segment_topogical_lengths = []
-        for seg in self.list_of_LongProfile_objects:
+        for seg in self.segments:
             self.segment_topogical_lengths.append(
                 len(self.find_downstream_IDs(seg.ID))
                 )
@@ -1599,7 +1611,7 @@ class Network(object):
         
         # First organise segments into distances from the outlet
         self.segs_by_topological_length = {}
-        for i,seg in enumerate(self.list_of_LongProfile_objects):
+        for i,seg in enumerate(self.segments):
             topo_length = len(self.find_downstream_IDs(seg.ID))
             if topo_length in self.segs_by_topological_length.keys():
                 self.segs_by_topological_length[topo_length].append(seg.ID)
@@ -1633,13 +1645,13 @@ class Network(object):
             up_orders = [
                 self.segment_orders[j]
                     for j in 
-                        self.list_of_LongProfile_objects[i].upstream_segment_IDs
+                        self.segments[i].upstream_segment_IDs
                 ]
             if up_orders:
                 self.segment_orders[i] = max(up_orders)
                 if len(np.where(up_orders == max(up_orders))[0]) > 1:
                     self.segment_orders[i] += 1
-            for j in self.list_of_LongProfile_objects[i].downstream_segment_IDs:
+            for j in self.segments[i].downstream_segment_IDs:
                 _step_down(j)
 
         # compute strahler orders, working down from each source
@@ -1653,7 +1665,7 @@ class Network(object):
             self.streams_by_order[order] = []
             
         # organise segments into streams            
-        for seg in self.list_of_LongProfile_objects:
+        for seg in self.segments:
             seg_order = self.segment_orders[seg.ID]
             
             # identify neighbouring segments
@@ -1716,8 +1728,8 @@ class Network(object):
                 l = 0.
                 for segID in stream:
                     l += (
-                        self.list_of_LongProfile_objects[segID].x.max() -
-                        self.list_of_LongProfile_objects[segID].x.min()
+                        self.segments[segID].x.max() -
+                        self.segments[segID].x.min()
                         )
                 self.stream_lengths[o].append(l)
             self.order_lengths[o] = np.mean([l for l in self.stream_lengths[o]])
@@ -1739,7 +1751,7 @@ class Network(object):
             self.stream_discharges[o] = []
             for stream in self.streams_by_order[o]:
                 self.stream_discharges[o] = [
-                    self.list_of_LongProfile_objects[segID].Q.mean()
+                    self.segments[segID].Q.mean()
                     for segID in stream
                     ]
             self.order_discharges[o] = np.mean(
@@ -1762,7 +1774,7 @@ class Network(object):
         heads_sum = 0
         interior_sum = 0
         
-        for i,seg in enumerate(self.list_of_LongProfile_objects):
+        for i,seg in enumerate(self.segments):
             if seg.ID in self.list_of_channel_head_segment_IDs:
                 heads_sum += len(self.find_downstream_IDs(seg.ID))
             else:
@@ -1793,27 +1805,27 @@ class Network(object):
         # get dxs
         dxs = np.hstack(
             [np.append( np.diff(seg.x), seg.x[-1] - seg.x[-2] )
-             for seg in self.list_of_LongProfile_objects]
+             for seg in self.segments]
             )
             
         # discharge
-        Q_stack = np.hstack([seg.Q for seg in self.list_of_LongProfile_objects])
+        Q_stack = np.hstack([seg.Q for seg in self.segments])
         self.mean_Q = (Q_stack * dxs).sum() / dxs.sum()
         
         # width
-        B_stack = np.hstack([seg.B for seg in self.list_of_LongProfile_objects])
+        B_stack = np.hstack([seg.B for seg in self.segments])
         self.mean_B = (B_stack * dxs).sum() / dxs.sum()
         
         # slope
-        S_stack = np.hstack([seg.S for seg in self.list_of_LongProfile_objects])
+        S_stack = np.hstack([seg.S for seg in self.segments])
         self.mean_S = (S_stack * dxs).sum() / dxs.sum()
         
         # diffusivity
-        for seg in self.list_of_LongProfile_objects:
+        for seg in self.segments:
             seg.diffusivity = (7./6.) * seg.k_Qs * seg.intermittency * seg.Q * seg.S**(1./6.) \
                 / seg.sinuosity**(7./6.) / seg.B / (1. - seg.lambda_p)
         diff_stack = np.hstack(
-            [seg.diffusivity for seg in self.list_of_LongProfile_objects])
+            [seg.diffusivity for seg in self.segments])
         self.mean_diffusivity = (diff_stack * dxs).sum() / dxs.sum()
 
     def compute_network_properties(self):
@@ -1838,11 +1850,11 @@ class Network(object):
         """
         d = []
         Q = []
-        for lp in self.list_of_LongProfile_objects:
+        for lp in self.segments:
             up_IDs = self.find_upstream_IDs(lp.ID)
             ds = []
             for up_id in up_IDs:
-                ds.append(min(self.list_of_LongProfile_objects[up_id].x))
+                ds.append(min(self.segments[up_id].x))
             d.append(np.max(lp.x) - min(ds))
             Q.append(np.mean(lp.Q))
         k, p = _optimize_power_law(d, Q)
@@ -1858,7 +1870,7 @@ class Network(object):
         topo_lengths = []
         upstream_sources = []
         upstream_segments = []
-        for seg in self.list_of_LongProfile_objects:
+        for seg in self.segments:
 
             up_IDs = self.find_upstream_IDs(seg.ID)
             upstream_segments.append(len(up_IDs))
@@ -1899,7 +1911,7 @@ class Network(object):
             Check for segments that overlap with the given segment.
             """
 
-            seg = net.list_of_LongProfile_objects[ID]
+            seg = net.segments[ID]
             x_max = seg.x.max()
             x_min = seg.x.min()
             y = ys[ID]
@@ -1908,7 +1920,7 @@ class Network(object):
                 for other_ID in segs_by_topo_length[other_topo_length]:
                     if other_ID != ID:
 
-                        other_seg = net.list_of_LongProfile_objects[other_ID]
+                        other_seg = net.segments[other_ID]
                         other_x_max = other_seg.x.max()
                         other_x_min = other_seg.x.min()
                         other_y = ys[other_ID]
@@ -1947,11 +1959,11 @@ class Network(object):
             """
 
             planform = {}
-            for i,seg in enumerate(net.list_of_LongProfile_objects):
+            for i,seg in enumerate(net.segments):
                 # Downstream connection point: the first node of the downstream
                 # segment, or -- at the outlet -- the base-level ghost position
                 if seg.downstream_segment_IDs:
-                    x_down = net.list_of_LongProfile_objects[
+                    x_down = net.segments[
                                  seg.downstream_segment_IDs[0]].x[0]
                 elif seg.x_ghost_downstream is not None:
                     x_down = seg.x_ghost_downstream
@@ -1987,20 +1999,20 @@ class Network(object):
         segs_by_topo_length = {0: [], self.max_topological_length+2: []}
         for i in range(1,self.max_topological_length+2):
             segs_by_topo_length[i] = []
-        for i,seg in enumerate(self.list_of_LongProfile_objects):
+        for i,seg in enumerate(self.segments):
             topo_length = len(self.find_downstream_IDs(seg.ID))
             segs_by_topo_length[topo_length].append(seg.ID)
 
         # ---- Set up arrays to fill
-        ys = np.full( len(self.list_of_LongProfile_objects), np.nan )
-        sides = np.full( len(self.list_of_LongProfile_objects), 0)
-        up_sides = np.full( len(self.list_of_LongProfile_objects), -1)
+        ys = np.full( len(self.segments), np.nan )
+        sides = np.full( len(self.segments), 0)
+        up_sides = np.full( len(self.segments), -1)
         connections = [
-            [np.nan,np.nan] for i in range(len(self.list_of_LongProfile_objects))
+            [np.nan,np.nan] for i in range(len(self.segments))
             ]
 
         # ---- Loop over segments building planform
-        for i,seg in enumerate(self.list_of_LongProfile_objects):
+        for i,seg in enumerate(self.segments):
 
             # ---- Check if outlet
             if not seg.downstream_segment_IDs:
@@ -2030,15 +2042,15 @@ class Network(object):
                 if conflicting_id:
                     seg_to_adjust = seg.ID
                     if seg.x.max() >= \
-                        self.list_of_LongProfile_objects[conflicting_id].x.max():
+                        self.segments[conflicting_id].x.max():
                         while sides[conflicting_id] != sides[seg_to_adjust]:
                             seg_to_adjust = (
-                                self.list_of_LongProfile_objects[seg_to_adjust]. \
+                                self.segments[seg_to_adjust]. \
                                 downstream_segment_IDs[0])
                     else:
                         while sides[seg.ID] == sides[seg_to_adjust]:
                             seg_to_adjust = (
-                                self.list_of_LongProfile_objects[seg_to_adjust]. \
+                                self.segments[seg_to_adjust]. \
                                 downstream_segment_IDs[0])
 
                 # Move everything upstream of that segment out the way until the
@@ -2064,7 +2076,7 @@ class Network(object):
 
 """
 # Test whether the lists have populated
-for lp in self.list_of_LongProfile_objects: print(lp.x_ext)
+for lp in self.segments: print(lp.x_ext)
 print("")
-for lp in self.list_of_LongProfile_objects: print(lp.z_ext)
+for lp in self.segments: print(lp.z_ext)
 """

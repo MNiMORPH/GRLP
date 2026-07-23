@@ -357,7 +357,7 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
     
     
     # ---- Set segment source-sink-distributed term
-    for i,seg in enumerate(net.list_of_LongProfile_objects):
+    for i,seg in enumerate(net.segments):
         seg.set_source_sink_distributed(Qs_ssd_ls[i])
 
 

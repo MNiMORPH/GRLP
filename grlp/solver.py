@@ -3,7 +3,7 @@ The GRLP network solver, extracted from the Network class.
 
 These functions evolve a river-network long-profile model by walking the topology
 and assembling a single global sparse system. They operate on a *duck-typed*
-network -- any object exposing ``list_of_LongProfile_objects``,
+network -- any object exposing ``segments``,
 ``list_of_segment_lengths``, ``niter``, ``t``, and segments carrying the
 per-segment physics -- so this module imports neither the ``Network`` nor the
 ``LongProfile`` class. That keeps the dependency one-way (grlp.py -> solver.py)
@@ -39,7 +39,7 @@ def assemble(net, dt):
     segment as in ``list_of_segment_lengths``. Additive: not yet wired into
     the evolve loop.
     """
-    segs = net.list_of_LongProfile_objects
+    segs = net.segments
     lengths = list(net.list_of_segment_lengths)
     starts = np.cumsum([0] + lengths)[:-1]
     n = int(np.sum(lengths))
@@ -279,7 +279,7 @@ def evolve(net, nt, dt):
     relinearizes on the current iterate each iteration.
     """
     net.dt = dt
-    segs = net.list_of_LongProfile_objects
+    segs = net.segments
     lengths = list(net.list_of_segment_lengths)
     starts = np.cumsum([0] + lengths)[:-1]
     # Sternberg gravel loss enters as a distributed sink that depends on the
@@ -313,7 +313,7 @@ def update_gravel_loss(net):
     a grain abrades along its whole downstream path, across confluences.
     """
     net.compute_Q_s()
-    for lp in net.list_of_LongProfile_objects:
+    for lp in net.segments:
         if lp.gravel_fractional_loss_per_km is not None:
             lp.downstream_fining_subsidence_equivalent = \
                 - lp.gravel_fractional_loss_per_km / 1000. * lp.Q_s \

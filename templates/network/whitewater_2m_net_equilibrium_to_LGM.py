@@ -497,11 +497,11 @@ fig, ax = plt.subplots(1, 1, figsize=(12,5))
 #_finalpha = '1.'
 
 def rivplot(_color, _linewidth=4):
-    for lp in net.list_of_LongProfile_objects:
+    for lp in net.segments:
         # If not downstream-most segment
         if len( lp.downstream_segment_IDs ) > 0:
             for _id in lp.downstream_segment_IDs:
-                dsseg = net.list_of_LongProfile_objects[_id]
+                dsseg = net.segments[_id]
                 _xjoin = [lp.x[-1], dsseg.x[0]]
                 _zjoin = [lp.z[-1], dsseg.z[0]]
                 plt.plot(-np.array(_xjoin), _zjoin, '-', color=_color, linewidth=_linewidth, alpha=.5)
@@ -529,7 +529,7 @@ base_level_rise_rate = 0.002 # m / yr
 # 100-yr time steps
 ts_yr = 100.
 for ts in range(161):
-    #lp = net.list_of_LongProfile_objects[1]
+    #lp = net.segments[1]
     #print( lp.z_bl )
     # Aggrade first
     if ts < 101:
@@ -537,7 +537,7 @@ for ts in range(161):
         net.update_z_ext_external_downstream(_z_bl)
     # Then hold steady and equilibrate
     net.evolve_threshold_width_river_network(nt=1, dt=3.15E7 * ts_yr)
-    #lp = net.list_of_LongProfile_objects[2]
+    #lp = net.segments[2]
     if ts % 10 == 0:
         rivplot('b', 1)
 rivplot('b')
@@ -549,14 +549,14 @@ _z_bl_initial = _z_bl
 # 100-yr time steps
 ts_yr = 100.
 for ts in range(61):
-    #lp = net.list_of_LongProfile_objects[1]
+    #lp = net.segments[1]
     #print( lp.z_bl )
     # Aggrade first
     if ts < 10:
         net.update_z_ext_external_downstream(_z_bl_initial - base_level_fall_rate * ts_yr * ts)
     # Then hold steady and equilibrate
     net.evolve_threshold_width_river_network(nt=1, dt=3.15E7 * ts_yr)
-    #lp = net.list_of_LongProfile_objects[2]
+    #lp = net.segments[2]
     if ts % 10 == 0:
         rivplot('r', 1)
 rivplot('r')

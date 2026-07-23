@@ -37,11 +37,11 @@ net.evolve_threshold_width_river_network(nt=200, dt=3.15e11)
 
 # ---- Long profiles --------------------------------------------------------
 plt.figure()
-for lp in net.list_of_LongProfile_objects:
+for lp in net.segments:
     # connect each segment's end to its downstream neighbour (or the base-level
     # ghost at the outlet)
     if lp.downstream_segment_IDs:
-        ds = net.list_of_LongProfile_objects[lp.downstream_segment_IDs[0]]
+        ds = net.segments[lp.downstream_segment_IDs[0]]
         plt.plot([lp.x[-1], ds.x[0]], [lp.z[-1], ds.z[0]], 'k-', linewidth=1)
     else:
         plt.plot([lp.x[-1], lp.x_ghost_downstream], [lp.z[-1], lp.z_bl],

@@ -71,7 +71,7 @@ net.get_z_lengths()
 
 # Bring the network to equilibrium, then record the pre-rise profile
 net.evolve_threshold_width_river_network(nt=100, dt=100*dt)
-for lp in net.list_of_LongProfile_objects:
+for lp in net.segments:
     lp.x_init = lp.x.copy()
     lp.z_init = lp.z.copy()
 z_bl_init = z_bl                 # base level before the rise
@@ -82,7 +82,7 @@ net.set_z_bl(z_bl + 30)
 # ---------------------------------------------------------------------------
 # Animation
 # ---------------------------------------------------------------------------
-segs = net.list_of_LongProfile_objects
+segs = net.segments
 
 def draw_profiles(ax, use_init, **style):
     """Plot every segment and its downstream connector. use_init selects the

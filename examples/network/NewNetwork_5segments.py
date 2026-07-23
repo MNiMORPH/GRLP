@@ -123,11 +123,11 @@ for i in range(40):
 """
 
 
-for lp in net.list_of_LongProfile_objects:
+for lp in net.segments:
     # If not downstream-most segment
     if len( lp.downstream_segment_IDs ) > 0:
         for _id in lp.downstream_segment_IDs:
-            dsseg = net.list_of_LongProfile_objects[_id]
+            dsseg = net.segments[_id]
             _xjoin = [lp.x[-1], dsseg.x[0]]
             _zjoin = [lp.z[-1], dsseg.z[0]]
             plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)

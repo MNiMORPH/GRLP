@@ -490,11 +490,11 @@ net.get_z_lengths()
 # Was becoming singular because I had flow R to L instead of L to R
 
 # Start
-for lp in net.list_of_LongProfile_objects:
+for lp in net.segments:
     # If not downstream-most segment
     if len( lp.downstream_segment_IDs ) > 0:
         for _id in lp.downstream_segment_IDs:
-            dsseg = net.list_of_LongProfile_objects[_id]
+            dsseg = net.segments[_id]
             _xjoin = [lp.x[-1], dsseg.x[0]]
             _zjoin = [lp.z[-1], dsseg.z[0]]
             plt.plot(_xjoin, _zjoin, '-', color='b', linewidth=4, alpha=.5)
@@ -505,23 +505,23 @@ for lp in net.list_of_LongProfile_objects:
 # 10 years of evolution under constant bankfull conditions
 for ts in range(40):
     net.evolve_threshold_width_river_network(nt=1, dt=dt*400)
-    #lp = net.list_of_LongProfile_objects[2]
-    for lp in net.list_of_LongProfile_objects:
+    #lp = net.segments[2]
+    for lp in net.segments:
         # If not downstream-most segment
         if len( lp.downstream_segment_IDs ) > 0:
             for _id in lp.downstream_segment_IDs:
-                dsseg = net.list_of_LongProfile_objects[_id]
+                dsseg = net.segments[_id]
                 _xjoin = [lp.x[-1], dsseg.x[0]]
                 _zjoin = [lp.z[-1], dsseg.z[0]]
                 plt.plot(_xjoin, _zjoin, '-', color='.5', linewidth=1, alpha=.5)
         else:
             plt.plot(lp.x_ext[0][-2:], lp.z_ext[0][-2:], 'b-', linewidth=1, alpha=.5)
         plt.plot(lp.x, lp.z, '-', color='.5', linewidth=1, alpha=1.)#, label=lp.)
-for lp in net.list_of_LongProfile_objects:
+for lp in net.segments:
     # If not downstream-most segment
     if len( lp.downstream_segment_IDs ) > 0:
         for _id in lp.downstream_segment_IDs:
-            dsseg = net.list_of_LongProfile_objects[_id]
+            dsseg = net.segments[_id]
             _xjoin = [lp.x[-1], dsseg.x[0]]
             _zjoin = [lp.z[-1], dsseg.z[0]]
             plt.plot(_xjoin, _zjoin, '-', color='.5', linewidth=4, alpha=.5)
@@ -538,24 +538,24 @@ for ts in range(100):
     # Assuming 1-year time steps: BRITTLE
     net.update_z_ext_external_downstream(z_bl + base_level_rise_rate * (ts + 1))    
     net.evolve_threshold_width_river_network(nt=1, dt=dt)
-    #lp = net.list_of_LongProfile_objects[2]
+    #lp = net.segments[2]
     if ts % 10 == 0:
-        for lp in net.list_of_LongProfile_objects:
+        for lp in net.segments:
             # If not downstream-most segment
             if len( lp.downstream_segment_IDs ) > 0:
                 for _id in lp.downstream_segment_IDs:
-                    dsseg = net.list_of_LongProfile_objects[_id]
+                    dsseg = net.segments[_id]
                     _xjoin = [lp.x[-1], dsseg.x[0]]
                     _zjoin = [lp.z[-1], dsseg.z[0]]
                     plt.plot(_xjoin, _zjoin, '-', color='r', linewidth=1, alpha=.5)
             else:
                 plt.plot(lp.x_ext[0][-2:], lp.z_ext[0][-2:], '-', color='r', linewidth=1, alpha=.5)
             plt.plot(lp.x, lp.z, '-', color='r', linewidth=1, alpha=1.)#, label=lp.)
-for lp in net.list_of_LongProfile_objects:
+for lp in net.segments:
     # If not downstream-most segment
     if len( lp.downstream_segment_IDs ) > 0:
         for _id in lp.downstream_segment_IDs:
-            dsseg = net.list_of_LongProfile_objects[_id]
+            dsseg = net.segments[_id]
             _xjoin = [lp.x[-1], dsseg.x[0]]
             _zjoin = [lp.z[-1], dsseg.z[0]]
             plt.plot(_xjoin, _zjoin, '-', color='r', linewidth=4, alpha=.5)

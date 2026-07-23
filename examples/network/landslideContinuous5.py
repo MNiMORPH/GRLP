@@ -111,17 +111,17 @@ net.get_z_lengths()
 # WHEN RUN FOR NT=10, GET BACKWARDS SLOPE ON TRIBUTARY
 # THIS IS WHERE WE NEED TO ADD IN CLOSED BASINS AS ANOTHER SEGMENT TYPE
 net.evolve_threshold_width_river_network(nt=100, dt=100*dt)
-landslide_seg = net.list_of_LongProfile_objects[2]
+landslide_seg = net.segments[2]
 
 # Landslide sediment pulse: raise the bed at this node (node-based; the old
 # padded z_ext bumps drove the solve, so the effective pulse was 30)
 landslide_seg.z[2] += 30
 
-for lp in net.list_of_LongProfile_objects:
+for lp in net.segments:
     # If not downstream-most segment
     if len( lp.downstream_segment_IDs ) > 0:
         for _id in lp.downstream_segment_IDs:
-            dsseg = net.list_of_LongProfile_objects[_id]
+            dsseg = net.segments[_id]
             _xjoin = [lp.x[-1], dsseg.x[0]]
             _zjoin = [lp.z[-1], dsseg.z[0]]
             plt.plot(_xjoin, _zjoin, 'k-', linewidth=4, alpha=.5)
@@ -134,11 +134,11 @@ nsteps = 200
 for i in range(nsteps):
     net.evolve_threshold_width_river_network(nt=1, dt=1*dt)
     if i % 5 == 0:
-        for lp in net.list_of_LongProfile_objects:
+        for lp in net.segments:
             # If not downstream-most segment
             if len( lp.downstream_segment_IDs ) > 0:
                 for _id in lp.downstream_segment_IDs:
-                    dsseg = net.list_of_LongProfile_objects[_id]
+                    dsseg = net.segments[_id]
                     _xjoin = [lp.x[-1], dsseg.x[0]]
                     _zjoin = [lp.z[-1], dsseg.z[0]]
                     plt.plot(_xjoin, _zjoin, 'k-', linewidth=1, alpha=1)
@@ -150,11 +150,11 @@ for i in range(nsteps):
         # continuous supply: keep dumping at the same landslide location
         landslide_seg.z[2] += 30
 
-for lp in net.list_of_LongProfile_objects:
+for lp in net.segments:
     # If not downstream-most segment
     if len( lp.downstream_segment_IDs ) > 0:
         for _id in lp.downstream_segment_IDs:
-            dsseg = net.list_of_LongProfile_objects[_id]
+            dsseg = net.segments[_id]
             _xjoin = [lp.x[-1], dsseg.x[0]]
             _zjoin = [lp.z[-1], dsseg.z[0]]
             plt.plot(_xjoin, _zjoin, 'k-', linewidth=2, alpha=.5)

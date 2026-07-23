@@ -55,6 +55,6 @@ markers = [
 [project.urls]
 Homepage = "https://csdms.colorado.edu/wiki/Model:GRLP"
 Repository = "https://github.com/MNiMORPH/GRLP"
-Documentation = "https://github.com/MNiMORPH/GRLP/"
+Documentation = "https://grlp.readthedocs.io"
 Issues = "https://github.com/MNiMORPH/GRLP/issues"
 

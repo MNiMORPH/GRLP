@@ -108,5 +108,6 @@ netBLrise.gif
 BLrise_movie_frames/
 examples/McNab_et_al_GRL/figures/
 
-# Local literature PDFs (copyrighted; kept locally for docs work, never committed)
-docs/literature/
+# Local literature PDFs (copyrighted; kept locally for docs work, never committed).
+# The literature notes (README.md) ARE tracked; only the PDFs are ignored.
+docs/literature/*.pdf

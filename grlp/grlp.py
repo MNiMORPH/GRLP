@@ -435,8 +435,27 @@ class LongProfile(object):
         self.z_bl = z_bl
 
     def set_x_bl(self, x_bl):
+        """
+        Set the x-coordinate of base level: the downstream boundary point's
+        position along the valley. Moves the outlet ghost to "x_bl". Pairs with
+        set_z_bl (elevation); set_bl sets both coordinates at once.
+        """
         self.x_bl = x_bl
         self.x_ghost_downstream = self.x_bl
+
+    def set_bl(self, x=None, z=None):
+        """
+        Set base level: the downstream boundary point (x, z).
+
+        Base level is a single point at the river mouth -- its position "x"
+        along the valley and its elevation "z". This sets both coordinates at
+        once; set_x_bl and set_z_bl set them individually. Pass only one of x, z
+        to move base level in that coordinate alone.
+        """
+        if x is not None:
+            self.set_x_bl(x)
+        if z is not None:
+            self.set_z_bl(z)
 
     def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
         """
@@ -1028,6 +1047,20 @@ class Network(object):
         # We should have some code to account for changes in both x and z
         # with base-level change, and remeshes the downstream-most segment,
         # as needed
+
+    def set_bl(self, x=None, z=None):
+        """
+        Set base level on the single river mouth: the boundary point (x, z).
+
+        Base level is a single point at the outlet -- its position "x" along the
+        valley and its elevation "z". This sets both at once (delegating to
+        set_x_bl and set_z_bl on the mouth segment); set_x_bl / set_z_bl set them
+        individually. Pass only one of x, z to move that coordinate alone.
+        """
+        if x is not None:
+            self.set_x_bl(x)
+        if z is not None:
+            self.set_z_bl(z)
 
     def create_list_of_channel_head_segment_IDs(self):
         """

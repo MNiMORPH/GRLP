@@ -204,3 +204,39 @@ def test_intermittency_is_stored():
     lp = grlp.LongProfile()
     lp.set_intermittency(0.3)
     assert lp.intermittency == pytest.approx(0.3)
+
+
+# --------------------------------------------------------------------------- #
+# Base level as a point: set_bl
+# --------------------------------------------------------------------------- #
+
+def test_set_bl_sets_both_coordinates():
+    # set_bl places base level at the point (x, z) -- position and elevation
+    # together -- equivalent to calling set_x_bl and set_z_bl.
+    lp = make_long_profile()
+    lp.set_bl(x=123456.0, z=7.0)
+    assert lp.x_ghost_downstream == pytest.approx(123456.0)
+    assert lp.x_bl == pytest.approx(123456.0)
+    assert lp.z_bl == pytest.approx(7.0)
+
+
+def test_set_bl_moves_one_coordinate_at_a_time():
+    # Passing only one of x, z moves base level in that coordinate alone.
+    lp = make_long_profile()
+    lp.set_bl(x=5000.0, z=3.0)
+    lp.set_bl(z=9.0)                     # elevation only
+    assert lp.z_bl == pytest.approx(9.0)
+    assert lp.x_ghost_downstream == pytest.approx(5000.0)
+    lp.set_bl(x=8000.0)                  # position only
+    assert lp.x_ghost_downstream == pytest.approx(8000.0)
+    assert lp.z_bl == pytest.approx(9.0)
+
+
+def test_set_bl_matches_individual_setters():
+    a = make_long_profile()
+    b = make_long_profile()
+    a.set_bl(x=4321.0, z=3.0)
+    b.set_x_bl(4321.0)
+    b.set_z_bl(3.0)
+    assert a.x_ghost_downstream == b.x_ghost_downstream
+    assert a.z_bl == b.z_bl

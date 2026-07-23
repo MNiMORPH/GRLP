@@ -29,6 +29,11 @@ version heading for the full notes.
   inverse of the `Q_s_0 -> S0` relation) and applies it through
   `set_Qs_input_upstream`, so the boundary remains a sediment supply: a later
   change in `Q` adjusts the boundary slope, as a physical forcing should.
+- `LongProfile.set_bl` / `Network.set_bl`: set base level as a single point
+  `(x, z)` -- its position along the valley and its elevation -- in one call.
+  Base level has two coordinates; `set_bl` sets both, while `set_x_bl` and
+  `set_z_bl` set them individually (pass only one of `x`, `z` to move that
+  coordinate alone). Guarded by `tests/test_setup.py`.
 - `Network.plot()`: draw a network's branching planform. Moved here from the
   free function `build_synthetic_network.plot_network` (it operates on any
   `Network`) and ported off the removed `x_ext` arrays. Guarded, with the

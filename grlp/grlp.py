@@ -457,31 +457,6 @@ class Segment(object):
         if z is not None:
             self.set_z_bl(z)
 
-    def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
-        """
-        Solve the triadiagonal matrix through time, with a given
-        number of time steps (nt) and time-step length (dt)
-
-        A single segment is solved as a one-edge network by the unified walking
-        solver: this LongProfile is wrapped in a Network of one segment and
-        stepped there (Network._evolve_by_walking). No padded ghost arrays are
-        maintained; the diagnostics read the node-based fields directly.
-        """
-        if (len(self.upstream_segment_IDs) > 0) or \
-           (len(self.downstream_segment_IDs) > 0):
-            warnings.warn("Unset boundary conditions for river segment"+
-                          "in network.\n"+
-                          "Local solution on segment will not be sensible.")
-        self.nt = nt
-        self.ID = 0
-        net = Network( [self] )
-        net.t = self.t
-        net.set_niter(self.niter)
-        net.get_z_lengths()
-        net.evolve_threshold_width_river_network(nt, dt)
-        self.Qs_internal = 1/(1-self.lambda_p) * np.cumsum(self.dz_dt) \
-                            * self.B + self.Q_s_0
-
     def build_LHS_coeff_C0(self, dt=3.15E7):
         """
         Build the LHS coefficient for the tridiagonal matrix.
@@ -871,10 +846,58 @@ class Segment(object):
         return lag
 
 
-# Transitional alias: the class is now `Segment` (a network member). Phase 2 of
-# the refactor replaces this with a lightweight 1-D `LongProfile` wrapper that
-# composes a Segment. See claude-instructions/segment-wrapper-refactor.md.
-LongProfile = Segment
+class LongProfile(object):
+    """
+    A single gravel-bed river long profile: the 1-D convenience wrapper.
+
+    Composes one ``Segment`` and the one-edge ``Network`` that solves it, and
+    exposes the friendly standalone API. Configuration, data, and the
+    segment-level diagnostics forward to the ``Segment`` (via ``__getattr__`` /
+    ``__setattr__``); only the time integration is defined here, running on the
+    owned ``Network``. To build a multi-segment network, use ``Segment`` objects
+    and ``Network`` directly -- a ``LongProfile`` is standalone-only.
+    """
+
+    def __init__(self):
+        # These two attributes live on the wrapper itself; every other attribute
+        # access forwards to the composed Segment.
+        self.segment = Segment()
+        self._network = None
+
+    def __getattr__(self, name):
+        # Reached only when `name` is not found on the wrapper itself; forward to
+        # the composed Segment. Guard the two real attributes to avoid recursion
+        # before they are set (e.g. during copy/unpickle).
+        if name in ("segment", "_network"):
+            raise AttributeError(name)
+        return getattr(self.segment, name)
+
+    def __setattr__(self, name, value):
+        if name in ("segment", "_network"):
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self.segment, name, value)
+
+    def evolve_threshold_width_river(self, nt=1, dt=3.15E7):
+        """
+        Advance the profile `nt` steps of length `dt` [s].
+
+        The owned one-edge ``Network`` runs the unified walking solver; boundary
+        conditions come from the segment's setters (upstream sediment supply or
+        slope; downstream base level).
+        """
+        seg = self.segment
+        seg.nt = nt
+        seg.ID = 0
+        if self._network is None:
+            self._network = Network([seg])
+        net = self._network
+        net.t = seg.t
+        net.set_niter(seg.niter)
+        net.get_z_lengths()
+        net.evolve_threshold_width_river_network(nt, dt)
+        seg.Qs_internal = 1 / (1 - seg.lambda_p) * np.cumsum(seg.dz_dt) \
+                          * seg.B + seg.Q_s_0
 
 
 class Network(object):
@@ -1306,7 +1329,7 @@ class Network(object):
             nseg = len(x)
             segments = []
             for i in range(nseg):
-                segments.append( LongProfile() )
+                segments.append( Segment() )
         # Class var; clunkier name
         self.list_of_LongProfile_objects = segments
 

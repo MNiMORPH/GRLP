@@ -211,8 +211,8 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
             "supply_discharges. Exiting.")
         return None
 
-    # ---- Basic lp object to get properties later
-    lp = LongProfile()
+    # ---- Basic segment object to get properties later
+    lp = Segment()
     lp.basic_constants()
     lp.bedload_lumped_constants()
     lp.set_hydrologic_constants()

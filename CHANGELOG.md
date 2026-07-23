@@ -36,6 +36,32 @@ version heading for the full notes.
 - `examples/network/shreve_random_network.py`: generate a Shreve (1974) random
   network and run GRLP on it -- the quickest "install and run" network setup,
   no DEM required.
+- A **documentation site** on Read the Docs (<https://grlp.readthedocs.io>),
+  built with Sphinx and MyST Markdown (`docs/`, `.readthedocs.yaml`):
+  installation, a quickstart, the theory and governing equations (the corrected,
+  post-corrigendum forms), a numerical-implementation note on the walking network
+  solver, an examples guide, an autodoc API reference, and Citing / References
+  pages. A README badge and the `pyproject` Documentation URL point to it.
+- `docs/literature/README.md`: source-grounded notes on the papers that define,
+  correct, extend, and apply GRLP (Wickert & Schildgen, 2019 and its 2020
+  corrigendum; McNab et al., 2023 and 2025; Ruby et al., 2026), recording the
+  governing equations and how they map to the code. The papers' PDFs are kept
+  locally and not tracked.
+- A **Python API** section in the README (the `LongProfile`, `Network`, and
+  random-network entry points with a minimal example), plus a Documentation
+  section linking the site.
+- `templates/`: a new top-level home for scientific, copy-and-adapt workflows
+  that carry real data, distinct from the minimal teaching scripts in
+  `examples/`. The example scripts were curated in three tiers -- `examples/`
+  (teaching, minimal, must run on the v3 API), `templates/` (scientific), and
+  `examples/deprecated/` (frozen) -- and every curated example now runs on v3.
+- `examples/one_dimensional/RioSantaCruz_set_S0_set_x_bl.py`: force the upstream
+  boundary by slope (`set_S0`) and move base level along a continental-shelf
+  gradient (`set_x_bl` + `set_z_bl`), after Ruby et al. (2026) -- the two new v3
+  boundary features on a real river.
+- `examples/network/netBLrise_animation.py`: animate a network's response to
+  base-level rise (matplotlib `FuncAnimation`), replacing an older
+  frame-dumping script.
 
 ### Changed
 - The network **solver is extracted** into a new `grlp/solver.py` and is no longer
@@ -92,9 +118,13 @@ version heading for the full notes.
   relinearises the head ghost each Picard iteration (the consistent scheme the
   network already used) where the padded solver froze it. The single-segment
   transient characterization goldens are regenerated to adopt this; network
-  goldens are unchanged. Sternberg gravel loss is not yet carried through the
-  walker, so standalone `evolve` raises `NotImplementedError` until it is
-  restored.
+  goldens are unchanged.
+
+- `from grlp import *` now exposes a curated public API. `grlp/__init__.py`
+  defines `__all__` -- the `LongProfile` and `Network` classes and the
+  network-generation functions -- so a star-import no longer leaks the imported
+  third-party modules (`numpy`, `matplotlib`, ...). `import grlp` still exposes
+  everything as `grlp.X`.
 
 ### Removed
 - The network boundary methods `update_z_ext_external_upstream`,
@@ -186,6 +216,31 @@ version heading for the full notes.
   both boundary fixes a single-segment network now reproduces the standalone
   single-segment solver to machine precision given identical (array) inputs;
   `tests/test_network_varying_Q.py` asserts this parity and requires both fixes.
+- Confluence source terms were under-generated at multi-tributary junctions. The
+  junction cell applied uplift, distributed sources/sinks, and gravel loss
+  through the transport *Jacobian* rather than the flux *coefficient*, which
+  under-generated the source by a factor of 6/7. They are now applied at the
+  junction-cell nodes through the flux coefficient, so uplift and the other
+  source terms are generated at full magnitude and a network under uplift
+  conserves mass at its confluences. Guarded
+  by `tests/test_confluence_conservation.py`
+  (`test_confluence_conserves_with_uplift`).
+- Sternberg gravel loss (`set_Sternberg_gravel_loss`) is restored through the
+  walking solver, so it again applies as a distributed sink during evolution;
+  standalone `evolve_threshold_width_river` no longer raises
+  `NotImplementedError` (a temporary state during the de-pad transition).
+- Horizontal base-level mobility is restored on the node-based solver: `set_x_bl`
+  moves the outlet ghost, and `Network.initialize` honours a supplied `x_bl`, so
+  base level can migrate in `x` (e.g. a shoreline tracking a continental shelf)
+  as well as in `z`.
+- `LongProfile.evolve_threshold_width_river` no longer requires a prior
+  `set_uplift_rate` call. `self.U` now defaults to 0 in the constructor (the
+  solver reads `lp.U`), so a no-uplift run works out of the box instead of
+  raising `AttributeError`. Guarded by `test_uplift_defaults_to_zero` and
+  `test_evolve_without_set_uplift_rate`.
+- `LongProfile.set_x(x=...)` (passing the interior grid directly) no longer falls
+  through to `sys.exit`; it builds a usable grid with linearly extrapolated ghost
+  positions. Guarded by `tests/test_setup.py`.
 
 ## [2.1.0] - 2026-07-20
 

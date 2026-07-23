@@ -1,0 +1,23 @@
+# Read the Docs build configuration for GRLP.
+# https://docs.readthedocs.io/en/stable/config-file/v2.html
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.12"
+
+sphinx:
+  configuration: docs/conf.py
+  fail_on_warning: false
+
+python:
+  install:
+    # Install GRLP itself so autodoc can import it (pulls numpy/scipy/etc.)
+    - method: pip
+      path: .
+    # Documentation-only build dependencies (Sphinx, theme, MyST)
+    - requirements: docs/requirements.txt
+
+formats:
+  - pdf

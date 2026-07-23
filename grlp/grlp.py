@@ -208,10 +208,13 @@ class LongProfile(object):
     def set_z(self, z=None, z_ext=None, S0=None, z1=0):
         """
         Set z directly or calculate it
-        S0 = initial slope (negative for flow from left to right)
-             unlike in the paper, this is a dz/dx value down the valley,
-             so we account for sinuosity as well at the upstream boundary.
-        z1 = elevation value at RHS
+
+        ::
+
+            S0 = initial slope (negative for flow from left to right)
+                 unlike in the paper, this is a dz/dx value down the valley,
+                 so we account for sinuosity as well at the upstream boundary.
+            z1 = elevation value at RHS
 
         Code works for single segments; the Network class manages z values
         on its own.
@@ -943,8 +946,11 @@ class Network(object):
         level at (x_bl, z_bl); the walker reads x_ghost_downstream at the outlet.
 
         Expects a single channel-mouth segment (as set_z_bl does).
-        !!!!!
-        MAYBE I SHOULD CALL z0 --> z_bl
+
+        ::
+
+            !!!!!
+            MAYBE I SHOULD CALL z0 --> z_bl
         """
         if len(self.list_of_channel_mouth_segment_IDs) == 1:
             ID = self.list_of_channel_mouth_segment_IDs[0]

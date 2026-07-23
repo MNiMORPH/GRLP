@@ -71,7 +71,7 @@ coefficient lands at the cross-segment position `(g, neighbour_global_index)`.
 ## The stencil is the single-segment stencil
 
 The per-node coefficients (`C1`, the `7/3` terms) come from
-`LongProfile.build_LHS_coeff_C0` — the same helper applied to every node — and
+`Segment.build_LHS_coeff_C0` — the same helper applied to every node — and
 the walker itself adds the Neumann channel-head and Dirichlet river-mouth
 boundary modifications. Only the *neighbour lookup* differs (walk the topology
 vs. index a padded ghost array). For a one-segment network the global matrix is

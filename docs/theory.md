@@ -37,7 +37,7 @@ cancels**: the specific transport rate scales as $q_s \propto D^{3/2}$ while the
 channel width scales as $b \propto D^{-3/2}$, so no grain size enters $Q_s$. The
 lumped coefficient $k_{Q_s} = k_{q_s}\,k_b \approx 0.041$ is built from first
 principles (Wong & Parker, 2006; Parker, 1978) in
-`LongProfile.bedload_lumped_constants()`.
+`Segment.bedload_lumped_constants()`.
 
 ## Mass conservation (Exner)
 

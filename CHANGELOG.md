@@ -74,6 +74,23 @@ version heading for the full notes.
   frame-dumping script.
 
 ### Changed
+- **`LongProfile` split into `Segment` + a 1-D wrapper** (breaking). A single
+  reach is now a `Segment`: a pure network member -- data, configuration, the
+  per-node solver coefficient (`build_LHS_coeff_C0`), channel geometry, and the
+  closed-form analytical solutions -- that **does not solve itself**. `LongProfile`
+  is now a lightweight 1-D convenience wrapper that *composes* one `Segment` and
+  the one-edge `Network` that solves it, forwarding configuration/data to the
+  segment and defining the operations that need the network walk
+  (`evolve_threshold_width_river`, `compute_Q_s`, `slope_area`, diffusivity, and
+  the gain/lag spectral suite). **Usage rule: 1-D → `grlp.LongProfile()`;
+  networks → `grlp.Segment()` + `grlp.Network()`** — a `Segment` cannot be run on
+  its own. `Network` is built from `Segment`s and its list is now
+  `Network.segments` (`list_of_LongProfile_objects` remains as a deprecated alias
+  for one release). `compute_Q_s` is inherently a network operation (a node's
+  slope comes from walking to its neighbours across junctions), so it lives on
+  `Network` (and on the `LongProfile` wrapper, via its owned network), not on
+  `Segment`. The everyday 1-D API — `grlp.LongProfile()` + setters + `evolve` — is
+  unchanged for users.
 - The network **solver is extracted** into a new `grlp/solver.py` and is no longer
   part of the `Network` class. `Network.evolve_threshold_width_river_network` calls
   `grlp.solver.evolve`; the assembler moved from `Network.assemble_by_walking` to

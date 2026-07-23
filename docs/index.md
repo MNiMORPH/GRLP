@@ -44,9 +44,10 @@ tutorials/example_random_network
 
 ## Where things live
 
-- **`grlp/`** — the package: `grlp.py` (the `LongProfile` and `Network` classes,
-  equations, and analysis), `solver.py` (the network sparse-matrix solver), and
-  `build_synthetic_network.py` (random-network generation).
+- **`grlp/`** — the package: `grlp.py` (the `Segment`, `LongProfile`, and
+  `Network` classes, equations, and analysis), `solver.py` (the network
+  sparse-matrix solver), and `build_synthetic_network.py` (random-network
+  generation).
 - **`examples/`** — runnable, curated example scripts (see {doc}`examples`).
 - **`preprocessing/`** — an optional input-cleaning step that turns network
   geometry (e.g. extracted from a DEM) into GRLP inputs; run before GRLP, not

@@ -930,15 +930,15 @@ class Network(object):
 
     def build_ID_list(self):
         self.IDs = []
-        for lp in self.segments:
+        for seg in self.segments:
             # IDs
-            self.IDs.append(lp.ID)
+            self.IDs.append(seg.ID)
         self.IDs = np.array(self.IDs)
 
     def get_z_lengths(self):
         self.list_of_segment_lengths = []
-        for lp in self.segments:
-            self.list_of_segment_lengths.append(len(lp.z))
+        for seg in self.segments:
+            self.list_of_segment_lengths.append(len(seg.z))
 
     def compute_Q_s(self):
         """
@@ -951,30 +951,30 @@ class Network(object):
         tributary; as in the single-segment case, S and Q_s there are the
         average over the tributaries.
         """
-        for lp in self.segments:
+        for seg in self.segments:
             # Downstream ghost: base level at the outlet, else the first node
             # of the downstream segment
-            if len(lp.downstream_segment_IDs) == 0:
-                z_down = lp.z_bl
-                if lp.x_ghost_downstream is not None:
-                    x_down = lp.x_ghost_downstream
+            if len(seg.downstream_segment_IDs) == 0:
+                z_down = seg.z_bl
+                if seg.x_ghost_downstream is not None:
+                    x_down = seg.x_ghost_downstream
                 else:
-                    x_down = 2*lp.x[-1] - lp.x[-2]
+                    x_down = 2*seg.x[-1] - seg.x[-2]
             else:
                 downseg = self.segments[
-                              lp.downstream_segment_IDs[0]]
+                              seg.downstream_segment_IDs[0]]
                 z_down = downseg.z[0]
                 x_down = downseg.x[0]
             # Upstream ghost(s): the boundary slope S0 at a channel head, else
             # the last node of each incoming tributary
             z_up = []
             x_up = []
-            if len(lp.upstream_segment_IDs) == 0:
-                _xg = 2*lp.x[0] - lp.x[1]
+            if len(seg.upstream_segment_IDs) == 0:
+                _xg = 2*seg.x[0] - seg.x[1]
                 x_up.append( _xg )
-                z_up.append( lp.z[0] + lp.S0 * ( lp.x[0] - _xg ) )
+                z_up.append( seg.z[0] + seg.S0 * ( seg.x[0] - _xg ) )
             else:
-                for upseg_ID in lp.upstream_segment_IDs:
+                for upseg_ID in seg.upstream_segment_IDs:
                     upseg = self.segments[upseg_ID]
                     z_up.append( upseg.z[-1] )
                     x_up.append( upseg.x[-1] )
@@ -984,16 +984,16 @@ class Network(object):
             S = []
             Q_s = []
             for _zu, _xu in zip(z_up, x_up):
-                _z = np.hstack(( _zu, lp.z, z_down ))
-                _x = np.hstack(( _xu, lp.x, x_down ))
+                _z = np.hstack(( _zu, seg.z, z_down ))
+                _x = np.hstack(( _xu, seg.x, x_down ))
                 _dx = _x[2:] - _x[:-2]
-                S.append( np.abs( (_z[2:] - _z[:-2]) / _dx) / lp.sinuosity )
+                S.append( np.abs( (_z[2:] - _z[:-2]) / _dx) / seg.sinuosity )
                 Q_s.append(
                     -np.sign( _z[2:] - _z[:-2] ) \
-                    * lp.k_Qs * lp.intermittency * lp.Q * S[-1]**(7/6.)
+                    * seg.k_Qs * seg.intermittency * seg.Q * S[-1]**(7/6.)
                     )
-            lp.S = np.mean(S, axis=0)
-            lp.Q_s = np.mean(Q_s, axis=0)
+            seg.S = np.mean(S, axis=0)
+            seg.Q_s = np.mean(Q_s, axis=0)
 
     def set_niter(self, niter):
         # MAKE UNIFORM IN BASE CLASS
@@ -1020,11 +1020,11 @@ class Network(object):
             sys.exit( ">1 channel-mouth-segment ID listed.\n"+
                       "Simulation not set up to manage >1 river mouth.\n"+
                       "Exiting" )
-        lp = self.segments[ID]
+        seg = self.segments[ID]
         # Default: one cell beyond the mouth (the linear-extrapolation ghost)
         if x_bl is None:
-            x_bl = lp.x[-1] + lp.dx[-1]
-        lp.set_x_bl( x_bl )
+            x_bl = seg.x[-1] + seg.dx[-1]
+        seg.set_x_bl( x_bl )
 
         # We should have some code to account for changes in both x and z
         # with base-level change, and remeshes the downstream-most segment,
@@ -1053,9 +1053,9 @@ class Network(object):
         elif S0 is not None:
             self.S0 = S0
             for ID, _S0 in zip(heads, _per_head(S0)):
-                lp = self.segments[ID]
-                lp.S0 = _S0
-                lp.z_ghost_upstream = lp.z[0] + lp.S0 * lp.dx[0]
+                seg = self.segments[ID]
+                seg.S0 = _S0
+                seg.z_ghost_upstream = seg.z[0] + seg.S0 * seg.dx[0]
 
     def set_z_bl (self, z0):
         """
@@ -1082,8 +1082,8 @@ class Network(object):
                       "Simulation not set up to manage >1 river mouth.\n"+
                       "Exiting" )
         # SET DOWNSTREAM BOUNDARY (ULTIMATE BASE LEVEL, SINGULAR): EXTERNAL
-        lp = self.segments[ID]
-        lp.z_bl = z0
+        seg = self.segments[ID]
+        seg.z_bl = z0
 
         # We should have some code to account for changes in both x and z
         # with base-level change, and remeshes the downstream-most segment,
@@ -1170,24 +1170,24 @@ class Network(object):
         source, an empty downstream list marks the outlet).
         """
         def upstream_node(seg_id):
-            lp = self.segments[seg_id]
-            if not lp.upstream_segment_IDs:
+            seg = self.segments[seg_id]
+            if not seg.upstream_segment_IDs:
                 return ("source", seg_id)
             else:
                 return ("jcn", seg_id)
 
         def downstream_node(seg_id):
-            lp = self.segments[seg_id]
-            if not lp.downstream_segment_IDs:
+            seg = self.segments[seg_id]
+            if not seg.downstream_segment_IDs:
                 return ("outlet",)
-            return ("jcn", lp.downstream_segment_IDs[0])
+            return ("jcn", seg.downstream_segment_IDs[0])
 
         G = nx.DiGraph()
         self._edge_of_segment = {}
-        for lp in self.segments:
-            u, v = upstream_node(lp.ID), downstream_node(lp.ID)
-            G.add_edge(u, v, segment_id=lp.ID, segment=lp)
-            self._edge_of_segment[lp.ID] = (u, v)
+        for seg in self.segments:
+            u, v = upstream_node(seg.ID), downstream_node(seg.ID)
+            G.add_edge(u, v, segment_id=seg.ID, segment=seg)
+            self._edge_of_segment[seg.ID] = (u, v)
         self.graph = G
         return self.graph
 
@@ -1200,10 +1200,10 @@ class Network(object):
         # Update Q (list of arrays)
         _idx = 0
         # Then pass the information to each long-profile object
-        for lp in self.segments:
+        for seg in self.segments:
             #print( _idx )
-            lp.Q = Q[_idx]
-            #print( len(lp.Q) )
+            seg.Q = Q[_idx]
+            #print( len(seg.Q) )
             _idx += 1
 
 
@@ -1218,12 +1218,12 @@ class Network(object):
         except:
             _isscalar = True
         if _isscalar:
-            for lp in self.segments:
-                lp.set_intermittency(intermittency)
+            for seg in self.segments:
+                seg.set_intermittency(intermittency)
         else:
             i = 0
-            for lp in self.segments:
-                lp.set_intermittency(intermittency[i])
+            for seg in self.segments:
+                seg.set_intermittency(intermittency[i])
                 i += 1
 
     def compute_land_areas_around_confluences(self):
@@ -1236,31 +1236,31 @@ class Network(object):
         width below
         This is a first attempt
         """
-        for lp in self.segments:
+        for seg in self.segments:
             # COULD CLEAN THIS UP
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            if len(lp.upstream_segment_IDs) > 0:
+            if len(seg.upstream_segment_IDs) > 0:
                 land_areas_above_confluence = []
-                for ID in lp.upstream_segment_IDs:
+                for ID in seg.upstream_segment_IDs:
                     upseg = self.segments[ID]
-                    half_dx = ( lp.x[0] - upseg.x[-1] ) / 2.
+                    half_dx = ( seg.x[0] - upseg.x[-1] ) / 2.
                     representative_width = upseg.B[-1]
                     land_areas_above_confluence.append( half_dx *
                                                         representative_width )
                 # Assuming a convergent network
-                half_dx = ( lp.x[1] - lp.x[0] ) / 2.
-                representative_width = lp.B[0]
+                half_dx = ( seg.x[1] - seg.x[0] ) / 2.
+                representative_width = seg.B[0]
                 land_area_below_confluence = half_dx * representative_width
 
-                lp.land_area_around_confluence = np.sum((
+                seg.land_area_around_confluence = np.sum((
                                           np.sum(land_areas_above_confluence),
                                           land_area_below_confluence ))
 
             else:
                 #print("Ahhhhmmmm.... why do you have no dx_ext?")
-                lp.land_area_around_confluence = None
+                seg.land_area_around_confluence = None
 
-            ##print(lp.land_area_around_confluence)
+            ##print(seg.land_area_around_confluence)
             #raise ValueError("WHY OH WHY")
 
 
@@ -1346,18 +1346,18 @@ class Network(object):
         self.segments = segments
 
         i = 0
-        for lp in segments:
+        for seg in segments:
             # IDs and network-ID connections
-            lp.set_ID(i)
-            lp.set_upstream_segment_IDs( upstream_segment_IDs[i] )
-            lp.set_downstream_segment_IDs( downstream_segment_IDs[i] )
+            seg.set_ID(i)
+            seg.set_upstream_segment_IDs( upstream_segment_IDs[i] )
+            seg.set_downstream_segment_IDs( downstream_segment_IDs[i] )
             # x, z, Q
             # !!!!!!!!!!!!!!!!! NEEDS NETWROK INFO / MAYBE NOT NECESSARY
             # BECAUSE OF HOW IT REQUIRES X_EXT
-            # lp.set_x( x = x[i], verbose=False )
+            # seg.set_x( x = x[i], verbose=False )
             # TURN INTO FUNCTION ????? !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            lp.x = x[i]
-            lp.dx = np.diff(x[i])
+            seg.x = x[i]
+            seg.dx = np.diff(x[i])
                 # LET'S CHANGE THE SIGN CONVENTION FOR S0??
                 # !!!!!!!!!!!!
                 # NOTING HERE BUT IT IS SET IN MULTIPLE OTHER PLACES
@@ -1367,36 +1367,36 @@ class Network(object):
             # a network.
             # STREAMLINE FUNCTIONS LATER -- UPDATE ONLY NAMED VAR?
             # OTHER FCN TO DO THE REST?
-            lp.z = z[i]
+            seg.z = z[i]
             # !!!!!!!!!!!!!!!!!!!
             # Need to manage dQ_ext_2cell in network
             # TO DO HERE
-            # lp.set_Q( Q = Q[i] )
+            # seg.set_Q( Q = Q[i] )
             # The other GRLP-ey stuff
-            lp.set_intermittency( 1 ) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            seg.set_intermittency( 1 ) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             # These all check out -- no problems with network.
-            lp.basic_constants()
-            lp.bedload_lumped_constants()
+            seg.basic_constants()
+            seg.bedload_lumped_constants()
             # REMOVE??? PROBABLY. THIS SHOULD BE SET EXTERNALLY FOR A NETWORK.
-            # lp.set_hydrologic_constants()
-            #lp.set_z_bl(z1)
-            lp.set_B( B = B[i] )
+            # seg.set_hydrologic_constants()
+            #seg.set_z_bl(z1)
+            seg.set_B( B = B[i] )
             # COULD WRITE A FUNCTION AROUND THIS
             # BUT I REALLY WANT TO REWRITE MORE IN TERMS OF SOURCE/SINK
             # DO SOMETHING HERE !!!!!
-            lp.set_uplift_rate( 0 ) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            seg.set_uplift_rate( 0 ) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             
             # FM:
             # Setting dQ of upstream segments. Used when dealing with junctions.
             # If dQ for each segment is provided, we look to the list for the
             # values of any upstream segments.
             # Otherwise, set to zero.
-            lp.dQ_up_jcn = []
+            seg.dQ_up_jcn = []
             for up_id in upstream_segment_IDs[i]:
                 if dQ is not None:
-                    lp.dQ_up_jcn.append( dQ[up_id] )
+                    seg.dQ_up_jcn.append( dQ[up_id] )
                 else:
-                    lp.dQ_up_jcn.append( 0. )
+                    seg.dQ_up_jcn.append( 0. )
               
             i += 1
 
@@ -1438,12 +1438,12 @@ class Network(object):
 
         """
         # DEBUG
-        lp = self.segments[0]
+        seg = self.segments[0]
         i = 0
-        print( lp.z_ext )
-        print( lp.x_ext )
-        print( np.abs( (lp.z_ext[i][2:] - lp.z_ext[i][:-2]) \
-                 / lp.dx_ext_2cell[i] )**(1/6.) )
+        print( seg.z_ext )
+        print( seg.x_ext )
+        print( np.abs( (seg.z_ext[i][2:] - seg.z_ext[i][:-2]) \
+                 / seg.dx_ext_2cell[i] )**(1/6.) )
         """
 
     def evolve_threshold_width_river_network(self, nt=1, dt=3.15E7):
@@ -1850,13 +1850,13 @@ class Network(object):
         """
         d = []
         Q = []
-        for lp in self.segments:
-            up_IDs = self.find_upstream_IDs(lp.ID)
+        for seg in self.segments:
+            up_IDs = self.find_upstream_IDs(seg.ID)
             ds = []
             for up_id in up_IDs:
                 ds.append(min(self.segments[up_id].x))
-            d.append(np.max(lp.x) - min(ds))
-            Q.append(np.mean(lp.Q))
+            d.append(np.max(seg.x) - min(ds))
+            Q.append(np.mean(seg.Q))
         k, p = _optimize_power_law(d, Q)
         return {'k': k, 'p': p, 'd': d, 'Q': Q}
 
@@ -2076,7 +2076,7 @@ class Network(object):
 
 """
 # Test whether the lists have populated
-for lp in self.segments: print(lp.x_ext)
+for seg in self.segments: print(seg.x_ext)
 print("")
-for lp in self.segments: print(lp.z_ext)
+for seg in self.segments: print(seg.z_ext)
 """

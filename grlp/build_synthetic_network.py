@@ -212,10 +212,10 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         return None
 
     # ---- Basic segment object to get properties later
-    lp = Segment()
-    lp.basic_constants()
-    lp.bedload_lumped_constants()
-    lp.set_hydrologic_constants()
+    seg = Segment()
+    seg.basic_constants()
+    seg.bedload_lumped_constants()
+    seg.set_hydrologic_constants()
 
 
     # ---- Generate network topology
@@ -327,12 +327,12 @@ def generate_random_network(magnitude=None, max_length=None, segment_lengths=Non
         B_ls,
         net_topo.upstream_segment_IDs,
         net_topo.downstream_segment_IDs,
-        lp.lambda_p
+        seg.lambda_p
         )
 
 
     # ---- Set initial z
-    S0 = (1./(lp.k_Qs*sediment_discharge_ratio))**(6./7.)
+    S0 = (1./(seg.k_Qs*sediment_discharge_ratio))**(6./7.)
     z_ls = generate_zs(x_ls, x_max, S0, net_topo.downstream_segment_IDs)
 
 

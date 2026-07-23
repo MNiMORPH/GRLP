@@ -22,8 +22,8 @@ def assemble(net, dt):
 
     Build the global LHS matrix and RHS by *walking the topology* to each
     node's upstream/downstream neighbor, instead of reading the padded
-    ``z_ext``/``Q_ext`` ghost arrays. The per-node stencil formulas are
-    identical to :meth:`LongProfile.build_matrices` -- only neighbor lookup
+    ``z_ext``/``Q_ext`` ghost arrays. The per-node stencil coefficients come
+    from :meth:`LongProfile.build_LHS_coeff_C0` -- only neighbor lookup
     changes -- so for a single segment this reproduces the standalone solver
     bit-for-bit. Channel heads apply the sediment-flux Neumann boundary
     condition, the outlet the base-level Dirichlet condition; at a
@@ -69,7 +69,7 @@ def assemble(net, dt):
         s = lp.ID
         offset = starts[s]
         L = lengths[s]
-        # per-node source term (matches build_matrices' RHS additions)
+        # per-node source term (RHS additions: ssd + fining/subsidence + U)
         src = (np.asarray(lp.ssd)
                + np.asarray(lp.downstream_fining_subsidence_equivalent)
                + np.asarray(lp.U)) * dt
@@ -235,7 +235,7 @@ def assemble(net, dt):
                 z_down = downseg.z[0]
                 x_down = downseg.x[0]
                 Q_down = downseg.Q[0]
-            # --- stencil (identical to build_matrices) ---
+            # --- stencil (coefficients from build_LHS_coeff_C0) ---
             dx_up = lp.x[i] - x_up
             dx_down = x_down - lp.x[i]
             dx_2cell = x_down - x_up

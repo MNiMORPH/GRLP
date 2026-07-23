@@ -944,7 +944,7 @@ class Network(object):
         Sediment discharge and slope at each point in the network, computed by
         walking the topology to each node's real neighbours rather than reading
         maintained ghost arrays. Sets S and Q_s on each segment, using the same
-        slope / sediment-discharge relationship as LongProfile.compute_Q_s.
+        slope / sediment-discharge relationship as for a single segment.
 
         At a confluence, the head node has one upstream neighbour per incoming
         tributary; as in the single-segment case, S and Q_s there are the
@@ -1035,7 +1035,7 @@ class Network(object):
         prescribed boundary slope S0 or an input sediment discharge Q_s_0. Each
         may be a scalar (applied at every head) or an iterable (one value per
         head, in channel-head-ID order). Delegates per head to the single-segment
-        LongProfile.set_Qs_input_upstream for the Q_s_0 case.
+        Segment.set_Qs_input_upstream for the Q_s_0 case.
         """
         heads = self.list_of_channel_head_segment_IDs
         # Broadcast a scalar to every head, or take one value per head
@@ -1154,7 +1154,7 @@ class Network(object):
         Build a NetworkX directed-graph representation of the network topology.
 
         Edges are river segments -- each edge carries its ``segment_id`` and the
-        ``LongProfile`` object itself -- and nodes are the junctions between
+        ``Segment`` object itself -- and nodes are the junctions between
         them: one ``("source", i)`` per channel head, one ``("jcn", c)`` per
         confluence (named by the segment ``c`` flowing out of it), and a single
         ``("outlet",)``. A one-segment network is a two-node, one-edge graph.

@@ -6,8 +6,8 @@ and assembling a single global sparse system. They operate on a *duck-typed*
 network -- any object exposing ``segments``,
 ``list_of_segment_lengths``, ``niter``, ``t``, and segments carrying the
 per-segment physics -- so this module imports neither the ``Network`` nor the
-``LongProfile`` class. That keeps the dependency one-way (grlp.py -> solver.py)
-and lets a lone ``LongProfile`` be solved as the one-edge network it is: one
+``Segment`` class. That keeps the dependency one-way (grlp.py -> solver.py)
+and lets a lone ``Segment`` be solved as the one-edge network it is: one
 solver path for every case.
 """
 
@@ -23,7 +23,7 @@ def assemble(net, dt):
     Build the global LHS matrix and RHS by *walking the topology* to each
     node's upstream/downstream neighbor, instead of reading the padded
     ``z_ext``/``Q_ext`` ghost arrays. The per-node stencil coefficients come
-    from :meth:`LongProfile.build_LHS_coeff_C0` -- only neighbor lookup
+    from :meth:`Segment.build_LHS_coeff_C0` -- only neighbor lookup
     changes -- so for a single segment this reproduces the standalone solver
     bit-for-bit. Channel heads apply the sediment-flux Neumann boundary
     condition, the outlet the base-level Dirichlet condition; at a

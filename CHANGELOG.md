@@ -129,9 +129,11 @@ version heading for the full notes.
 ### Removed
 - The network boundary methods `update_z_ext_external_upstream`,
   `update_z_ext_external_downstream`, and `update_x_ext_external_downstream`
-  (**breaking**): use `set_Qs_input_upstream` and `set_z_bl`. Base level is the
-  only downstream quantity the solver needs (its outlet ghost is
-  `2*x[-1] - x[-2]`).
+  (**breaking**): use `set_Qs_input_upstream` upstream and `set_z_bl` /
+  `set_x_bl` downstream. Base level is the only downstream quantity the solver
+  needs: its outlet ghost position defaults to `2*x[-1] - x[-2]`, and `set_x_bl`
+  overrides that position when base level itself migrates (e.g. a shoreline on a
+  continental shelf).
 - The internal network padding machinery, now unused: `create_x_ext_lists`,
   `update_x_ext_*`, `update_dx_ext`, `update_dx_2cell`, `update_dx_ext_2cell`,
   `create_z_ext_lists`, `update_z_ext_internal`, `create_Q_ext_lists`,

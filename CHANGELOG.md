@@ -47,6 +47,11 @@ version heading for the full notes.
   post-corrigendum forms), a numerical-implementation note on the walking network
   solver, an examples guide, an autodoc API reference, and Citing / References
   pages. A README badge and the `pyproject` Documentation URL point to it.
+- Three tutorial notebooks on the documentation site, executed at build time
+  (via `myst-nb`) so their outputs and plots reflect the current version: the
+  modernized single-profile `example_1d`, a hand-built 5-segment network
+  (`example_network`), and a Shreve random-network capstone with
+  network-structure analysis (`example_random_network`).
 - `docs/literature/README.md`: source-grounded notes on the papers that define,
   correct, extend, and apply GRLP (Wickert & Schildgen, 2019 and its 2020
   corrigendum; McNab et al., 2023 and 2025; Ruby et al., 2026), recording the

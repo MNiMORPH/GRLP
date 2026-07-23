@@ -21,6 +21,19 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+# Copy the tutorial notebooks from examples/ into the docs source tree so myst-nb
+# can render and execute them, keeping a single canonical copy in examples/. The
+# copies (docs/tutorials/) are git-ignored.
+import shutil
+
+_here = os.path.abspath(os.path.dirname(__file__))
+_tutorial_dst = os.path.join(_here, "tutorials")
+os.makedirs(_tutorial_dst, exist_ok=True)
+for _nb in ("example_1d.ipynb", "example_network.ipynb",
+            "example_random_network.ipynb"):
+    shutil.copyfile(os.path.join(_here, "..", "examples", _nb),
+                    os.path.join(_tutorial_dst, _nb))
+
 # -- Project information ------------------------------------------------------
 
 project = "GRLP"
@@ -44,7 +57,7 @@ version = release
 # -- General configuration ----------------------------------------------------
 
 extensions = [
-    "myst_parser",             # Markdown source
+    "myst_nb",                 # Markdown source + executable notebooks
     "sphinx.ext.autodoc",      # pull docstrings from grlp
     "sphinx.ext.autosummary",  # summary tables
     "sphinx.ext.napoleon",     # NumPy / Google style docstrings
@@ -69,6 +82,11 @@ myst_enable_extensions = [
     "deflist",
 ]
 myst_heading_anchors = 3
+
+# Execute the tutorial notebooks at build time (fresh v3 outputs/plots), cached
+# so unchanged notebooks are not re-run on every build.
+nb_execution_mode = "cache"
+nb_execution_timeout = 300
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

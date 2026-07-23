@@ -33,6 +33,15 @@ citing
 references
 ```
 
+```{toctree}
+:maxdepth: 1
+:caption: Tutorials
+
+tutorials/example_1d
+tutorials/example_network
+tutorials/example_random_network
+```
+
 ## Where things live
 
 - **`grlp/`** — the package: `grlp.py` (the `LongProfile` and `Network` classes,

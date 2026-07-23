@@ -2,5 +2,5 @@
 # GRLP itself and its runtime deps (numpy, scipy, matplotlib, networkx) are
 # installed separately via `pip install .` (see .readthedocs.yaml).
 sphinx>=7
-myst-parser>=2
+myst-nb>=1
 furo>=2024.1

@@ -63,6 +63,10 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+# Build-time copies of the tutorial notebooks (canonical copies live in examples/)
+docs/tutorials/
+# myst-nb execution cache
+docs/.jupyter_cache/
 
 # PyBuilder
 target/

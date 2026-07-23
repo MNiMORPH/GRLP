@@ -387,9 +387,6 @@ class Segment(object):
         # current profile each Picard step (grlp.solver.update_gravel_loss). We
         # only store the per-kilometre coefficient here.
 
-    def set_niter(self, niter):
-        self.niter = niter
-
     def set_Qs_input_upstream(self, Q_s_0):
         """
         S0, the boundary-condition slope, is set as a function of Q_s_0.
@@ -470,163 +467,6 @@ class Segment(object):
                     / ((1-self.lambda_p) * self.sinuosity**(7/6.)) \
                     * self.dt
 
-    def analytical_threshold_width(self, P_xQ=None, x0=None, x1=None,
-                                   z0=None, z1=None):
-        """
-        Analytical: no uplift
-        """
-        if x0 is None:
-            x0 = self.x[0]
-        if x1 is None:
-            x1 = self.x[-1]
-        if z0 is None:
-            z0 = self.z[0]
-        if z1 is None:
-            z1 = self.z[-1]
-        if P_xQ is None:
-            P_xQ = self.P_xQ
-        #print P_xQ
-        #self.zanalytical2 = (z1 - z0) * (self.x**e - x0**e)/(x1**e - x0**e) + z0
-        self.P_a = 1 - 6*P_xQ/7. # beta
-        self.k_a = 1/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # alpha
-        self.c_a = z0 - x0**self.P_a/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # gamma
-        self.zanalytical = self.k_a * self.x**self.P_a + self.c_a
-        return self.zanalytical
-
-    def analytical_threshold_width_perturbation(self, P_xQ=None, x0=None, x1=None,
-                                   z0=None, z1=None, U=None):
-        """
-        DEPRECATED and known to be incorrect.
-
-        This early ("First attempt at perturbation theory") closed-form attempt
-        at a steady-state solution with uplift does not reproduce the numerical
-        model: its constants of integration blow up and catastrophically
-        cancel, returning unphysical elevations. It is retained only for the
-        historical record.
-
-        Use analytical_threshold_width_uplift instead, which gives the correct
-        steady-state solution with uplift (or base-level fall).
-        """
-        warnings.warn(
-            "analytical_threshold_width_perturbation is deprecated and "
-            "incorrect; use analytical_threshold_width_uplift instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if x0 is None:
-            x0 = self.x[0]
-        if x1 is None:
-            x1 = self.x[-1]
-        if z0 is None:
-            z0 = self.z[0]
-        if z1 is None:
-            z1 = self.z[-1]
-        if P_xQ is None:
-            P_xQ = self.P_xQ
-        if U is None:
-            U = self.U
-        # Base state coefficients (no perturbation)
-        #self.P_a = 1 - 6*P_xB/7. # beta
-        #self.k_a = (z1 - z0)/(x1**self.P_a - x0**self.P_a) # alpha
-        #self.c_a = z0 - x0**self.P_a/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # gamma
-        # Coefficients
-        K = self.k_Qs * self.sinuosity * self.intermittency \
-            / (1 - self.lambda_p) \
-            * abs(self.k_a * self.P_a)**(1/6.) \
-            * self.k_xQ / self.k_xB
-        P = self.P_xQ
-        #print(P)
-        # Constants of integration
-        #c1 = self.U * (x0**(P+2) - x1**(P+2)) / (K*(P-2)*(self.P_a + P - 2) \
-        #     + (x1**self.P_a - x0**self.P_a) / self.P_a
-        #     - z1
-        c1 = ( self.U * (x0**(P+2) - x1**(P+2)) / (K*(P-2)*(self.P_a + P - 2)) \
-               + z0 - z1 ) \
-             / ( (x0**self.P_a - x1**self.P_a) / self.P_a )
-        c2 = - (c1 * x1**self.P_a)/self.P_a \
-             + (U * x1**(2-P))/(K * (P-2) * (self.P_a + P - 2)) + z1
-        self.zanalytical = c1 * self.x**self.P_a / self.P_a \
-            - self.U * self.x**(2-P) / (K * (P-2) * (self.P_a + P - 2)) \
-            + c2
-
-    #def analytical_threshold_width_perturbation_2(self):
-    #    self.analytical_threshold_width()
-
-    def analytical_threshold_width_uplift(self, nx_fine=20001):
-        """
-        Semi-analytical steady-state long profile *with uplift* (equivalently,
-        distributed base-level fall), for the transport-limited threshold-width
-        gravel river.
-
-        Uplift is applied to the valley surface at rate U (set_uplift_rate).
-        At steady state (dz/dt = 0), mass conservation
-
-            (1 - lambda_p) * B * dz/dt = -dQ_s/dx + (1 - lambda_p) * B * U
-
-        forces the long-term-averaged bedload discharge to grow downstream as
-        uplifted material is exported:
-
-            Q_s(x) = I * Q_s_0  +  (1 - lambda_p) * U * \\int_{x0}^{x} B dx'
-
-        where I is the intermittency and Q_s_0 is the (during-flood) sediment
-        supply set at the upstream boundary. Note the boundary flux carried by
-        the long-term average is I * Q_s_0, consistent with compute_Q_s.
-
-        The threshold-width transport law Q_s = k_Qs * I * Q * (S/sinuosity)**(7/6)
-        then gives the valley slope, and the bed is recovered by integrating
-        up from base level:
-
-            S(x) = sinuosity * ( Q_s(x) / (k_Qs * I * Q(x)) )**(6/7)
-            z(x) = z_bl + \\int_{x}^{x_bl} S dx'
-
-        Both integrals are evaluated by the trapezoidal rule on a fine grid of
-        nx_fine points (there is no elementary closed form for general P_xQ and
-        P_xB), then sampled at the model nodes. Because the reference grid is
-        independent of the model grid, comparing the numerical solution to this
-        one exhibits first-order convergence under model grid refinement.
-
-        Requires the power-law discharge and width parameters (k_xQ, P_xQ,
-        k_xB, P_xB), the uplift rate U, the intermittency, the upstream
-        sediment supply (Q_s_0, via set_Qs_input_upstream), and base level.
-
-        Sets and returns self.zanalytical (elevations at self.x).
-        """
-        for attr in ("k_xQ", "P_xQ", "k_xB", "P_xB", "U", "Q_s_0"):
-            if getattr(self, attr, None) is None:
-                raise ValueError(
-                    "analytical_threshold_width_uplift requires the power-law "
-                    "parameters (k_xQ, P_xQ, k_xB, P_xB), the uplift rate, and "
-                    "the upstream sediment supply Q_s_0 to be set; missing: "
-                    + attr + "."
-                )
-        lambda_p = self.lambda_p
-        I = self.intermittency
-        # Fine, model-independent reference grid spanning the boundary nodes.
-        x0 = self.x_ghost_upstream
-        x_bl = self.x_ghost_downstream
-        z_bl = self.z_bl
-        xf = np.linspace(x0, x_bl, nx_fine)
-        Bf = self.k_xB * xf**self.P_xB
-        Qf = self.k_xQ * xf**self.P_xQ
-        # Cumulative trapezoidal integral of B from x0 (numpy-only, so no
-        # dependence on the moving scipy.integrate cumtrapz/cumulative_trapezoid
-        # name).
-        intB = np.concatenate((
-            [0.],
-            np.cumsum(0.5 * (Bf[1:] + Bf[:-1]) * np.diff(xf))
-        ))
-        Qs = I * self.Q_s_0 + (1 - lambda_p) * self.U * intB
-        Sf = self.sinuosity * (Qs / (self.k_Qs * I * Qf))**(6/7.)
-        # z by integrating slope upstream from base level:
-        # z(x) = z_bl + \int_x^{x_bl} S dx'. Integrate on the reversed grid.
-        dz_up = np.concatenate((
-            [0.],
-            np.cumsum(0.5 * (Sf[1:] + Sf[:-1]) * np.diff(xf))
-        ))
-        zf = z_bl + (dz_up[-1] - dz_up)
-        self.zanalytical = np.interp(self.x, xf, zf)
-        return self.zanalytical
-
     def compute_channel_width(self):
         if self.D is not None:
             self.b = 0.17 / ( self.g**.5
@@ -691,7 +531,6 @@ class LongProfile(object):
         seg.ID = 0
         net = self._net()
         net.t = seg.t
-        net.set_niter(seg.niter)
         net.get_z_lengths()
         net.evolve_threshold_width_river_network(nt, dt)
         seg.Qs_internal = 1 / (1 - seg.lambda_p) * np.cumsum(seg.dz_dt) \
@@ -702,6 +541,10 @@ class LongProfile(object):
         if self._network is None:
             self._network = Network([self.segment])
         return self._network
+
+    def set_niter(self, niter):
+        """Number of Picard iterations per step (set on the owned network)."""
+        self._net().set_niter(niter)
 
     def compute_Q_s(self):
         """
@@ -897,6 +740,165 @@ class LongProfile(object):
             lag -= 0.5*period
 
         return lag
+
+    def analytical_threshold_width(self, P_xQ=None, x0=None, x1=None,
+                                   z0=None, z1=None):
+        """
+        Analytical: no uplift
+        """
+        if x0 is None:
+            x0 = self.x[0]
+        if x1 is None:
+            x1 = self.x[-1]
+        if z0 is None:
+            z0 = self.z[0]
+        if z1 is None:
+            z1 = self.z[-1]
+        if P_xQ is None:
+            P_xQ = self.P_xQ
+        #print P_xQ
+        #self.zanalytical2 = (z1 - z0) * (self.x**e - x0**e)/(x1**e - x0**e) + z0
+        self.P_a = 1 - 6*P_xQ/7. # beta
+        self.k_a = 1/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # alpha
+        self.c_a = z0 - x0**self.P_a/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # gamma
+        self.zanalytical = self.k_a * self.x**self.P_a + self.c_a
+        return self.zanalytical
+
+    def analytical_threshold_width_perturbation(self, P_xQ=None, x0=None, x1=None,
+                                   z0=None, z1=None, U=None):
+        """
+        DEPRECATED and known to be incorrect.
+
+        This early ("First attempt at perturbation theory") closed-form attempt
+        at a steady-state solution with uplift does not reproduce the numerical
+        model: its constants of integration blow up and catastrophically
+        cancel, returning unphysical elevations. It is retained only for the
+        historical record.
+
+        Use analytical_threshold_width_uplift instead, which gives the correct
+        steady-state solution with uplift (or base-level fall).
+        """
+        warnings.warn(
+            "analytical_threshold_width_perturbation is deprecated and "
+            "incorrect; use analytical_threshold_width_uplift instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if x0 is None:
+            x0 = self.x[0]
+        if x1 is None:
+            x1 = self.x[-1]
+        if z0 is None:
+            z0 = self.z[0]
+        if z1 is None:
+            z1 = self.z[-1]
+        if P_xQ is None:
+            P_xQ = self.P_xQ
+        if U is None:
+            U = self.U
+        # Base state coefficients (no perturbation)
+        #self.P_a = 1 - 6*P_xB/7. # beta
+        #self.k_a = (z1 - z0)/(x1**self.P_a - x0**self.P_a) # alpha
+        #self.c_a = z0 - x0**self.P_a/(x1**self.P_a - x0**self.P_a) * (z1 - z0) # gamma
+        # Coefficients
+        K = self.k_Qs * self.sinuosity * self.intermittency \
+            / (1 - self.lambda_p) \
+            * abs(self.k_a * self.P_a)**(1/6.) \
+            * self.k_xQ / self.k_xB
+        P = self.P_xQ
+        #print(P)
+        # Constants of integration
+        #c1 = self.U * (x0**(P+2) - x1**(P+2)) / (K*(P-2)*(self.P_a + P - 2) \
+        #     + (x1**self.P_a - x0**self.P_a) / self.P_a
+        #     - z1
+        c1 = ( self.U * (x0**(P+2) - x1**(P+2)) / (K*(P-2)*(self.P_a + P - 2)) \
+               + z0 - z1 ) \
+             / ( (x0**self.P_a - x1**self.P_a) / self.P_a )
+        c2 = - (c1 * x1**self.P_a)/self.P_a \
+             + (U * x1**(2-P))/(K * (P-2) * (self.P_a + P - 2)) + z1
+        self.zanalytical = c1 * self.x**self.P_a / self.P_a \
+            - self.U * self.x**(2-P) / (K * (P-2) * (self.P_a + P - 2)) \
+            + c2
+
+    #def analytical_threshold_width_perturbation_2(self):
+    #    self.analytical_threshold_width()
+
+    def analytical_threshold_width_uplift(self, nx_fine=20001):
+        """
+        Semi-analytical steady-state long profile *with uplift* (equivalently,
+        distributed base-level fall), for the transport-limited threshold-width
+        gravel river.
+
+        Uplift is applied to the valley surface at rate U (set_uplift_rate).
+        At steady state (dz/dt = 0), mass conservation
+
+            (1 - lambda_p) * B * dz/dt = -dQ_s/dx + (1 - lambda_p) * B * U
+
+        forces the long-term-averaged bedload discharge to grow downstream as
+        uplifted material is exported:
+
+            Q_s(x) = I * Q_s_0  +  (1 - lambda_p) * U * \\int_{x0}^{x} B dx'
+
+        where I is the intermittency and Q_s_0 is the (during-flood) sediment
+        supply set at the upstream boundary. Note the boundary flux carried by
+        the long-term average is I * Q_s_0, consistent with compute_Q_s.
+
+        The threshold-width transport law Q_s = k_Qs * I * Q * (S/sinuosity)**(7/6)
+        then gives the valley slope, and the bed is recovered by integrating
+        up from base level:
+
+            S(x) = sinuosity * ( Q_s(x) / (k_Qs * I * Q(x)) )**(6/7)
+            z(x) = z_bl + \\int_{x}^{x_bl} S dx'
+
+        Both integrals are evaluated by the trapezoidal rule on a fine grid of
+        nx_fine points (there is no elementary closed form for general P_xQ and
+        P_xB), then sampled at the model nodes. Because the reference grid is
+        independent of the model grid, comparing the numerical solution to this
+        one exhibits first-order convergence under model grid refinement.
+
+        Requires the power-law discharge and width parameters (k_xQ, P_xQ,
+        k_xB, P_xB), the uplift rate U, the intermittency, the upstream
+        sediment supply (Q_s_0, via set_Qs_input_upstream), and base level.
+
+        Sets and returns self.zanalytical (elevations at self.x).
+        """
+        for attr in ("k_xQ", "P_xQ", "k_xB", "P_xB", "U", "Q_s_0"):
+            if getattr(self, attr, None) is None:
+                raise ValueError(
+                    "analytical_threshold_width_uplift requires the power-law "
+                    "parameters (k_xQ, P_xQ, k_xB, P_xB), the uplift rate, and "
+                    "the upstream sediment supply Q_s_0 to be set; missing: "
+                    + attr + "."
+                )
+        lambda_p = self.lambda_p
+        I = self.intermittency
+        # Fine, model-independent reference grid spanning the boundary nodes.
+        x0 = self.x_ghost_upstream
+        x_bl = self.x_ghost_downstream
+        z_bl = self.z_bl
+        xf = np.linspace(x0, x_bl, nx_fine)
+        Bf = self.k_xB * xf**self.P_xB
+        Qf = self.k_xQ * xf**self.P_xQ
+        # Cumulative trapezoidal integral of B from x0 (numpy-only, so no
+        # dependence on the moving scipy.integrate cumtrapz/cumulative_trapezoid
+        # name).
+        intB = np.concatenate((
+            [0.],
+            np.cumsum(0.5 * (Bf[1:] + Bf[:-1]) * np.diff(xf))
+        ))
+        Qs = I * self.Q_s_0 + (1 - lambda_p) * self.U * intB
+        Sf = self.sinuosity * (Qs / (self.k_Qs * I * Qf))**(6/7.)
+        # z by integrating slope upstream from base level:
+        # z(x) = z_bl + \int_x^{x_bl} S dx'. Integrate on the reversed grid.
+        dz_up = np.concatenate((
+            [0.],
+            np.cumsum(0.5 * (Sf[1:] + Sf[:-1]) * np.diff(xf))
+        ))
+        zf = z_bl + (dz_up[-1] - dz_up)
+        self.zanalytical = np.interp(self.x, xf, zf)
+        return self.zanalytical
+
+
 
 
 class Network(object):

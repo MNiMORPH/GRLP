@@ -90,6 +90,17 @@ milder flux-side risk at `S≈0`; see §8.)
 > stays second order. `V` is exactly the sediment budget's channel-storage integral
 > `∫(1−λ_p)·B·z dx`, so this aligns with `compute_sediment_budget`. Much cheaper
 > baked in than discovered empirically later (as WTM did).
+>
+> **DONE — implemented as issue #18 (2026-07).** The solver is now volume-first:
+> `assemble()` row-scales the elevation system by `J = dV/dz` and carries the
+> history in `V`-space, with a Jacobian-based linearization correction (not a
+> secant). The geometry is a pluggable `Segment.valley_width(z)` primitive with
+> `storage_volume`/`storage_jacobian` (rectangular default = constant `B`, exact
+> reproduction to machine precision, 328 golden-master tests green). A synthetic
+> nonlinear map confirms BDF2 holds 2nd order (2.10) — and, with the correction
+> disabled, collapses to ~0.3 (the secant, live). So #32's dynamic width plugs
+> into a solver that already conserves volume and keeps BDF2 second-order; it only
+> needs to override `valley_width`/`storage_volume` with the real geometry.
 
 ## 5. Bootstrap and history validity
 

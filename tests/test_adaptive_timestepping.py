@@ -18,8 +18,6 @@ These tests check the two pieces:
 See ``claude-instructions/adaptive-timestepping-design.md``.
 """
 
-import warnings
-
 import numpy as np
 
 from conftest import make_long_profile, STEADY_NT, STEADY_DT

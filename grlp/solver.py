@@ -339,7 +339,7 @@ def _picard_config(net):
     """Read the semi-implicit iteration controls off the network. Returns
     ``(picard_tol, max_iter, gravel_loss_active)``. In the default fixed-niter
     mode ``picard_tol`` is None and ``max_iter`` is ``net.niter``; with a
-    tolerance set (``set_picard_tolerance``) ``max_iter`` is the safety cap."""
+    tolerance set (``set_iteration_tolerance``) ``max_iter`` is the safety cap."""
     picard_tol = getattr(net, "picard_tol", None)
     if picard_tol is None:
         max_iter = int(net.niter)
@@ -478,7 +478,7 @@ def evolve_adaptive(net, T, dt_init=None):
     itself error-controlled); it defaults to ``adaptive_dt_init`` or a small
     fraction of ``T``.
 
-    Turn on ``set_picard_tolerance`` for a converged per-step solve; the estimate
+    Turn on ``set_iteration_tolerance`` for a converged per-step solve; the estimate
     and step both assume the nonlinear iteration has converged.
     """
     tol = getattr(net, "adaptive_tol", None)

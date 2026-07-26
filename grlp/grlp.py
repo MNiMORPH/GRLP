@@ -597,14 +597,16 @@ class LongProfile(object):
         return self._network
 
     def set_niter(self, niter):
-        """Number of Picard iterations per step (set on the owned network)."""
+        """Take a fixed ``niter`` Picard iterations per step (the expert
+        alternative to the default iterate-to-convergence; selects
+        fixed-iteration mode). Set on the owned network."""
         self._net().set_niter(niter)
 
-    def set_picard_tolerance(self, tol, max_iter=100):
-        """Iterate the Picard solve to convergence (tolerance ``tol`` in metres)
-        instead of a fixed ``niter``; ``tol=None`` restores fixed-``niter``.
-        Set on the owned network; see ``Network.set_picard_tolerance``."""
-        self._net().set_picard_tolerance(tol, max_iter=max_iter)
+    def set_iteration_tolerance(self, tol, max_iter=100):
+        """Iterate the Picard solve to convergence, tolerance ``tol`` in metres
+        (the default; 0.1 mm). Pass ``tol=None`` for fixed-``niter`` mode instead.
+        Set on the owned network; see ``Network.set_iteration_tolerance``."""
+        self._net().set_iteration_tolerance(tol, max_iter=max_iter)
 
     def set_adaptive_timestep(self, tol, **kwargs):
         """Configure adaptive time stepping (per-step error tolerance ``tol`` in
@@ -613,7 +615,7 @@ class LongProfile(object):
         self._net().set_adaptive_timestep(tol, **kwargs)
 
     def set_time_integration(self, order):
-        """Time-integration order: 1 = backward Euler (default), 2 = BDF2
+        """Time-integration order: 2 = BDF2 (default), 1 = backward Euler
         (set on the owned network)."""
         self._net().set_time_integration(order)
 
@@ -987,13 +989,15 @@ class Network(object):
         self.t = 0
         self.Q_s_0 = None
         self.S0 = None
-        self.time_order = 1   # time integration: 1 = backward Euler, 2 = BDF2
-        # Picard (semi-implicit) iteration control. By default the solver takes a
-        # fixed number of iterations per step (`niter`, set via set_niter). Set a
-        # convergence tolerance with set_picard_tolerance to instead iterate until
-        # the inter-iteration elevation change falls below it (see solver.evolve).
-        self.picard_tol = None       # None = fixed-niter mode (the default)
-        self.picard_max_iter = 100   # safety cap when a tolerance is set
+        self.time_order = 2   # time integration: 2 = BDF2 (default), 1 = backward Euler
+        # Picard (semi-implicit) iteration control. By default the solver iterates
+        # each step to convergence (a tolerance on the inter-iteration elevation
+        # change), which is safe without the user having to reason about how many
+        # iterations a step needs. Experts can trade a little safety for speed with
+        # set_iteration_tolerance(None) + set_niter(n), a fixed n iterations per step.
+        self.niter = 3               # fixed-mode fallback (used when picard_tol is None)
+        self.picard_tol = 1.0e-4     # default: iterate until max|z_k - z_{k-1}| < 0.1 mm
+        self.picard_max_iter = 100   # safety cap; a step that can't converge warns
 
     @property
     def list_of_LongProfile_objects(self):
@@ -1075,34 +1079,40 @@ class Network(object):
             seg.Q_s = np.mean(Q_s, axis=0)
 
     def set_niter(self, niter):
-        # MAKE UNIFORM IN BASE CLASS
+        """Take a *fixed* ``niter`` Picard iterations per step, the expert
+        alternative to the default iterate-to-convergence. Setting a fixed count
+        selects fixed-iteration mode (it clears any convergence tolerance), so
+        ``set_niter(n)`` alone is enough; call ``set_iteration_tolerance(tol)`` to
+        return to convergence mode."""
         self.niter = niter
+        self.picard_tol = None
 
-    def set_picard_tolerance(self, tol, max_iter=100):
+    def set_iteration_tolerance(self, tol, max_iter=100):
         """
-        Iterate the semi-implicit (Picard) solve to convergence each step,
-        instead of taking a fixed ``niter`` iterations.
+        Iterate the semi-implicit (Picard) solve to convergence each step: the
+        default. The solver keeps relinearizing until the inter-iteration
+        elevation change ``max|z_k - z_{k-1}|`` falls below ``tol`` (metres), up
+        to ``max_iter`` iterations, and warns if the cap is hit without
+        converging (which can happen for a very large step, where the fixed-point
+        iteration does not contract). The default tolerance is 0.1 mm.
 
-        With ``tol`` set, ``solver.evolve`` keeps relinearizing until the
-        inter-iteration elevation change ``max|z_k - z_{k-1}|`` falls below
-        ``tol`` (metres), up to ``max_iter`` iterations; it warns if the cap is
-        hit without converging. Pass ``tol=None`` to restore the default
-        fixed-``niter`` behaviour. The Picard residual falls superlinearly for
-        the default physics, so a micrometre tolerance converges in a handful of
-        iterations even at very large steps; a cap is required because the
-        residual ultimately floors at round-off.
+        Pass ``tol=None`` to switch to fixed-iteration mode instead -- a fixed
+        ``niter`` iterations per step (see ``set_niter``), the faster expert
+        option when you know how many iterations a step needs. Setting a
+        tolerance and setting ``niter`` are mutually exclusive; the most recent
+        call wins.
         """
         if tol is not None and tol <= 0:
-            raise ValueError("Picard tolerance must be positive (or None to "
-                             "disable); got %r" % (tol,))
+            raise ValueError("iteration tolerance must be positive (or None for "
+                             "fixed-niter mode); got %r" % (tol,))
         self.picard_tol = tol
         self.picard_max_iter = int(max_iter)
 
     def set_time_integration(self, order):
         """
         Select the time-integration scheme for transient runs:
-        ``1`` = backward Euler (first-order, the default), ``2`` = BDF2
-        (second-order; see claude-instructions/second-order-time-bdf2-design.md).
+        ``2`` = BDF2 (second-order, the default), ``1`` = backward Euler
+        (first-order; see claude-instructions/second-order-time-bdf2-design.md).
         The steady state is time-step-independent, so this only affects the
         path through time.
         """

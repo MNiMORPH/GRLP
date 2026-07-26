@@ -86,6 +86,19 @@ version heading for the full notes.
   (future) adaptive stepping enable. Off by default, so existing results are
   unchanged. Guarded by `tests/test_picard_convergence.py`;
   [#17](https://github.com/MNiMORPH/GRLP/issues/17).
+- Optional **adaptive time stepping**, configured with
+  `set_adaptive_timestep(tol)` and run with
+  `evolve_threshold_width_river_adaptive(T)` (on `LongProfile`; the network
+  counterparts are `set_adaptive_timestep` / `..._network_adaptive`). It advances
+  a total time `T` with variable-step BDF2, sizing each step from a step-doubling
+  error estimate so the per-step error holds at the tolerance `tol` (metres):
+  small steps through the fast part of a transient, large steps as it settles.
+  The step is chosen by an I-controller with reject-and-retry, an error-controlled
+  backward-Euler bootstrap (so the result is independent of the initial-step
+  guess), and it advances with the finer two-half-step solution. Requires
+  `set_time_integration(2)`; pair with `set_picard_tolerance` for a converged
+  per-step solve. Guarded by `tests/test_adaptive_timestepping.py`;
+  [#16](https://github.com/MNiMORPH/GRLP/issues/16).
 - Time-stepping accuracy characterization: `tests/test_time_accuracy.py` verifies
   by self-convergence that backward Euler is first-order in time and BDF2 is
   second-order, and a **Numerical accuracy** page on the documentation site

@@ -52,6 +52,16 @@ version heading for the full notes.
   modernized single-profile `example_1d`, a hand-built 5-segment network
   (`example_network`), and a Shreve random-network capstone with
   network-structure analysis (`example_random_network`).
+- A **live, interactive demo** on the documentation site (`docs/interactive.md`):
+  a single-segment gravel river with water-discharge, sediment-input, and
+  base-level sliders and a single play/pause button, so a reader can watch the
+  long profile adjust in real time -- Lane's balance, played out dynamically. It
+  runs GRLP entirely in the browser via Pyodide (WebAssembly) -- no install, no
+  server -- and is compiled from `interactive_demo/grlp_panel.py` with Panel
+  (`panel convert`) at documentation build time, self-hosting the wheels it needs
+  beside the app (referenced by relative URLs) so it depends on no external
+  services at run time. A Jupyter-notebook version of the same demo is kept in
+  `interactive_demo/` for classroom or notebook use.
 - `docs/literature/README.md`: source-grounded notes on the papers that define,
   correct, extend, and apply GRLP (Wickert & Schildgen, 2019 and its 2020
   corrigendum; McNab et al., 2023 and 2025; Ruby et al., 2026), recording the

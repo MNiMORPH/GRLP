@@ -94,3 +94,24 @@ its second-order rate once the semi-implicit iteration is converged (a few
 iterations for the default physics). Steady states are independent of the time
 step, so this only affects the *path* through time. See
 [MNiMORPH/GRLP#16](https://github.com/MNiMORPH/GRLP/issues/16).
+
+## Iterating the solve to convergence (opt-in)
+
+Each step is semi-implicit: GRLP relinearizes and re-solves a few times (Picard
+iteration). By default it takes a fixed number of iterations (`set_niter`, three
+by default), which is already at round-off for the standard physics at ordinary
+steps. At very large steps a fixed count can leave the step slightly
+under-converged, which — like an inaccurate nonlinear solve — erodes the BDF2
+order. To guarantee convergence instead, set a tolerance:
+
+```python
+lp.set_picard_tolerance(1e-6)   # iterate until max|z_k − z_{k-1}| < 1 µm
+```
+
+The solver then iterates until the inter-iteration elevation change falls below
+the tolerance (in metres), up to a `max_iter` cap, warning if the cap is reached
+first. Because the Picard residual falls superlinearly, a micrometre tolerance
+converges in only a handful of iterations even at million-year steps; the cap
+exists because the residual ultimately floors at round-off. Pass `tol=None` to
+return to fixed-iteration mode. See
+[MNiMORPH/GRLP#17](https://github.com/MNiMORPH/GRLP/issues/17).

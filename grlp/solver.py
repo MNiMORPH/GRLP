@@ -419,45 +419,139 @@ def evolve(net, nt, dt):
             seg.dz_dt = (seg.z - seg.zold) / dt
 
 
-def evolve_adaptive(net, nt, dt):
-    """
-    Adaptive-time-step evolution loop (MNiMORPH/GRLP#16, Phase 2).
+def _trial_step(net, z_curr, z_prev, dt, dt_prev, use_bdf2,
+                segs, starts, lengths, gravel_loss_active, picard_tol, max_iter):
+    """One step-doubling trial from the two-level state ``(z_curr, z_prev)``.
 
-    Unlike :func:`evolve`, which re-bootstraps the BDF2 history on the first step
-    of *every* call, this is a **dedicated loop** that carries the two-level
-    history ``(z^n, z^{n-1})`` across all steps -- the prerequisite for both a
-    per-step local-error estimate and step-size control (see
-    ``claude-instructions/adaptive-timestepping-design.md``).
+    Takes one step of ``dt`` (``z_big``) and two steps of ``dt/2`` (``z_small``),
+    both from the same start, and returns ``(z_small, est)`` with
+    ``est = max|z_big - z_small|``. ``z_small`` is the finer (advanced) solution
+    (local extrapolation); ``est`` estimates its error up to a constant factor.
+    With ``use_bdf2=False`` all three sub-steps are backward Euler (the bootstrap,
+    which has no ``z_prev``); otherwise they are variable-step BDF2, the first
+    half-step reaching back to the ``dt_prev``-spaced ``z_prev`` (omega < 1)."""
+    def _solve(dt_sub, omega):
+        net._bdf2_step = use_bdf2
+        net._bdf2_omega = omega
+        _picard_step(net, dt_sub, segs, starts, lengths,
+                     gravel_loss_active, picard_tol, max_iter)
+        return [seg.z.copy() for seg in segs]
 
-    **Increment 1 (this version): fixed step, no control yet.** It takes ``nt``
-    steps of size ``dt``, bootstrapping the first step with backward Euler and
-    using BDF2 thereafter, so with ``set_time_integration(2)`` it reproduces
-    :func:`evolve` bit-for-bit at fixed ``dt``. The embedded error estimator, the
-    step controller, and variable-step BDF2 weights land in later increments;
-    the signature will grow a tolerance then.
+    def _set(zold, zold2):
+        for i, seg in enumerate(segs):
+            seg.zold2 = None if zold2 is None else zold2[i]
+            seg.zold = zold[i]
+            seg.z = zold[i].copy()
+
+    hist2 = z_prev if use_bdf2 else None
+    # z_big: one step of dt
+    _set(z_curr, hist2)
+    z_big = _solve(dt, (dt / dt_prev) if use_bdf2 else 1.0)
+    # z_small: two steps of dt/2 (second half is uniform, omega = 1)
+    _set(z_curr, hist2)
+    z_half = _solve(dt / 2.0, (0.5 * dt / dt_prev) if use_bdf2 else 1.0)
+    _set(z_half, z_curr if use_bdf2 else None)
+    z_small = _solve(dt / 2.0, 1.0)
+    est = max(float(np.max(np.abs(b - s))) for b, s in zip(z_big, z_small))
+    return z_small, est
+
+
+def evolve_adaptive(net, T, dt_init=None):
     """
-    net.dt = dt
-    bdf2_requested = getattr(net, "time_order", 1) == 2
+    Adaptive-time-step integration (MNiMORPH/GRLP#16, Phase 2).
+
+    Advance the network by a total time ``T`` [s], choosing each step size so the
+    per-step step-doubling error estimate stays at or below the tolerance set by
+    ``set_adaptive_timestep``. Unlike :func:`evolve`, this carries the BDF2
+    two-level history across steps and resizes the step as the transient speeds up
+    or settles: small steps where the profile changes fast, large where it is
+    smooth.
+
+    Method: variable-step BDF2 (second order), bootstrapped with one
+    backward-Euler step; each step is estimated by step doubling (one step of Δt
+    vs two of Δt/2 from the same state) and the network is advanced with the finer
+    two-half-step solution (local extrapolation). Step size is chosen by an
+    I-controller, ``Δt_new = Δt · safety · (tol/est)^{1/(p+1)}`` (p = 2, or 1 for
+    the backward-Euler bootstrap), clamped by a max growth/shrink ratio and by
+    ``dt_min``/``dt_max``; a step whose estimate exceeds ``tol`` is rejected and
+    retried smaller. ``dt_init`` is only the starting guess (the bootstrap is
+    itself error-controlled); it defaults to ``adaptive_dt_init`` or a small
+    fraction of ``T``.
+
+    Turn on ``set_picard_tolerance`` for a converged per-step solve; the estimate
+    and step both assume the nonlinear iteration has converged.
+    """
+    tol = getattr(net, "adaptive_tol", None)
+    if tol is None:
+        raise ValueError("adaptive stepping needs a tolerance; call "
+                         "set_adaptive_timestep(tol) before evolve_adaptive")
+    dt_min = getattr(net, "adaptive_dt_min", 0.0)
+    dt_max = getattr(net, "adaptive_dt_max", np.inf)
+    safety = getattr(net, "adaptive_safety", 0.9)
+    max_grow = getattr(net, "adaptive_max_grow", 5.0)
+    max_shrink = getattr(net, "adaptive_max_shrink", 0.1)
+    if dt_init is None:
+        dt_init = getattr(net, "adaptive_dt_init", None)
     picard_tol, max_iter, gravel_loss_active = _picard_config(net)
     segs = net.segments
     lengths = list(net.list_of_segment_lengths)
     starts = np.cumsum([0] + lengths)[:-1]
-    dt_prev = dt
-    for ti in range(int(nt)):
-        for seg in segs:
-            seg.zold2 = None if ti == 0 else seg.zold
-            seg.zold = seg.z.copy()
-        net._bdf2_step = bdf2_requested and ti > 0
-        # Variable-step BDF2 needs omega = dt_n / dt_{n-1}; here dt is fixed so
-        # omega = 1 every step (identical to evolve). The controller will vary it.
-        net._bdf2_omega = dt / dt_prev
-        _picard_step(net, dt, segs, starts, lengths,
-                     gravel_loss_active, picard_tol, max_iter)
-        net.t += dt
-        dt_prev = dt
-        for seg in segs:
+
+    t_end = net.t + T
+    eps = 1e-9 * max(abs(T), 1.0)
+
+    def _propose(dt_used, est, p):
+        # I-controller: grow/shrink toward holding est == tol; est == 0 => grow max.
+        if est <= 0.0:
+            factor = max_grow
+        else:
+            factor = safety * (tol / est) ** (1.0 / (p + 1.0))
+        factor = min(max_grow, max(max_shrink, factor))
+        return min(dt_max, max(dt_min, dt_used * factor))
+
+    def _advance(z_curr, z_prev, dt_used):
+        # commit the accepted step: publish z onto the segments, update t/dz_dt.
+        net.t += dt_used
+        net.dt = dt_used
+        for i, seg in enumerate(segs):
+            seg.zold = z_prev[i]
+            seg.z = z_curr[i]
             seg.t = net.t
-            seg.dz_dt = (seg.z - seg.zold) / dt
+            seg.dz_dt = (z_curr[i] - z_prev[i]) / dt_used
+
+    z_curr = [seg.z.copy() for seg in segs]
+    # ---- bootstrap: one error-controlled backward-Euler step (no z_prev) ----
+    dt = dt_init if dt_init else min(dt_max, max(dt_min, 1e-2 * T))
+    dt = min(dt, t_end - net.t)
+    z_prev = z_curr
+    dt_prev = None
+    first = True
+    while net.t < t_end - eps:
+        dt = min(max(dt, dt_min), t_end - net.t)
+        use_bdf2 = not first
+        p = 1 if first else 2
+        rejects = 0
+        while True:
+            z_small, est = _trial_step(
+                net, z_curr, z_prev, dt, dt_prev, use_bdf2,
+                segs, starts, lengths, gravel_loss_active, picard_tol, max_iter)
+            at_floor = dt <= dt_min * (1.0 + 1e-12)
+            if est <= tol or at_floor or rejects >= 50:
+                break
+            # reject: shrink and retry the same step
+            shrink = max(max_shrink, safety * (tol / est) ** (1.0 / (p + 1.0)))
+            dt = max(dt_min, dt * min(shrink, 0.9))
+            rejects += 1
+        if est > tol and at_floor:
+            warnings.warn(
+                "Adaptive stepping hit dt_min=%g with est=%g > tol=%g at t=%g; "
+                "step is under-resolved." % (dt_min, est, tol, net.t),
+                RuntimeWarning)
+        z_prev, z_curr = z_curr, z_small
+        _advance(z_curr, z_prev, dt)
+        dt_prev = dt
+        dt = _propose(dt, est, p)
+        first = False
 
 
 def update_gravel_loss(net):

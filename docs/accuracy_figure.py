@@ -100,9 +100,9 @@ def main():
     ax[0].grid(True, which="both", alpha=0.3)
 
     ax[1].loglog(stepsB, glob_be, "s-", color="C1",
-                 label="backward Euler (default)")
+                 label="backward Euler  (set_time_integration(1))")
     ax[1].loglog(stepsB, glob_bdf2, "^-", color="C2",
-                 label="BDF2  (set_time_integration(2))")
+                 label="BDF2 (default)")
     ax[1].loglog(stepsB, glob_be[-1] * (stepsB / stepsB[-1]) ** 1, "--",
                  color="0.7", label=r"$\propto$ step")
     ax[1].loglog(stepsB, glob_bdf2[0] * (stepsB / stepsB[0]) ** 2, ":",
@@ -113,8 +113,8 @@ def main():
     ax[1].legend()
     ax[1].grid(True, which="both", alpha=0.3)
 
-    fig.suptitle("GRLP time-stepping accuracy: first-order (default) vs. "
-                 "second-order (BDF2)", y=1.02)
+    fig.suptitle("GRLP time-stepping accuracy: second-order (BDF2, default) vs. "
+                 "first-order (backward Euler)", y=1.02)
     fig.tight_layout()
 
     out = os.path.join(_here, "_static", "timestep_accuracy.png")

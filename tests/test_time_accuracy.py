@@ -69,7 +69,7 @@ def _rate(dts, errs):
 
 
 def test_time_stepping_is_first_order():
-    """Backward Euler (default): error falls at first order in Δt."""
+    """Backward Euler (``set_time_integration(1)``): error falls at first order in Δt."""
     dts, errs, table = _convergence(order=1)
     assert np.all(np.diff(errs) < 0.0), "error not monotonic in Δt:\n" + table
     rate = _rate(dts, errs)

@@ -11,6 +11,8 @@ and lets a lone ``Segment`` be solved as the one-edge network it is: one
 solver path for every case.
 """
 
+import warnings
+
 import numpy as np
 from scipy import sparse
 from scipy.sparse.linalg import spsolve
@@ -333,6 +335,17 @@ def evolve(net, nt, dt):
     """
     net.dt = dt
     bdf2_requested = getattr(net, "time_order", 1) == 2
+    # Picard iteration control. By default the solver takes a fixed net.niter
+    # iterations per step. If a convergence tolerance is set (net.picard_tol,
+    # via set_picard_tolerance) it instead iterates until the inter-iteration
+    # elevation change max|z_k - z_{k-1}| drops below the tolerance, capped at
+    # net.picard_max_iter. Fixed-niter mode reproduces the previous behaviour
+    # bit-for-bit (no convergence check, exactly niter solves).
+    picard_tol = getattr(net, "picard_tol", None)
+    if picard_tol is None:
+        max_iter = int(net.niter)
+    else:
+        max_iter = int(getattr(net, "picard_max_iter", 100))
     segs = net.segments
     lengths = list(net.list_of_segment_lengths)
     starts = np.cumsum([0] + lengths)[:-1]
@@ -349,14 +362,28 @@ def evolve(net, nt, dt):
             seg.zold2 = None if ti == 0 else seg.zold
             seg.zold = seg.z.copy()
         net._bdf2_step = bdf2_requested and ti > 0
-        for _ in range(int(net.niter)):
+        converged = picard_tol is None   # fixed-niter mode: nothing to check
+        for k in range(max_iter):
             if gravel_loss_active:
                 update_gravel_loss(net)
             LHS, RHS = assemble(net, dt)
             out = spsolve(sparse.csr_matrix(LHS), RHS)
+            change = 0.0
             for seg in segs:
                 s = seg.ID
-                seg.z = out[starts[s]:starts[s] + lengths[s]]
+                znew = out[starts[s]:starts[s] + lengths[s]]
+                if picard_tol is not None:
+                    change = max(change, np.max(np.abs(znew - seg.z)))
+                seg.z = znew
+            if picard_tol is not None and change < picard_tol:
+                converged = True
+                break
+        if not converged:
+            warnings.warn(
+                "Picard iteration did not converge to tol=%g in %d iterations "
+                "(last change %g m) at t=%g; result may be under-converged."
+                % (picard_tol, max_iter, change, net.t),
+                RuntimeWarning)
         net.t += dt
         for seg in segs:
             seg.t = net.t

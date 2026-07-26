@@ -584,6 +584,12 @@ class LongProfile(object):
         """Number of Picard iterations per step (set on the owned network)."""
         self._net().set_niter(niter)
 
+    def set_picard_tolerance(self, tol, max_iter=100):
+        """Iterate the Picard solve to convergence (tolerance ``tol`` in metres)
+        instead of a fixed ``niter``; ``tol=None`` restores fixed-``niter``.
+        Set on the owned network; see ``Network.set_picard_tolerance``."""
+        self._net().set_picard_tolerance(tol, max_iter=max_iter)
+
     def set_time_integration(self, order):
         """Time-integration order: 1 = backward Euler (default), 2 = BDF2
         (set on the owned network)."""
@@ -960,6 +966,12 @@ class Network(object):
         self.Q_s_0 = None
         self.S0 = None
         self.time_order = 1   # time integration: 1 = backward Euler, 2 = BDF2
+        # Picard (semi-implicit) iteration control. By default the solver takes a
+        # fixed number of iterations per step (`niter`, set via set_niter). Set a
+        # convergence tolerance with set_picard_tolerance to instead iterate until
+        # the inter-iteration elevation change falls below it (see solver.evolve).
+        self.picard_tol = None       # None = fixed-niter mode (the default)
+        self.picard_max_iter = 100   # safety cap when a tolerance is set
 
     @property
     def list_of_LongProfile_objects(self):
@@ -1043,6 +1055,26 @@ class Network(object):
     def set_niter(self, niter):
         # MAKE UNIFORM IN BASE CLASS
         self.niter = niter
+
+    def set_picard_tolerance(self, tol, max_iter=100):
+        """
+        Iterate the semi-implicit (Picard) solve to convergence each step,
+        instead of taking a fixed ``niter`` iterations.
+
+        With ``tol`` set, ``solver.evolve`` keeps relinearizing until the
+        inter-iteration elevation change ``max|z_k - z_{k-1}|`` falls below
+        ``tol`` (metres), up to ``max_iter`` iterations; it warns if the cap is
+        hit without converging. Pass ``tol=None`` to restore the default
+        fixed-``niter`` behaviour. The Picard residual falls superlinearly for
+        the default physics, so a micrometre tolerance converges in a handful of
+        iterations even at very large steps; a cap is required because the
+        residual ultimately floors at round-off.
+        """
+        if tol is not None and tol <= 0:
+            raise ValueError("Picard tolerance must be positive (or None to "
+                             "disable); got %r" % (tol,))
+        self.picard_tol = tol
+        self.picard_max_iter = int(max_iter)
 
     def set_time_integration(self, order):
         """

@@ -574,6 +574,22 @@ class LongProfile(object):
         seg.Qs_internal = 1 / (1 - seg.lambda_p) * np.cumsum(seg.dz_dt) \
                           * seg.B + seg.Q_s_0
 
+    def evolve_threshold_width_river_adaptive(self, T, dt_init=None):
+        """
+        Advance the profile by total time ``T`` [s] with adaptive time stepping,
+        sizing each step to hold the error tolerance from ``set_adaptive_timestep``
+        (with ``set_time_integration(2)``). The step-size counterpart of
+        ``evolve_threshold_width_river``; see ``solver.evolve_adaptive``.
+        """
+        seg = self.segment
+        seg.ID = 0
+        net = self._net()
+        net.t = seg.t
+        net.get_z_lengths()
+        net.evolve_threshold_width_river_network_adaptive(T, dt_init)
+        seg.Qs_internal = 1 / (1 - seg.lambda_p) * np.cumsum(seg.dz_dt) \
+                          * seg.B + seg.Q_s_0
+
     def _net(self):
         """The owned one-edge Network wrapping this profile's Segment."""
         if self._network is None:
@@ -589,6 +605,12 @@ class LongProfile(object):
         instead of a fixed ``niter``; ``tol=None`` restores fixed-``niter``.
         Set on the owned network; see ``Network.set_picard_tolerance``."""
         self._net().set_picard_tolerance(tol, max_iter=max_iter)
+
+    def set_adaptive_timestep(self, tol, **kwargs):
+        """Configure adaptive time stepping (per-step error tolerance ``tol`` in
+        metres) for ``evolve_threshold_width_river_adaptive``. Set on the owned
+        network; see ``Network.set_adaptive_timestep`` for the full options."""
+        self._net().set_adaptive_timestep(tol, **kwargs)
 
     def set_time_integration(self, order):
         """Time-integration order: 1 = backward Euler (default), 2 = BDF2
@@ -1089,6 +1111,34 @@ class Network(object):
                              "or 2 (BDF2); got %r" % (order,))
         self.time_order = order
 
+    def set_adaptive_timestep(self, tol, dt_init=None, dt_min=0.0, dt_max=None,
+                              safety=0.9, max_grow=5.0, max_shrink=0.1):
+        """
+        Configure adaptive time stepping for ``evolve_threshold_width_river(...,
+        adaptive=True)`` / ``evolve_adaptive`` (see ``solver.evolve_adaptive``).
+
+        ``tol`` is the per-step local error tolerance in metres: each step is
+        estimated by step doubling and sized so the estimate stays at or below
+        ``tol`` (as with an ODE solver's tolerance, the achieved *path* error is
+        of comparable magnitude, not identical). Adaptive stepping uses BDF2, so
+        it is only meaningful with ``set_time_integration(2)``.
+
+        ``dt_init`` is the starting-step guess (the bootstrap is itself
+        error-controlled, so it need not be accurate); ``dt_min``/``dt_max`` bound
+        the step; ``safety`` (<1) is the controller safety factor; ``max_grow`` /
+        ``max_shrink`` cap the per-step size change. Pass ``tol=None`` to disable.
+        """
+        if tol is not None and tol <= 0:
+            raise ValueError("adaptive tolerance must be positive (or None to "
+                             "disable); got %r" % (tol,))
+        self.adaptive_tol = tol
+        self.adaptive_dt_init = dt_init
+        self.adaptive_dt_min = dt_min
+        self.adaptive_dt_max = np.inf if dt_max is None else dt_max
+        self.adaptive_safety = safety
+        self.adaptive_max_grow = max_grow
+        self.adaptive_max_shrink = max_shrink
+
 
     def set_x_bl(self, x_bl=None):
         """
@@ -1547,6 +1597,14 @@ class Network(object):
         # to assemble one global sparse system (multi-tributary confluences use
         # the conservative three-node junction cell) and Picard-iterates.
         return solver.evolve(self, nt, dt)
+
+    def evolve_threshold_width_river_network_adaptive(self, T, dt_init=None):
+        """
+        Advance the network by total time ``T`` [s] with adaptive time stepping
+        (step-doubling error control; see ``solver.evolve_adaptive``). Requires
+        ``set_adaptive_timestep(tol)`` and ``set_time_integration(2)``.
+        """
+        return solver.evolve_adaptive(self, T, dt_init)
 
     def find_downstream_IDs(self, ID):
         """

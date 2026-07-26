@@ -65,7 +65,25 @@ the `(zⁿ, zⁿ⁻¹)` history across steps, (b) estimates the per-step error, 
 - `_picard_step` / `_picard_config` extracted so `evolve` and `evolve_adaptive`
   share one step-taker.
 
-**Step-doubling estimator — characterized (prototype, not yet in solver):**
+**Increments 3 & 5 (controller + API) — DONE and committed.**
+- `solver.evolve_adaptive(net, T, dt_init=None)` is now the adaptive integrator
+  (advance total time T). `_trial_step` does the step-doubling; an I-controller
+  `Δt·safety·(tol/est)^{1/(p+1)}` (p=2, p=1 bootstrap) with reject-and-retry sizes
+  the step; advances with the finer half-step solution. Error-controlled BE
+  bootstrap → result independent of `dt_init`.
+- API: `set_adaptive_timestep(tol, dt_init, dt_min, dt_max, safety, max_grow,
+  max_shrink)` on Network + LongProfile; `evolve_threshold_width_river_adaptive(T)`
+  (LongProfile) / `..._network_adaptive` (Network).
+- Verified (tests/test_adaptive_timestepping.py): achieved error falls
+  monotonically with tol, dt_init-independent to ~1e-6 m over 1000×, lands exactly
+  on T, denser stepping in the fast early transient, runs on a confluence network;
+  golden masters untouched (340 passed).
+- **Chose an I-controller, not PI** (design note said PI): the I-controller meets
+  the acceptance test and avoids gain tuning; PI smoothing is a documented
+  refinement, not a requirement. **Semantics:** `tol` is a *per-step local*
+  tolerance (ODE-solver convention); achieved path error is comparable, not equal.
+
+**Step-doubling estimator — characterized (prototype, informed the build):**
 - The advanced solution's true error ≈ **0.83·est**, and this ratio is
   **constant across Δt** (measured 0.40 for `est/3`, flat over 500–8000 yr steps).
   Constant calibration is exactly what the controller needs — the estimator is
@@ -81,9 +99,13 @@ the `(zⁿ, zⁿ⁻¹)` history across steps, (b) estimates the per-step error, 
   Rely on the **end-to-end order-2 tests** for order; use the isolated runs only
   for the *calibration ratio* (which is robust to these confounds).
 
-**Next:** implement `_step_double_estimate` in the solver + the PI controller +
-accept/reject loop + the `tol` API (increments 3 & 5), then the end-to-end
-"achieved error tracks tol" test.
+**Status: all increments (1, 3, 4, 5) DONE.** Adaptive time stepping is
+implemented, tested, and documented (CHANGELOG + docs/accuracy.md). Possible
+future refinements (not required): PI step controller (smoother step sequence);
+per-unit-time (EPUS) tolerance so achieved *path* error ≈ tol directly;
+re-bootstrap on boundary-condition discontinuities; expose adaptive on the public
+`evolve_threshold_width_river(..., adaptive=True)` signature if a single entry
+point is preferred over the `_adaptive` method.
 
 ## Risks / interactions
 

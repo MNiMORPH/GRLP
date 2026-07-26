@@ -75,6 +75,17 @@ version heading for the full notes.
   machine precision. See `docs/accuracy.md`;
   [#16](https://github.com/MNiMORPH/GRLP/issues/16),
   [#18](https://github.com/MNiMORPH/GRLP/issues/18).
+- Optional **convergence-controlled Picard iteration**, selected with
+  `set_picard_tolerance(tol)` on `LongProfile` / `Network`. Instead of taking a
+  fixed number of semi-implicit iterations per step (`set_niter`, still the
+  default), the solver relinearizes until the inter-iteration elevation change
+  `max|z_k - z_{k-1}|` falls below `tol` (metres), capped at `max_iter` and
+  warning if the cap is reached. The Picard residual falls superlinearly, so a
+  micrometre tolerance converges in a few iterations even at very large steps;
+  this makes the per-step nonlinear solve trustworthy at the large steps BDF2 and
+  (future) adaptive stepping enable. Off by default, so existing results are
+  unchanged. Guarded by `tests/test_picard_convergence.py`;
+  [#17](https://github.com/MNiMORPH/GRLP/issues/17).
 - Time-stepping accuracy characterization: `tests/test_time_accuracy.py` verifies
   by self-convergence that backward Euler is first-order in time and BDF2 is
   second-order, and a **Numerical accuracy** page on the documentation site

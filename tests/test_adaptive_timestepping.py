@@ -1,20 +1,24 @@
 """
-Adaptive time stepping (MNiMORPH/GRLP#16, Phase 2), built up in increments.
+Adaptive time stepping (MNiMORPH/GRLP#16, Phase 2).
 
-The adaptive controller needs a stepping loop that carries the BDF2 two-level
-history ``(z^n, z^{n-1})`` across steps -- unlike ``solver.evolve``, which
-re-bootstraps that history on the first step of every call. ``solver.evolve_adaptive``
-is that dedicated loop.
+``solver.evolve_adaptive`` advances the network by a total time ``T`` with
+variable-step BDF2, sizing each step from a step-doubling error estimate so the
+per-step error stays at or below the tolerance set by ``set_adaptive_timestep``.
+It carries the BDF2 two-level history across steps (unlike ``solver.evolve``,
+which re-bootstraps it each call) and advances with the finer two-half-step
+solution (local extrapolation).
 
-**Increment 1 (fixed step, no control yet).** These tests pin the scaffold: at a
-fixed step with BDF2 requested, ``evolve_adaptive`` must reproduce ``evolve``
-bit-for-bit and inherit its second-order-in-time convergence. Later increments
-(embedded error estimate, step controller, variable-step weights) add tolerance
-control and will bring their own acceptance tests; this equivalence guards the
-history bookkeeping underneath them.
+These tests check the two pieces:
+ * the **variable-step BDF2 weights** stay second order on a non-uniform step
+   sequence (the foundation the controller stands on); and
+ * the **controller** actually controls -- achieved error falls as the tolerance
+   tightens, is independent of the starting-step guess, and lands exactly on the
+   requested end time.
 
 See ``claude-instructions/adaptive-timestepping-design.md``.
 """
+
+import warnings
 
 import numpy as np
 
@@ -24,62 +28,44 @@ from grlp import solver
 
 _YEAR = 3.15e7
 _UPLIFT = 1.0e-4 / _YEAR
-_N_REF = 2048
-_N_STEPS = (8, 16, 32, 64, 128)
 
 
-def _steady_bdf2():
-    """A steady-state profile with a uplift step applied and BDF2 selected."""
+def _steady_bdf2(picard_tol=1e-10):
+    """A steady-state profile with an uplift step applied, BDF2 selected, and the
+    Picard solve converged (so the error estimate is not polluted by an
+    under-converged nonlinear step)."""
     lp = make_long_profile(U=0.0)
     lp.evolve_threshold_width_river(nt=STEADY_NT, dt=STEADY_DT)
     lp.set_uplift_rate(_UPLIFT)
     lp.set_time_integration(2)
+    lp.set_picard_tolerance(picard_tol, max_iter=50)
     return lp
 
 
-def _final_z(loop, nt, dt):
-    lp = _steady_bdf2()
-    loop(lp._net(), nt, dt)
-    return lp.z.copy()
-
-
-def test_evolve_adaptive_fixed_step_matches_evolve_bitwise():
-    """At a fixed step, the dedicated adaptive loop reproduces ``evolve``'s BDF2
-    path exactly -- same bootstrap, same history, same solves."""
-    for nt, yrs in [(1, 1.0e6), (5, 2.0e5), (20, 5.0e4)]:
-        dt = yrs * _YEAR
-        z_evolve = _final_z(solver.evolve, nt, dt)
-        z_adaptive = _final_z(solver.evolve_adaptive, nt, dt)
-        assert np.array_equal(z_evolve, z_adaptive), (
-            "evolve_adaptive diverged from evolve at nt=%d, dt=%g yr "
-            "(max|dz|=%.3e m)" % (nt, yrs, np.max(np.abs(z_evolve - z_adaptive))))
-
-
-def test_evolve_adaptive_fixed_step_is_second_order():
-    """The scaffold inherits BDF2's second-order-in-time convergence at fixed
-    step (self-convergence rate ~2)."""
+def _equilibration_time():
     lp = make_long_profile()
     lp.evolve_threshold_width_river(nt=STEADY_NT, dt=STEADY_DT)
     lp.compute_equilibration_time()
-    T = lp.equilibration_time
-    z_ref = _final_z(solver.evolve_adaptive, _N_REF, T / _N_REF)
-    dts = np.array([T / n for n in _N_STEPS])
-    errs = np.array([np.max(np.abs(_final_z(solver.evolve_adaptive, n, T / n) - z_ref))
-                     for n in _N_STEPS])
-    table = "\n".join("  n=%4d  err=%.3e m" % (n, e)
-                      for n, e in zip(_N_STEPS, errs))
-    assert np.all(np.diff(errs) < 0.0), "error not monotonic in Δt:\n" + table
-    rate = np.polyfit(np.log(dts), np.log(errs), 1)[0]
-    assert 1.7 < rate < 2.4, (
-        "expected second-order (rate ~2), measured %.3f:\n%s" % (rate, table))
+    return lp.equilibration_time
 
 
+def _fine_reference(T, n=4096):
+    """The 'truth': the same transient integrated with many small fixed BDF2
+    steps."""
+    ref = _steady_bdf2()
+    ref.evolve_threshold_width_river(nt=n, dt=T / n)
+    return ref.z.copy()
+
+
+# ----------------------------------------------------------------------------
+# Variable-step BDF2 weights (the controller's foundation)
+# ----------------------------------------------------------------------------
 def _evolve_sequence(net, dts):
     """Step a network through a *prescribed* list of step sizes, carrying the
     BDF2 history and setting the variable-step weight ``omega = dt_n / dt_{n-1}``
     each step. Drives the real solver primitives (``_picard_step`` reads the
-    variable-step weights assembled in ``solver.assemble``); it is the fixed-list
-    stand-in for the step controller, used to test the weights on their own."""
+    variable-step weights assembled in ``solver.assemble``); the fixed-list
+    stand-in for the controller, used to test the weights on their own."""
     segs = net.segments
     lengths = list(net.list_of_segment_lengths)
     starts = np.cumsum([0] + lengths)[:-1]
@@ -111,14 +97,11 @@ def test_variable_step_bdf2_is_second_order():
     are what preserve the order; with the uniform (3/2, 2, 1/2) weights the rate
     collapses toward one.  Prerequisite for step-doubling error control and for
     the step controller, which change Δt every step."""
-    lp = make_long_profile()
-    lp.evolve_threshold_width_river(nt=STEADY_NT, dt=STEADY_DT)
-    lp.compute_equilibration_time()
-    T = lp.equilibration_time
+    T = _equilibration_time()
 
     def final_z(N):
         dts = _nonuniform_partition(T, N)
-        prof = _steady_bdf2()
+        prof = _steady_bdf2(picard_tol=None)
         _evolve_sequence(prof._net(), dts)
         return prof.z.copy(), dts.max()
 
@@ -138,3 +121,95 @@ def test_variable_step_bdf2_is_second_order():
     assert 1.7 < rate < 2.4, (
         "variable-step BDF2 should stay ~2nd order, measured %.3f:\n%s"
         % (rate, table))
+
+
+# ----------------------------------------------------------------------------
+# The step controller
+# ----------------------------------------------------------------------------
+def _adaptive_final_z(tol, T, dt_init=None):
+    lp = _steady_bdf2()
+    lp.set_adaptive_timestep(tol)
+    lp.evolve_threshold_width_river_adaptive(T, dt_init=dt_init)
+    return lp
+
+
+def test_adaptive_error_tracks_tolerance():
+    """Tightening the tolerance monotonically reduces the achieved error against
+    a fine fixed-step reference, and each run lands within a modest band of its
+    tolerance (tol is a per-step local tolerance, so the path error is of
+    comparable, not identical, magnitude)."""
+    T = _equilibration_time()
+    z_ref = _fine_reference(T)
+    tols = [1e-2, 1e-3, 1e-4]
+    errs = [np.max(np.abs(_adaptive_final_z(tol, T).z - z_ref)) for tol in tols]
+    table = "\n".join("  tol=%.0e  err=%.3e m" % (t, e)
+                      for t, e in zip(tols, errs))
+    assert np.all(np.diff(errs) < 0.0), \
+        "achieved error not monotonic in tol:\n" + table
+    for tol, err in zip(tols, errs):
+        assert 0.05 * tol < err < 20.0 * tol, \
+            "achieved error out of band for tol=%.0e:\n%s" % (tol, table)
+
+
+def test_adaptive_is_starting_step_independent():
+    """The controller forgets its initial step guess: the same tolerance gives
+    the same profile whether the first step is tiny or large."""
+    T = _equilibration_time()
+    z_small = _adaptive_final_z(1e-3, T, dt_init=T * 1e-4).z
+    z_large = _adaptive_final_z(1e-3, T, dt_init=T * 0.1).z
+    spread = np.max(np.abs(z_small - z_large))
+    assert spread < 1e-4, \
+        "adaptive result depends on the starting step (spread %.3e m)" % spread
+
+
+def test_adaptive_reaches_target_time_exactly():
+    """Adaptive stepping advances by exactly the requested total time (the last
+    step is trimmed to land on it)."""
+    lp = _steady_bdf2()
+    t0 = lp.t
+    T = _equilibration_time()
+    lp.set_adaptive_timestep(1e-3)
+    lp.evolve_threshold_width_river_adaptive(T)
+    assert np.isclose(lp.t, t0 + T, rtol=1e-9, atol=0.0), \
+        "final time %g != t0 + T = %g" % (lp.t, t0 + T)
+
+
+def test_adaptive_step_grows_as_transient_settles():
+    """Steps should be small early (fast adjustment right after the uplift step)
+    and larger late (the profile is settling), so the mean late step exceeds the
+    mean early step. Measured by counting error-estimate trials in each half."""
+    T = _equilibration_time()
+    calls = {"t": []}
+    orig = solver._trial_step
+
+    def counting(net, *a, **k):
+        calls["t"].append(net.t)
+        return orig(net, *a, **k)
+
+    solver._trial_step = counting
+    try:
+        lp = _steady_bdf2()
+        t0 = lp.t
+        lp.set_adaptive_timestep(1e-3)
+        lp.evolve_threshold_width_river_adaptive(T)
+    finally:
+        solver._trial_step = orig
+    ts = np.array(calls["t"]) - t0
+    early = np.sum(ts < T / 2)
+    late = np.sum(ts >= T / 2)
+    # More trials are spent in the fast early half than the settling late half.
+    assert early > late, \
+        "expected denser stepping early (fast transient): early=%d late=%d" \
+        % (early, late)
+
+
+def test_adaptive_requires_a_tolerance():
+    """``evolve_adaptive`` without a configured tolerance is an error, not a
+    silent no-op."""
+    lp = _steady_bdf2()
+    try:
+        lp.evolve_threshold_width_river_adaptive(_equilibration_time())
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected ValueError without set_adaptive_timestep")

@@ -38,7 +38,7 @@ def _steady_bdf2(picard_tol=1e-10):
     lp.evolve_threshold_width_river(nt=STEADY_NT, dt=STEADY_DT)
     lp.set_uplift_rate(_UPLIFT)
     lp.set_time_integration(2)
-    lp.set_picard_tolerance(picard_tol, max_iter=50)
+    lp.set_iteration_tolerance(picard_tol, max_iter=50)
     return lp
 
 

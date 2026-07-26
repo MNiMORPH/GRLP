@@ -2,8 +2,8 @@
 Time-stepping accuracy of the threshold-width solver.
 
 GRLP integrates the sediment-conservation equation with a semi-implicit scheme.
-Its **time** accuracy is selectable (`set_time_integration`): backward Euler is
-first-order (the default), BDF2 is second-order. This test verifies both orders
+Its **time** accuracy is selectable (`set_time_integration`): BDF2 is
+second-order (the default), backward Euler is first-order. This test verifies both orders
 by self-convergence: it evolves the *same* transient to a fixed end time first
 with a very small "reference" time step, then with a sequence of progressively
 larger steps, and checks that the error against the reference

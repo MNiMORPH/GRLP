@@ -73,7 +73,7 @@ def _steady(scenario):
     else:
         raise ValueError("scenario must be 'uplift' or 'baselevel'")
     lp.set_time_integration(2)
-    lp.set_picard_tolerance(_PICARD_TOL, max_iter=50)
+    lp.set_iteration_tolerance(_PICARD_TOL, max_iter=50)
     return lp
 
 

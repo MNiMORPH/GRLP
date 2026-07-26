@@ -1,15 +1,16 @@
 """
-Convergence-controlled Picard iteration (``set_picard_tolerance``).
+Convergence-controlled Picard iteration (``set_iteration_tolerance``).
 
 The threshold-width solver is semi-implicit: each time step it relinearizes and
-re-solves a few times (Picard iteration). By default it takes a fixed number of
-iterations (``set_niter``). ``set_picard_tolerance(tol)`` instead iterates until
-the inter-iteration elevation change ``max|z_k - z_{k-1}|`` drops below ``tol``,
-capped at ``max_iter`` iterations, and warns if the cap is reached first.
+re-solves a few times (Picard iteration). By default it iterates to convergence
+(``set_iteration_tolerance``), stopping once the inter-iteration elevation change
+``max|z_k - z_{k-1}|`` drops below ``tol``, capped at ``max_iter`` iterations and
+warning if the cap is reached first. ``set_niter(n)`` instead takes a fixed ``n``
+iterations (the faster expert option), the two being mutually exclusive.
 
 These tests check that
-  (i)   the default (no tolerance) still takes exactly the fixed ``niter``
-        iterations and is bit-for-bit unchanged;
+  (i)   fixed-iteration mode (``set_niter`` / ``tol=None``) takes exactly the
+        fixed count and is deterministic;
   (ii)  a tight tolerance drives the step to the same fixed point a large fixed
         ``niter`` reaches (the Picard residual floors at round-off);
   (iii) a looser tolerance leaves a demonstrably larger residual than a tighter
@@ -17,7 +18,7 @@ These tests check that
   (iv)  the non-convergence warning fires when the tolerance is unreachable
         within ``max_iter``.
 
-See ``set_picard_tolerance`` in ``grlp/grlp.py`` and the Picard loop in
+See ``set_iteration_tolerance`` in ``grlp/grlp.py`` and the Picard loop in
 ``grlp/solver.py`` (MNiMORPH/GRLP#17).
 """
 
@@ -39,16 +40,15 @@ def _transient(nt, dt_yr, tol=None, niter=3, max_iter=100):
     lp.evolve_threshold_width_river(nt=STEADY_NT, dt=STEADY_DT)     # to steady state
     lp.set_uplift_rate(_UPLIFT)
     if tol is not None:
-        lp.set_picard_tolerance(tol, max_iter=max_iter)
+        lp.set_iteration_tolerance(tol, max_iter=max_iter)
     lp.evolve_threshold_width_river(nt=nt, dt=dt_yr * _YEAR)
     return lp.z.copy()
 
 
-def test_default_fixed_niter_is_deterministic():
-    """With no tolerance set the solver takes exactly ``niter`` iterations; the
-    added convergence-check code leaves that path deterministic and unchanged.
-    (Byte-identity to the pre-existing behaviour is guarded by the golden-master
-    tests, which stay green because this branch is the historical loop verbatim.)"""
+def test_fixed_niter_mode_is_deterministic():
+    """In fixed-iteration mode (``set_niter`` / ``tol=None``) the solver takes
+    exactly ``niter`` iterations and is deterministic; this is the historical
+    loop, so the Euler golden-master set stays bit-for-bit unchanged under it."""
     z_a = _transient(20, 5.0e4, tol=None, niter=3)
     z_b = _transient(20, 5.0e4, tol=None, niter=3)
     assert np.array_equal(z_a, z_b)
@@ -102,7 +102,7 @@ def test_positive_tolerance_required():
     lp = make_long_profile()
     for bad in (0.0, -1e-6):
         try:
-            lp.set_picard_tolerance(bad)
+            lp.set_iteration_tolerance(bad)
         except ValueError:
             pass
         else:

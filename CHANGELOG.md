@@ -62,29 +62,27 @@ version heading for the full notes.
   beside the app (referenced by relative URLs) so it depends on no external
   services at run time. A Jupyter-notebook version of the same demo is kept in
   `interactive_demo/` for classroom or notebook use.
-- Optional **second-order-in-time integration (BDF2)**, selected with
-  `set_time_integration(2)` on `LongProfile` / `Network` (backward Euler, first
-  order, remains the default, so existing results are unchanged). BDF2 makes the
-  final-profile error scale like Δt² rather than Δt, so transient runs reach a
-  given accuracy at much larger, cheaper steps; it is L-stable (no ringing on
-  sharp transients) and bootstraps its first step with backward Euler. To keep it
-  second-order and mass-conservative when valley width becomes dynamic, the solver
-  was made **volume-first** -- it conserves stored sediment volume, recovering bed
-  elevation through a pluggable valley geometry (`Segment.valley_width` /
-  `storage_volume`); the constant-width default reproduces earlier results to
-  machine precision. See `docs/accuracy.md`;
-  [#16](https://github.com/MNiMORPH/GRLP/issues/16),
+- **Second-order-in-time integration (BDF2)** -- now the **default** (see
+  *Changed*). `set_time_integration(1)` selects the previous first-order backward
+  Euler. BDF2 makes the final-profile error scale like Δt² rather than Δt, so
+  transient runs reach a given accuracy at much larger, cheaper steps; it is
+  L-stable (no ringing on sharp transients) and bootstraps its first step with
+  backward Euler. To keep it second-order and mass-conservative when valley width
+  becomes dynamic, the solver was made **volume-first** -- it conserves stored
+  sediment volume, recovering bed elevation through a pluggable valley geometry
+  (`Segment.valley_width` / `storage_volume`); the constant-width default
+  reproduces earlier same-scheme results to machine precision. See
+  `docs/accuracy.md`; [#16](https://github.com/MNiMORPH/GRLP/issues/16),
   [#18](https://github.com/MNiMORPH/GRLP/issues/18).
-- Optional **convergence-controlled Picard iteration**, selected with
-  `set_picard_tolerance(tol)` on `LongProfile` / `Network`. Instead of taking a
-  fixed number of semi-implicit iterations per step (`set_niter`, still the
-  default), the solver relinearizes until the inter-iteration elevation change
-  `max|z_k - z_{k-1}|` falls below `tol` (metres), capped at `max_iter` and
-  warning if the cap is reached. The Picard residual falls superlinearly, so a
-  micrometre tolerance converges in a few iterations even at very large steps;
-  this makes the per-step nonlinear solve trustworthy at the large steps BDF2 and
-  (future) adaptive stepping enable. Off by default, so existing results are
-  unchanged. Guarded by `tests/test_picard_convergence.py`;
+- **Convergence-controlled Picard iteration** -- now the **default** (see
+  *Changed*), configured with `set_iteration_tolerance(tol)` on `LongProfile` /
+  `Network`. Each step relinearizes until the inter-iteration elevation change
+  `max|z_k - z_{k-1}|` falls below `tol` (metres, default 0.1 mm), capped at
+  `max_iter` and warning if the cap is reached (which happens for a very large
+  step, where the fixed-point iteration does not contract). `set_niter(n)`
+  switches to a fixed `n` iterations per step -- the faster expert option, and
+  mutually exclusive with a tolerance. Guarded by
+  `tests/test_picard_convergence.py`;
   [#17](https://github.com/MNiMORPH/GRLP/issues/17).
 - Optional **adaptive time stepping**, configured with
   `set_adaptive_timestep(tol)` and run with
@@ -96,7 +94,7 @@ version heading for the full notes.
   The step is chosen by an I-controller with reject-and-retry, an error-controlled
   backward-Euler bootstrap (so the result is independent of the initial-step
   guess), and it advances with the finer two-half-step solution. Requires
-  `set_time_integration(2)`; pair with `set_picard_tolerance` for a converged
+  `set_time_integration(2)`; pair with `set_iteration_tolerance` for a converged
   per-step solve. Guarded by `tests/test_adaptive_timestepping.py`;
   [#16](https://github.com/MNiMORPH/GRLP/issues/16).
 - Time-stepping accuracy characterization: `tests/test_time_accuracy.py` verifies
@@ -127,6 +125,20 @@ version heading for the full notes.
   frame-dumping script.
 
 ### Changed
+- **Default time integration is now second-order BDF2, iterated to convergence**
+  (breaking for transient results). GRLP 2.x integrated in time with first-order
+  backward Euler and a fixed three Picard iterations; the default is now BDF2
+  (second order) with the semi-implicit iteration run to a 0.1 mm tolerance. This
+  is more accurate -- transient profiles land several times closer to the
+  fine-step limit -- so **transient results change** (steady states are
+  time-step-independent and are unchanged). More accuracy for little cost: at a
+  target accuracy BDF2 needs far fewer, larger steps. The 2.x scheme is available
+  with `set_time_integration(1)` and `set_niter(3)`. A very large step can warn
+  that the iteration did not converge (the fixed-point iteration does not contract
+  there); take smaller steps or accept the reported residual. Golden-master
+  references are kept for both schemes. See `docs/accuracy.md`;
+  [#16](https://github.com/MNiMORPH/GRLP/issues/16),
+  [#17](https://github.com/MNiMORPH/GRLP/issues/17).
 - **`LongProfile` split into `Segment` + a 1-D wrapper** (breaking). A single
   reach is now a `Segment`: a pure network member -- data, configuration, the
   per-node solver coefficient (`build_LHS_coeff_C0`), and channel geometry --

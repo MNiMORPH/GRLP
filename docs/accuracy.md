@@ -1,10 +1,11 @@
 # Numerical accuracy: time stepping
 
 GRLP integrates the sediment-conservation equation with a semi-implicit scheme.
-By default it is **first-order in time** (and second-order in space); an optional
-**second-order-in-time** scheme (BDF2) is available with
-`set_time_integration(2)`. This page shows what "first-order in time" means in
-practice, and how much the second-order option buys you.
+By default it is **second-order in time** (BDF2) and second-order in space, and
+runs the semi-implicit iteration to convergence each step. The first-order
+**backward-Euler** scheme is available with `set_time_integration(1)`. This page
+shows what the time-stepping error looks like for each, why second order is the
+default, and how to choose a step.
 
 ## How the accuracy is measured
 
@@ -24,8 +25,8 @@ comparison would be empty. The same setup is checked automatically by
 
 Elevation error as the time step lengthens, on log–log axes. **Left:** the error
 from a single step, measured in a smoothly-evolving part of the run. **Right:** the
-error in the final profile after a whole run to a fixed end time, for backward
-Euler (default, ∝ step) and the optional BDF2 scheme (∝ step²).
+error in the final profile after a whole run to a fixed end time, for the default
+BDF2 scheme (∝ step²) and the first-order backward-Euler option (∝ step).
 ```
 
 ## What the figure says
@@ -41,8 +42,8 @@ that grows like **Δt²**:
 
 Double the step → roughly *quadruple* the error in that step.
 
-**Final answer (right).** Over a whole run to a fixed end time, the
-**backward-Euler** (default) error in the final profile grows like **Δt**:
+**Final answer (right).** Over a whole run to a fixed end time, the first-order
+**backward-Euler** option's error in the final profile grows like **Δt**:
 
 | step length | error in final profile (backward Euler) |
 |---|---|
@@ -50,71 +51,80 @@ Double the step → roughly *quadruple* the error in that step.
 | ~9,400 yr | ~0.07 m |
 | ~75,000 yr | ~0.6 m |
 
-Double the step → roughly *double* the final error. The optional **BDF2** scheme
+Double the step → roughly *double* the final error. The default **BDF2** scheme
 (green curve) instead grows like Δt² — far smaller, especially at large steps
-(see [below](#second-order-in-time-bdf2-opt-in)).
+(see [below](#second-order-in-time-bdf2-the-default)).
 
 **Why the two differ by one power.** A single step's error is quadratic, but a
 smaller step means proportionally *more* steps, so the little per-step errors
 accumulate over more of them: `(T / Δt) steps × Δt² each = T · Δt`, i.e. linear.
 So per step the accuracy degrades quadratically, while the accuracy of the
 final answer — the thing a modeller cares about — degrades **linearly** with step
-length. That linear-in-Δt behaviour *is* "first-order in time."
+length for backward Euler. That linear-in-Δt behaviour is what "first-order in
+time" means; BDF2 removes it, leaving the Δt² scaling below.
 
 ## Choosing a time step
 
-With backward Euler the final error is proportional to Δt, so halving the step
-halves the error (and doubles the cost). Pick Δt from the accuracy you need
-relative to the elevation changes you are resolving; for the transient above,
-steps of a few thousand years keep the final error at the centimetre level. For
-transient runs where that becomes expensive, the **BDF2** option below reaches the
-same accuracy at much larger steps.
+With the default BDF2 the final error is proportional to Δt², so halving the step
+*quarters* the error — you reach a target accuracy at a much larger step than
+backward Euler would need. Pick Δt from the accuracy you need relative to the
+elevation changes you are resolving; for the transient above, BDF2 holds the
+final error at the centimetre level with steps of tens of thousands of years.
+With the backward-Euler option the error is proportional to Δt instead, so it
+needs proportionally smaller steps for the same accuracy.
 
-## Second order in time: BDF2 (opt-in)
+## Second order in time: BDF2 (the default)
 
 First order ties accuracy to cost tightly: to cut the final error by 10×, you
-must cut Δt by 10× — ten times as many steps. GRLP therefore offers an optional
-**second-order-in-time** scheme, **BDF2**, selected with
+must cut Δt by 10× — ten times as many steps. GRLP therefore integrates in time
+with **BDF2** by default, which makes the final error scale like **Δt²** instead
+of Δt — the green curve in the figure above. So for a target accuracy you can take
+a substantially larger step (roughly an order of magnitude) and run transients
+much more cheaply with no loss of fidelity; equivalently, at the same step BDF2 is
+far more accurate (about 7× smaller final error at a 75,000-yr step in the figure,
+and the gap widens as steps grow).
+
+BDF2 is [L-stable](https://en.wikipedia.org/wiki/L-stability) — it damps sharp
+transients rather than ringing — bootstraps its first step with backward Euler,
+and reaches its second-order rate once the semi-implicit iteration is converged
+(the default, below). Steady states are independent of the time step, so the
+scheme only affects the *path* through time. To fall back to first-order backward
+Euler:
 
 ```python
-lp.set_time_integration(2)      # 1 = backward Euler (default), 2 = BDF2
+lp.set_time_integration(1)      # 2 = BDF2 (default), 1 = backward Euler
 ```
 
-(also available on `Network`). BDF2 makes the final error scale like **Δt²**
-instead of Δt — the green curve in the figure above. So for a target accuracy you
-can take a substantially larger step (roughly an order of magnitude) and run
-transients much more cheaply with no loss of fidelity; equivalently, at the same
-step BDF2 is far more accurate (about 7× smaller final error at a 75,000-yr step
-in the figure, and the gap widens as steps grow).
-
-Backward Euler remains the **default**, so existing results are unchanged. BDF2 is
-[L-stable](https://en.wikipedia.org/wiki/L-stability) — it damps sharp transients
-rather than ringing — bootstraps its first step with backward Euler, and reaches
-its second-order rate once the semi-implicit iteration is converged (a few
-iterations for the default physics). Steady states are independent of the time
-step, so this only affects the *path* through time. See
+(also available on `Network`). See
 [MNiMORPH/GRLP#16](https://github.com/MNiMORPH/GRLP/issues/16).
 
-## Iterating the solve to convergence (opt-in)
+## Iterating the solve to convergence (the default)
 
 Each step is semi-implicit: GRLP relinearizes and re-solves a few times (Picard
-iteration). By default it takes a fixed number of iterations (`set_niter`, three
-by default), which is already at round-off for the standard physics at ordinary
-steps. At very large steps a fixed count can leave the step slightly
-under-converged, which — like an inaccurate nonlinear solve — erodes the BDF2
-order. To guarantee convergence instead, set a tolerance:
+iteration). By default it iterates **to convergence** — until the inter-iteration
+elevation change `max|z_k − z_{k-1}|` falls below a tolerance (default 0.1 mm) —
+so a step is as converged as its second-order accuracy needs, without your having
+to guess an iteration count:
 
 ```python
-lp.set_picard_tolerance(1e-6)   # iterate until max|z_k − z_{k-1}| < 1 µm
+lp.set_iteration_tolerance(1e-4)   # the default: iterate until change < 0.1 mm
 ```
 
-The solver then iterates until the inter-iteration elevation change falls below
-the tolerance (in metres), up to a `max_iter` cap, warning if the cap is reached
-first. Because the Picard residual falls superlinearly, a micrometre tolerance
-converges in only a handful of iterations even at million-year steps; the cap
-exists because the residual ultimately floors at round-off. Pass `tol=None` to
-return to fixed-iteration mode. See
-[MNiMORPH/GRLP#17](https://github.com/MNiMORPH/GRLP/issues/17).
+The iteration is capped at `max_iter`, and **warns** if it reaches the cap without
+converging. That happens for a *very* large step: the fixed-point (Picard)
+iteration is only a contraction when the step is small enough, so past that it
+plateaus rather than converging. The warning is the signal to take a smaller step
+(or accept the reported residual); the run itself still relaxes to the correct
+steady state.
+
+If you know how many iterations a step needs, fixing the count is a little faster:
+
+```python
+lp.set_niter(3)                    # fixed 3 iterations per step (expert option)
+```
+
+Setting a tolerance and setting `niter` are mutually exclusive — the most recent
+call wins. See [MNiMORPH/GRLP#17](https://github.com/MNiMORPH/GRLP/issues/17).
 
 ## Adaptive time stepping (opt-in)
 
@@ -142,7 +152,7 @@ the result does not depend on any initial-step guess.
 As with an ODE solver's tolerance, `tol` bounds the *per-step* error; the total
 path error is of comparable magnitude, and tightening `tol` reduces it
 monotonically (at the cost of more, smaller steps). Pair with
-`set_picard_tolerance` so the nonlinear solve the estimate relies on is itself
+`set_iteration_tolerance` so the nonlinear solve the estimate relies on is itself
 converged. See
 [MNiMORPH/GRLP#16](https://github.com/MNiMORPH/GRLP/issues/16).
 

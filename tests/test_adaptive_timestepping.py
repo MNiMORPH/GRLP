@@ -72,3 +72,69 @@ def test_evolve_adaptive_fixed_step_is_second_order():
     rate = np.polyfit(np.log(dts), np.log(errs), 1)[0]
     assert 1.7 < rate < 2.4, (
         "expected second-order (rate ~2), measured %.3f:\n%s" % (rate, table))
+
+
+def _evolve_sequence(net, dts):
+    """Step a network through a *prescribed* list of step sizes, carrying the
+    BDF2 history and setting the variable-step weight ``omega = dt_n / dt_{n-1}``
+    each step. Drives the real solver primitives (``_picard_step`` reads the
+    variable-step weights assembled in ``solver.assemble``); it is the fixed-list
+    stand-in for the step controller, used to test the weights on their own."""
+    segs = net.segments
+    lengths = list(net.list_of_segment_lengths)
+    starts = np.cumsum([0] + lengths)[:-1]
+    picard_tol, max_iter, gravel_loss_active = solver._picard_config(net)
+    bdf2 = getattr(net, "time_order", 1) == 2
+    dt_prev = None
+    for ti, dt in enumerate(dts):
+        for seg in segs:
+            seg.zold2 = None if ti == 0 else seg.zold
+            seg.zold = seg.z.copy()
+        net._bdf2_step = bdf2 and ti > 0
+        net._bdf2_omega = 1.0 if dt_prev is None else dt / dt_prev
+        solver._picard_step(net, dt, segs, starts, lengths,
+                            gravel_loss_active, picard_tol, max_iter)
+        net.t += dt
+        dt_prev = dt
+
+
+def _nonuniform_partition(T, N, seed=0):
+    """``N`` positive step sizes summing to ``T`` and varying by up to ~2x."""
+    rng = np.random.default_rng(seed)
+    w = 1.0 + rng.uniform(0.0, 1.0, N)     # ratios in [1, 2)
+    return w * (T / w.sum())
+
+
+def test_variable_step_bdf2_is_second_order():
+    """BDF2 stays second order on a genuinely *non-uniform* step sequence, in
+    max(Δt) -- the variable-step weights (omega-dependent 3-level combination)
+    are what preserve the order; with the uniform (3/2, 2, 1/2) weights the rate
+    collapses toward one.  Prerequisite for step-doubling error control and for
+    the step controller, which change Δt every step."""
+    lp = make_long_profile()
+    lp.evolve_threshold_width_river(nt=STEADY_NT, dt=STEADY_DT)
+    lp.compute_equilibration_time()
+    T = lp.equilibration_time
+
+    def final_z(N):
+        dts = _nonuniform_partition(T, N)
+        prof = _steady_bdf2()
+        _evolve_sequence(prof._net(), dts)
+        return prof.z.copy(), dts.max()
+
+    z_ref, _ = final_z(4096)
+    Ns = (16, 32, 64, 128, 256)
+    maxdts, errs = [], []
+    for N in Ns:
+        z, mx = final_z(N)
+        maxdts.append(mx)
+        errs.append(np.max(np.abs(z - z_ref)))
+    maxdts = np.array(maxdts)
+    errs = np.array(errs)
+    table = "\n".join("  N=%4d  max_dt=%9.1f yr  err=%.3e m" % (n, m / _YEAR, e)
+                      for n, m, e in zip(Ns, maxdts, errs))
+    assert np.all(np.diff(errs) < 0.0), "error not monotonic in max Δt:\n" + table
+    rate = np.polyfit(np.log(maxdts), np.log(errs), 1)[0]
+    assert 1.7 < rate < 2.4, (
+        "variable-step BDF2 should stay ~2nd order, measured %.3f:\n%s"
+        % (rate, table))

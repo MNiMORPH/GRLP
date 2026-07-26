@@ -145,3 +145,15 @@ monotonically (at the cost of more, smaller steps). Pair with
 `set_picard_tolerance` so the nonlinear solve the estimate relies on is itself
 converged. See
 [MNiMORPH/GRLP#16](https://github.com/MNiMORPH/GRLP/issues/16).
+
+**Adaptive stepping is a convenience, not a speed-up.** For GRLP it is *slower*
+than a well-chosen fixed BDF2 step, not faster: benchmarking
+(`benchmarks/adaptive_timestep_benchmark.py`) shows it costs several times more
+linear solves at matched accuracy — roughly 4× for a smooth uplift-step
+transient and over 10× for a sharper base-level drop. The reason is that GRLP's
+governing equation is diffusive, so its transients are smooth in time: uniform
+steps are already close to the optimal placement, and the extra solves that step
+doubling spends to *estimate* the error each step are never repaid by better
+placement. Reach for adaptive stepping when you want to set an accuracy and let
+the solver find the step — not to run faster. When speed matters, use a fixed
+BDF2 step (the second-order option above buys far more than adaptivity does).

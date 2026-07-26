@@ -78,10 +78,18 @@ and WTM showed coefficient freezing does **not** cap the order. **Measured
 ~1.03 — clean second order, as predicted.** (Kinks remain a *separate*,
 milder flux-side risk at `S≈0`; see §8.)
 
-> **Caveat, tied to #32:** when valley width becomes dynamic, `B = B(z)`, the
-> stored sediment `∝ ∫B(z)dz` is nonlinear in z and GRLP *would* inherit the WTM
-> trap — then BDF2 must be applied to the stored sediment volume, not to z. Note
-> now; revisit when transient-B lands.
+> **Caveat, tied to #32 — and a design constraint to bake in there.** When valley
+> width becomes dynamic (`B = B(z)` or `B(t)`), the stored sediment
+> `V = (1−λ_p)∫B dz` is nonlinear in z and GRLP *would* inherit the WTM trap:
+> writing #32 the natural `z`-first way (time term `≈ S_eff·(z−zold)/dt`,
+> `S_eff = ΔV/Δz`) is the 2-level secant that caps BDF2 at first order and risks
+> mass-conservation error. **The fix is a formulation choice made at #32's outset,
+> not a later patch: conserve the sediment *volume* `V`, derive `z` from valley
+> geometry** — then the time term is BDF2-on-`V`
+> (`(3Vⁿ⁺¹−4Vⁿ+Vⁿ⁻¹)/(2Δt) = −∂Q_s/∂x + src`), conservation is exact, and BDF2
+> stays second order. `V` is exactly the sediment budget's channel-storage integral
+> `∫(1−λ_p)·B·z dx`, so this aligns with `compute_sediment_budget`. Much cheaper
+> baked in than discovered empirically later (as WTM did).
 
 ## 5. Bootstrap and history validity
 

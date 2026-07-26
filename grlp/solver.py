@@ -324,6 +324,59 @@ def assemble(net, dt):
     RHS = Vhist + Vcorr + Jstore * (RHS - z_hist)
     return LHSmatrix, RHS
 
+def _picard_config(net):
+    """Read the semi-implicit iteration controls off the network. Returns
+    ``(picard_tol, max_iter, gravel_loss_active)``. In the default fixed-niter
+    mode ``picard_tol`` is None and ``max_iter`` is ``net.niter``; with a
+    tolerance set (``set_picard_tolerance``) ``max_iter`` is the safety cap."""
+    picard_tol = getattr(net, "picard_tol", None)
+    if picard_tol is None:
+        max_iter = int(net.niter)
+    else:
+        max_iter = int(getattr(net, "picard_max_iter", 100))
+    # Sternberg gravel loss enters as a distributed sink that depends on the
+    # (evolving) sediment discharge, so it must be relinearized each Picard
+    # iteration. Skip the recompute entirely when no segment sets it.
+    gravel_loss_active = any(
+        seg.gravel_fractional_loss_per_km is not None for seg in net.segments)
+    return picard_tol, max_iter, gravel_loss_active
+
+
+def _picard_step(net, dt, segs, starts, lengths,
+                 gravel_loss_active, picard_tol, max_iter):
+    """Run the semi-implicit (Picard) iteration for one step at the network's
+    current history/BDF2 state (``seg.zold``/``seg.zold2``/``net._bdf2_step``
+    already set by the caller), updating ``seg.z`` in place. The RHS is frozen at
+    the start-of-step history while the coefficient relinearizes on the current
+    iterate each iteration. Iterates a fixed ``max_iter`` times in fixed-niter
+    mode; in tolerance mode it stops once the inter-iteration elevation change
+    ``max|z_k - z_{k-1}|`` falls below ``picard_tol`` and warns if the cap is
+    hit first. Shared by ``evolve`` and ``evolve_adaptive``."""
+    converged = picard_tol is None   # fixed-niter mode: nothing to check
+    change = 0.0
+    for k in range(max_iter):
+        if gravel_loss_active:
+            update_gravel_loss(net)
+        LHS, RHS = assemble(net, dt)
+        out = spsolve(sparse.csr_matrix(LHS), RHS)
+        change = 0.0
+        for seg in segs:
+            s = seg.ID
+            znew = out[starts[s]:starts[s] + lengths[s]]
+            if picard_tol is not None:
+                change = max(change, np.max(np.abs(znew - seg.z)))
+            seg.z = znew
+        if picard_tol is not None and change < picard_tol:
+            converged = True
+            break
+    if not converged:
+        warnings.warn(
+            "Picard iteration did not converge to tol=%g in %d iterations "
+            "(last change %g m) at t=%g; result may be under-converged."
+            % (picard_tol, max_iter, change, net.t),
+            RuntimeWarning)
+
+
 def evolve(net, nt, dt):
     """
     Time-step the network through the de-padded walking assembler
@@ -335,25 +388,10 @@ def evolve(net, nt, dt):
     """
     net.dt = dt
     bdf2_requested = getattr(net, "time_order", 1) == 2
-    # Picard iteration control. By default the solver takes a fixed net.niter
-    # iterations per step. If a convergence tolerance is set (net.picard_tol,
-    # via set_picard_tolerance) it instead iterates until the inter-iteration
-    # elevation change max|z_k - z_{k-1}| drops below the tolerance, capped at
-    # net.picard_max_iter. Fixed-niter mode reproduces the previous behaviour
-    # bit-for-bit (no convergence check, exactly niter solves).
-    picard_tol = getattr(net, "picard_tol", None)
-    if picard_tol is None:
-        max_iter = int(net.niter)
-    else:
-        max_iter = int(getattr(net, "picard_max_iter", 100))
+    picard_tol, max_iter, gravel_loss_active = _picard_config(net)
     segs = net.segments
     lengths = list(net.list_of_segment_lengths)
     starts = np.cumsum([0] + lengths)[:-1]
-    # Sternberg gravel loss enters as a distributed sink that depends on the
-    # (evolving) sediment discharge, so it must be relinearized each Picard
-    # iteration. Skip the recompute entirely when no segment sets it.
-    gravel_loss_active = any(
-        seg.gravel_fractional_loss_per_km is not None for seg in segs)
     for ti in range(int(nt)):
         for seg in segs:
             # Advance the time-level history for BDF2: z^{n-1} <- z^n, z^n <- z.
@@ -362,28 +400,8 @@ def evolve(net, nt, dt):
             seg.zold2 = None if ti == 0 else seg.zold
             seg.zold = seg.z.copy()
         net._bdf2_step = bdf2_requested and ti > 0
-        converged = picard_tol is None   # fixed-niter mode: nothing to check
-        for k in range(max_iter):
-            if gravel_loss_active:
-                update_gravel_loss(net)
-            LHS, RHS = assemble(net, dt)
-            out = spsolve(sparse.csr_matrix(LHS), RHS)
-            change = 0.0
-            for seg in segs:
-                s = seg.ID
-                znew = out[starts[s]:starts[s] + lengths[s]]
-                if picard_tol is not None:
-                    change = max(change, np.max(np.abs(znew - seg.z)))
-                seg.z = znew
-            if picard_tol is not None and change < picard_tol:
-                converged = True
-                break
-        if not converged:
-            warnings.warn(
-                "Picard iteration did not converge to tol=%g in %d iterations "
-                "(last change %g m) at t=%g; result may be under-converged."
-                % (picard_tol, max_iter, change, net.t),
-                RuntimeWarning)
+        _picard_step(net, dt, segs, starts, lengths,
+                     gravel_loss_active, picard_tol, max_iter)
         net.t += dt
         for seg in segs:
             seg.t = net.t

@@ -407,6 +407,43 @@ def evolve(net, nt, dt):
             seg.t = net.t
             seg.dz_dt = (seg.z - seg.zold) / dt
 
+
+def evolve_adaptive(net, nt, dt):
+    """
+    Adaptive-time-step evolution loop (MNiMORPH/GRLP#16, Phase 2).
+
+    Unlike :func:`evolve`, which re-bootstraps the BDF2 history on the first step
+    of *every* call, this is a **dedicated loop** that carries the two-level
+    history ``(z^n, z^{n-1})`` across all steps -- the prerequisite for both a
+    per-step local-error estimate and step-size control (see
+    ``claude-instructions/adaptive-timestepping-design.md``).
+
+    **Increment 1 (this version): fixed step, no control yet.** It takes ``nt``
+    steps of size ``dt``, bootstrapping the first step with backward Euler and
+    using BDF2 thereafter, so with ``set_time_integration(2)`` it reproduces
+    :func:`evolve` bit-for-bit at fixed ``dt``. The embedded error estimator, the
+    step controller, and variable-step BDF2 weights land in later increments;
+    the signature will grow a tolerance then.
+    """
+    net.dt = dt
+    bdf2_requested = getattr(net, "time_order", 1) == 2
+    picard_tol, max_iter, gravel_loss_active = _picard_config(net)
+    segs = net.segments
+    lengths = list(net.list_of_segment_lengths)
+    starts = np.cumsum([0] + lengths)[:-1]
+    for ti in range(int(nt)):
+        for seg in segs:
+            seg.zold2 = None if ti == 0 else seg.zold
+            seg.zold = seg.z.copy()
+        net._bdf2_step = bdf2_requested and ti > 0
+        _picard_step(net, dt, segs, starts, lengths,
+                     gravel_loss_active, picard_tol, max_iter)
+        net.t += dt
+        for seg in segs:
+            seg.t = net.t
+            seg.dz_dt = (seg.z - seg.zold) / dt
+
+
 def update_gravel_loss(net):
     """
     Recompute the Sternberg gravel-abrasion sink on every segment that sets

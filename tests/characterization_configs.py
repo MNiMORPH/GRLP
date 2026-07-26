@@ -23,7 +23,8 @@ flattens these into ``"<config>__<array>"`` keys.
 import numpy as np
 
 import grlp
-from network_helpers import NETWORK_TOPOLOGIES, run_topology_arrays
+from network_helpers import (NETWORK_TOPOLOGIES, run_topology_arrays,
+                             apply_scheme)
 
 
 # Evolution schedule for single-segment configs: cumulative (nt, dt) legs.
@@ -42,7 +43,7 @@ _SINGLE_SCHEDULE = [
 
 def _build_single(S0=1.5e-2, k_xQ=1.43e-5, P_xQ=7 / 4.0 * 0.7, k_xA=1.0,
                   intermittency=0.8, U_mm_yr=0.0, nx=90, dx=1000.0, x0=10000.0,
-                  B_spec=("power", 25.0, 0.2), D=None):
+                  B_spec=("power", 25.0, 0.2), D=None, scheme="euler"):
     """
     Build (but do not evolve) a single-segment LongProfile.
 
@@ -70,7 +71,7 @@ def _build_single(S0=1.5e-2, k_xQ=1.43e-5, P_xQ=7 / 4.0 * 0.7, k_xA=1.0,
     else:
         raise ValueError("unknown B_spec kind: " + kind)
     lp.set_uplift_rate(U_mm_yr * 1e-3 / 3.15e7)
-    lp.set_niter(3)
+    apply_scheme(lp, scheme)
     lp.set_z_bl(0.0)
     Qs0 = lp.k_Qs * lp.Q[0] * S0 ** (7 / 6.0)
     lp.set_Qs_input_upstream(Qs0)
@@ -115,7 +116,7 @@ def _seg_x(start_mult):
     return _DX * np.arange(start_mult, start_mult + _NSEG, dtype=float)
 
 
-def run_confluence(B_lists=None, Q_lists=None, S0=0.015, Qh=5.0):
+def run_confluence(B_lists=None, Q_lists=None, S0=0.015, Qh=5.0, scheme="euler"):
     """
     Symmetric Y network (two heads -> trunk). B_lists, if given, is a list of
     three width arrays (one per segment); otherwise uniform B=100. Q_lists, if
@@ -141,7 +142,7 @@ def run_confluence(B_lists=None, Q_lists=None, S0=0.015, Qh=5.0):
         Q=Q_lists,
         B=B_lists,
     )
-    net.set_niter(3)
+    apply_scheme(net, scheme)
     net.get_z_lengths()
     net.evolve_threshold_width_river_network(nt=_NET_NT, dt=_NET_DT)
     out = {}
@@ -153,7 +154,7 @@ def run_confluence(B_lists=None, Q_lists=None, S0=0.015, Qh=5.0):
     return out
 
 
-def run_chain(S0=0.015, Qh=5.0):
+def run_chain(S0=0.015, Qh=5.0, scheme="euler"):
     """Two segments in series, uniform discharge."""
     x = [_seg_x(1), _seg_x(_NSEG + 1)]
     net = grlp.Network()
@@ -169,7 +170,7 @@ def run_chain(S0=0.015, Qh=5.0):
         Q=[Qh * np.ones(_NSEG), Qh * np.ones(_NSEG)],
         B=[100.0 * np.ones(_NSEG), 100.0 * np.ones(_NSEG)],
     )
-    net.set_niter(3)
+    apply_scheme(net, scheme)
     net.get_z_lengths()
     net.evolve_threshold_width_river_network(nt=_NET_NT, dt=_NET_DT)
     return {"z_all": np.hstack([lp.z for lp in net.list_of_LongProfile_objects])}
@@ -234,19 +235,21 @@ NETWORK_CONFIGS = {
 }
 
 
-def run_all():
-    """Run every configuration; return a flat {'<config>__<array>': arr} dict."""
+def run_all(scheme="euler"):
+    """Run every configuration under one integration ``scheme`` ("euler" or
+    "bdf2"); return a flat {'<config>__<array>': arr} dict. Each scheme has its
+    own golden reference (see ``generate_characterization_reference``)."""
     data = {}
     for name, kwargs in SINGLE_CONFIGS.items():
-        for key, arr in run_single_segment(**kwargs).items():
+        for key, arr in run_single_segment(scheme=scheme, **kwargs).items():
             data["%s__%s" % (name, key)] = arr
     for name, (fn, kwargs) in NETWORK_CONFIGS.items():
-        for key, arr in fn(**kwargs).items():
+        for key, arr in fn(scheme=scheme, **kwargs).items():
             data["%s__%s" % (name, key)] = arr
     # Golden master for the shared correctness topologies (asymmetric, unequal
     # dx, multi-level, balanced tree). Safe to pin because Group A confirms the
     # current solver is correct on them.
     for name, spec in NETWORK_TOPOLOGIES.items():
-        for key, arr in run_topology_arrays(spec).items():
+        for key, arr in run_topology_arrays(spec, scheme=scheme).items():
             data["topology_%s__%s" % (name, key)] = arr
     return data

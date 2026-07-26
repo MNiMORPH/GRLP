@@ -24,8 +24,30 @@ DEFAULT_NT = 1000
 DEFAULT_DT = 3.0e10
 
 
+# The two time-integration schemes we pin golden masters for. "euler" is the
+# original first-order backward Euler with a fixed 3 Picard iterations (the
+# scheme these helpers use by default, and that the first golden set was recorded
+# under); "bdf2" is the current library default -- second-order BDF2 iterated to
+# convergence. Applied explicitly, so behaviour does not depend on the library
+# default. Works identically on a LongProfile or a Network (same setters).
+BDF2_PICARD_TOL = 1.0e-4   # matches the shipped default (grlp.Network.__init__)
+
+
+def apply_scheme(obj, scheme):
+    """Configure a LongProfile/Network for one integration scheme."""
+    if scheme == "euler":
+        obj.set_time_integration(1)
+        obj.set_iteration_tolerance(None)
+        obj.set_niter(3)
+    elif scheme == "bdf2":
+        obj.set_time_integration(2)
+        obj.set_iteration_tolerance(BDF2_PICARD_TOL)
+    else:
+        raise ValueError("scheme must be 'euler' or 'bdf2'; got %r" % (scheme,))
+
+
 def build_network(x, Q, up, down, x_bl, S0=0.015, B=100.0,
-                  nt=DEFAULT_NT, dt=DEFAULT_DT, evolve=True):
+                  nt=DEFAULT_NT, dt=DEFAULT_DT, evolve=True, scheme="euler"):
     """Build (and by default evolve to steady state) a network."""
     n_heads = sum(1 for i in range(len(x)) if len(up[i]) == 0)
     net = grlp.Network()
@@ -41,7 +63,7 @@ def build_network(x, Q, up, down, x_bl, S0=0.015, B=100.0,
         Q=Q,
         B=[B * np.ones(len(xi)) for xi in x],
     )
-    net.set_niter(3)
+    apply_scheme(net, scheme)
     net.get_z_lengths()
     if evolve:
         net.evolve_threshold_width_river_network(nt=nt, dt=dt)
@@ -142,13 +164,13 @@ NETWORK_TOPOLOGIES = {
 }
 
 
-def run_topology_arrays(spec, S0=0.015):
+def run_topology_arrays(spec, S0=0.015, scheme="euler"):
     """
     Build+evolve a topology from NETWORK_TOPOLOGIES and return golden-master
     arrays: concatenated bed elevations and per-segment during-flood Q_s.
     """
     net = build_network(spec["x"], spec["Q"], spec["up"], spec["down"],
-                        spec["x_bl"], S0=S0)
+                        spec["x_bl"], S0=S0, scheme=scheme)
     out = {"z_all": np.hstack([lp.z for lp in net.list_of_LongProfile_objects])}
     for lp in net.list_of_LongProfile_objects:
         out["Qs_seg%d" % lp.ID] = during_flood_Qs(lp)

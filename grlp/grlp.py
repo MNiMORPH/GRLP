@@ -343,6 +343,44 @@ class Segment(object):
             self.k_xB = k_xB
             self.P_xB = P_xB
 
+    # -- Valley-storage geometry ------------------------------------------- #
+    # The solver conserves the stored sediment *volume* V (not the bed
+    # elevation z); z is recovered from V through this geometry.  The primitive
+    # is the valley width B(x, z); the base Segment is a rectangular valley
+    # (width independent of z), which reproduces the historical constant-B
+    # model exactly.  Transient valley widening/narrowing (issue #19) overrides
+    # `valley_width` with a real B(x, z) and `storage_volume` with its exact
+    # cross-sectional area.  See claude-instructions/second-order-time-bdf2-design.md.
+
+    def valley_width(self, z):
+        """
+        Valley width ``B`` at bed elevation ``z`` -- the geometry primitive.
+        Rectangular default: independent of ``z`` (the width from ``set_B``).
+        Returns an array broadcast to the shape of ``z``.
+        """
+        return np.broadcast_to(self.B, np.shape(z))
+
+    def storage_jacobian(self, z):
+        """
+        ``dV/dz = (1 - lambda_p) * B(x, z)`` -- the rate of change of stored
+        sediment volume (per unit valley length) with bed elevation.  This is
+        the storage term the implicit solve linearizes on; it comes directly
+        from the width primitive, no integral needed.
+        """
+        return (1. - self.lambda_p) * self.valley_width(z)
+
+    def storage_volume(self, z):
+        """
+        Stored sediment volume per unit valley length,
+        ``V = (1 - lambda_p) * integral_0^z B(x, z') dz'`` -- i.e.
+        ``(1 - lambda_p)`` times the sediment cross-sectional area.  Only
+        *differences* of ``V`` enter the solver, so the datum is arbitrary.
+        Rectangular default: ``(1 - lambda_p) * B * z``.  A dynamic-width valley
+        (issue #19) overrides this with the exact area of its ``B(x, z)`` (kept
+        consistent with ``valley_width`` so ``dV/dz = (1-lambda_p) B`` holds).
+        """
+        return (1. - self.lambda_p) * self.valley_width(z) * z
+
     def set_uplift_rate(self, U):
         """
         Uplift rate if positive -- or equivalently, rate of base-level fall

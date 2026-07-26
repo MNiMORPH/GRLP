@@ -1,10 +1,10 @@
 # Numerical accuracy: time stepping
 
-GRLP integrates the sediment-conservation equation with a semi-implicit scheme
-that is **first-order in time** and second-order in space. "First-order in time"
-has a precise, practical meaning, and this page shows what it is — and why it
-motivates the planned move to a second-order-in-time scheme
-([issue #16](https://github.com/MNiMORPH/GRLP/issues/16)).
+GRLP integrates the sediment-conservation equation with a semi-implicit scheme.
+By default it is **first-order in time** (and second-order in space); an optional
+**second-order-in-time** scheme (BDF2) is available with
+`set_time_integration(2)`. This page shows what "first-order in time" means in
+practice, and how much the second-order option buys you.
 
 ## How the accuracy is measured
 
@@ -19,12 +19,13 @@ comparison would be empty. The same setup is checked automatically by
 `docs/accuracy_figure.py`.
 
 ```{figure} _static/timestep_accuracy.png
-:alt: Per-step error grows like step-squared; final-answer error grows like step.
+:alt: Backward-Euler final-answer error grows like step; BDF2 like step-squared.
 :width: 100%
 
 Elevation error as the time step lengthens, on log–log axes. **Left:** the error
-from a single step, measured in a smoothly-evolving part of the run. **Right:**
-the error in the final profile after a whole run to a fixed end time.
+from a single step, measured in a smoothly-evolving part of the run. **Right:** the
+error in the final profile after a whole run to a fixed end time, for backward
+Euler (default, ∝ step) and the optional BDF2 scheme (∝ step²).
 ```
 
 ## What the figure says
@@ -40,16 +41,18 @@ that grows like **Δt²**:
 
 Double the step → roughly *quadruple* the error in that step.
 
-**Final answer (right).** Over a whole run to a fixed end time, the error in the
-final profile grows like **Δt**:
+**Final answer (right).** Over a whole run to a fixed end time, the
+**backward-Euler** (default) error in the final profile grows like **Δt**:
 
-| step length | error in final profile |
+| step length | error in final profile (backward Euler) |
 |---|---|
 | ~1,200 yr | ~0.008 m |
 | ~9,400 yr | ~0.07 m |
 | ~75,000 yr | ~0.6 m |
 
-Double the step → roughly *double* the final error.
+Double the step → roughly *double* the final error. The optional **BDF2** scheme
+(green curve) instead grows like Δt² — far smaller, especially at large steps
+(see [below](#second-order-in-time-bdf2-opt-in)).
 
 **Why the two differ by one power.** A single step's error is quadratic, but a
 smaller step means proportionally *more* steps, so the little per-step errors
@@ -60,21 +63,34 @@ length. That linear-in-Δt behaviour *is* "first-order in time."
 
 ## Choosing a time step
 
-Because the final error is proportional to Δt, halving the step halves the error
-(and doubles the cost). Pick Δt from the accuracy you need relative to the
-elevation changes you are resolving; for the transient above, steps of a few
-thousand years keep the final error at the centimetre level.
+With backward Euler the final error is proportional to Δt, so halving the step
+halves the error (and doubles the cost). Pick Δt from the accuracy you need
+relative to the elevation changes you are resolving; for the transient above,
+steps of a few thousand years keep the final error at the centimetre level. For
+transient runs where that becomes expensive, the **BDF2** option below reaches the
+same accuracy at much larger steps.
 
-## Why second order (motivation for issue #16)
+## Second order in time: BDF2 (opt-in)
 
 First order ties accuracy to cost tightly: to cut the final error by 10×, you
-must cut Δt by 10× — ten times as many steps. A **second-order-in-time** scheme
-would make the final error scale like Δt² instead of Δt, so cutting the error
-10× would need Δt smaller by only ~√10 ≈ 3×. Equivalently, for a target accuracy
-it permits a substantially larger step — roughly an order of magnitude — and so
-much cheaper transient runs, with no loss of fidelity.
+must cut Δt by 10× — ten times as many steps. GRLP therefore offers an optional
+**second-order-in-time** scheme, **BDF2**, selected with
 
-This page is the benchmark that motivates that work. When a second-order option
-lands, rerunning `docs/accuracy_figure.py` should bend the right-hand panel from
-a slope of 1 (∝ step) toward 2 (∝ step²), and the convergence-rate assertion in
-`tests/test_time_accuracy.py` becomes its acceptance test.
+```python
+lp.set_time_integration(2)      # 1 = backward Euler (default), 2 = BDF2
+```
+
+(also available on `Network`). BDF2 makes the final error scale like **Δt²**
+instead of Δt — the green curve in the figure above. So for a target accuracy you
+can take a substantially larger step (roughly an order of magnitude) and run
+transients much more cheaply with no loss of fidelity; equivalently, at the same
+step BDF2 is far more accurate (about 7× smaller final error at a 75,000-yr step
+in the figure, and the gap widens as steps grow).
+
+Backward Euler remains the **default**, so existing results are unchanged. BDF2 is
+[L-stable](https://en.wikipedia.org/wiki/L-stability) — it damps sharp transients
+rather than ringing — bootstraps its first step with backward Euler, and reaches
+its second-order rate once the semi-implicit iteration is converged (a few
+iterations for the default physics). Steady states are independent of the time
+step, so this only affects the *path* through time. See
+[MNiMORPH/GRLP#16](https://github.com/MNiMORPH/GRLP/issues/16).

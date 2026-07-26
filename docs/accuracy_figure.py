@@ -62,9 +62,10 @@ def per_step_error(step_years):
     return np.max(np.abs(one.z - ref.z))
 
 
-def final_answer_error(n_steps, T, z_ref):
+def final_answer_error(n_steps, T, z_ref, order=1):
     lp = _steady()
     lp.set_uplift_rate(UPLIFT)
+    lp.set_time_integration(order)   # 1 = backward Euler, 2 = BDF2
     lp.evolve_threshold_width_river(nt=n_steps, dt=T / n_steps)
     return np.max(np.abs(lp.z - z_ref))
 
@@ -80,11 +81,13 @@ def main():
     T = lp.equilibration_time
     ref = _steady()
     ref.set_uplift_rate(UPLIFT)
+    ref.set_time_integration(2)          # BDF2 fine reference = the "truth"
     ref.evolve_threshold_width_river(nt=4096, dt=T / 4096)
     z_ref = ref.z.copy()
     nsB = [4, 8, 16, 32, 64, 128, 256]
     stepsB = np.array([T / n / YEAR for n in nsB])
-    glob = np.array([final_answer_error(n, T, z_ref) for n in nsB])
+    glob_be = np.array([final_answer_error(n, T, z_ref, order=1) for n in nsB])
+    glob_bdf2 = np.array([final_answer_error(n, T, z_ref, order=2) for n in nsB])
 
     fig, ax = plt.subplots(1, 2, figsize=(11, 4.3))
     ax[0].loglog(stepsA, locA, "o-", color="C0")
@@ -96,17 +99,22 @@ def main():
     ax[0].legend()
     ax[0].grid(True, which="both", alpha=0.3)
 
-    ax[1].loglog(stepsB, glob, "s-", color="C1")
-    ax[1].loglog(stepsB, glob[-1] * (stepsB / stepsB[-1]) ** 1, "--", color="0.6",
-                 label=r"$\propto$ step")
-    ax[1].set_title("Final-answer error\n(fixed end time = one equilibration time)")
+    ax[1].loglog(stepsB, glob_be, "s-", color="C1",
+                 label="backward Euler (default)")
+    ax[1].loglog(stepsB, glob_bdf2, "^-", color="C2",
+                 label="BDF2  (set_time_integration(2))")
+    ax[1].loglog(stepsB, glob_be[-1] * (stepsB / stepsB[-1]) ** 1, "--",
+                 color="0.7", label=r"$\propto$ step")
+    ax[1].loglog(stepsB, glob_bdf2[0] * (stepsB / stepsB[0]) ** 2, ":",
+                 color="0.7", label=r"$\propto$ step$^2$")
+    ax[1].set_title("Final-answer error vs. time step\n(backward Euler vs. BDF2)")
     ax[1].set_xlabel("time-step length [yr]")
     ax[1].set_ylabel("elevation error [m]")
     ax[1].legend()
     ax[1].grid(True, which="both", alpha=0.3)
 
-    fig.suptitle("GRLP time-stepping accuracy (currently first-order in time)",
-                 y=1.02)
+    fig.suptitle("GRLP time-stepping accuracy: first-order (default) vs. "
+                 "second-order (BDF2)", y=1.02)
     fig.tight_layout()
 
     out = os.path.join(_here, "_static", "timestep_accuracy.png")

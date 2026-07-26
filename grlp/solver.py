@@ -105,8 +105,19 @@ def assemble(net, dt):
         use_bdf2 = (getattr(net, "_bdf2_step", False)
                     and zold2 is not None and np.size(zold2) == L)
         if use_bdf2:
-            z_rhs = 0.5 * (4.0 * zold - zold2)
-            time_diag = 1.5
+            # Variable-step BDF2: the three-level derivative on a non-uniform
+            # history. With omega = dt_n / dt_{n-1} the weights are
+            # a = (1+2 omega)/(1+omega), b = 1+omega, c = omega^2/(1+omega), so the
+            # time term is [a z^{n+1} - b z^n + c z^{n-1}]/dt_n; the coefficient a
+            # is the time-diagonal and (b z^n - c z^{n-1}) is the RHS history. For
+            # uniform steps (omega = 1) these are (3/2, 2, 1/2), reproducing the
+            # fixed-step BDF2 bit-for-bit. Uniform stepping (evolve) leaves
+            # net._bdf2_omega = 1; adaptive stepping varies it each step.
+            w = getattr(net, "_bdf2_omega", 1.0)
+            bdf2_b = 1.0 + w
+            bdf2_c = w * w / (1.0 + w)
+            z_rhs = bdf2_b * zold - bdf2_c * zold2
+            time_diag = (1.0 + 2.0 * w) / (1.0 + w)
         else:
             z_rhs = zold
             time_diag = 1.0
@@ -120,7 +131,7 @@ def assemble(net, dt):
         Jstore[sl] = seg.storage_jacobian(seg.z)
         Vold = seg.storage_volume(zold)
         if use_bdf2:
-            Vhist[sl] = 0.5 * (4.0 * Vold - seg.storage_volume(zold2))
+            Vhist[sl] = bdf2_b * Vold - bdf2_c * seg.storage_volume(zold2)
         else:
             Vhist[sl] = Vold
         Vcorr[sl] = time_diag * (Jstore[sl] * seg.z - seg.storage_volume(seg.z))
@@ -431,14 +442,19 @@ def evolve_adaptive(net, nt, dt):
     segs = net.segments
     lengths = list(net.list_of_segment_lengths)
     starts = np.cumsum([0] + lengths)[:-1]
+    dt_prev = dt
     for ti in range(int(nt)):
         for seg in segs:
             seg.zold2 = None if ti == 0 else seg.zold
             seg.zold = seg.z.copy()
         net._bdf2_step = bdf2_requested and ti > 0
+        # Variable-step BDF2 needs omega = dt_n / dt_{n-1}; here dt is fixed so
+        # omega = 1 every step (identical to evolve). The controller will vary it.
+        net._bdf2_omega = dt / dt_prev
         _picard_step(net, dt, segs, starts, lengths,
                      gravel_loss_active, picard_tol, max_iter)
         net.t += dt
+        dt_prev = dt
         for seg in segs:
             seg.t = net.t
             seg.dz_dt = (seg.z - seg.zold) / dt

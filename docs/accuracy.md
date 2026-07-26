@@ -115,3 +115,33 @@ converges in only a handful of iterations even at million-year steps; the cap
 exists because the residual ultimately floors at round-off. Pass `tol=None` to
 return to fixed-iteration mode. See
 [MNiMORPH/GRLP#17](https://github.com/MNiMORPH/GRLP/issues/17).
+
+## Adaptive time stepping (opt-in)
+
+Everything above uses a **fixed** step you choose. But a transient is rarely
+uniform in time: it changes fast just after a perturbation and slowly as it
+settles, so a single step is either too small late or too large early. Adaptive
+stepping picks the step size for you — small where the profile moves fast, large
+where it is smooth — to hold a target accuracy:
+
+```python
+lp.set_time_integration(2)          # adaptive stepping uses BDF2
+lp.set_adaptive_timestep(1e-3)      # per-step error tolerance, in metres
+lp.evolve_threshold_width_river_adaptive(T)   # advance a total time T
+```
+
+Instead of a step count and a step length, you give a **total time** `T` and a
+**tolerance** `tol`. Each candidate step is checked by *step doubling* — the step
+is taken once at Δt and again as two steps of Δt/2, and the difference between the
+two estimates the error. If it exceeds `tol` the step is rejected and retried
+smaller; otherwise it is accepted (advancing with the more accurate half-step
+solution) and the next step grows toward the largest size that still meets `tol`.
+The first step is bootstrapped with an error-controlled backward-Euler step, so
+the result does not depend on any initial-step guess.
+
+As with an ODE solver's tolerance, `tol` bounds the *per-step* error; the total
+path error is of comparable magnitude, and tightening `tol` reduces it
+monotonically (at the cost of more, smaller steps). Pair with
+`set_picard_tolerance` so the nonlinear solve the estimate relies on is itself
+converged. See
+[MNiMORPH/GRLP#16](https://github.com/MNiMORPH/GRLP/issues/16).

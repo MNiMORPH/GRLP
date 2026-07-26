@@ -25,6 +25,7 @@ Key assumptions:
 
 installation
 quickstart
+interactive
 theory
 network_solver
 examples

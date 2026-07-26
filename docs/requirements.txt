@@ -4,3 +4,10 @@
 sphinx>=7
 myst-nb>=1
 furo>=2024.1
+
+# Interactive browser demo (docs/interactive.md). `panel convert` compiles
+# interactive_demo/grlp_panel.py into a standalone WebAssembly app at build time
+# (conf.py); GRLP then runs entirely in the reader's browser via Pyodide. Panel
+# pulls bokeh. The panel + bokeh wheels are self-hosted next to the app (the
+# holoviz CDN's bokeh wheel 403s), so no external CDN is required at run time.
+panel>=1.9

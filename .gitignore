@@ -65,8 +65,12 @@ instance/
 docs/_build/
 # Build-time copies of the tutorial notebooks (canonical copies live in examples/)
 docs/tutorials/
-# myst-nb execution cache
+# myst-nb execution cache + executed-notebook artifacts
 docs/.jupyter_cache/
+docs/jupyter_execute/
+# Interactive demo compiled by `panel convert` at build time (app + wheels);
+# canonical source is interactive_demo/grlp_panel.py
+docs/_static/interactive/
 
 # PyBuilder
 target/

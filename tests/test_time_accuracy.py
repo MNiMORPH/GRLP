@@ -87,3 +87,47 @@ def test_bdf2_is_second_order():
     assert 1.7 < rate < 2.4, (
         "expected second-order in time (rate ~2), measured %.3f:\n%s"
         % (rate, table))
+
+
+def _patch_nonlinear_width(seg, a):
+    """Give a segment a synthetic z-dependent valley width ``B(z) = B0 (1 + a z)``
+    and its exact stored-volume area, to exercise the volume-first machinery with
+    a genuinely *nonlinear* storage map -- a stand-in for the dynamic width of
+    GRLP#19.  Kept consistent so ``dV/dz = (1-λ_p) B``."""
+    B0 = np.array(seg.B, dtype=float)
+    lam = seg.lambda_p
+    seg.valley_width = lambda z: B0 * (1.0 + a * np.asarray(z, dtype=float))
+    seg.storage_volume = lambda z: ((1.0 - lam) * B0
+                                    * (np.asarray(z, dtype=float)
+                                       + a * np.asarray(z, dtype=float) ** 2 / 2.0))
+
+
+def test_bdf2_second_order_with_nonlinear_storage():
+    """BDF2 stays second order even when the storage map ``V(z)`` is *nonlinear*
+    (a synthetic z-dependent valley width) -- the volume-first machinery
+    (BDF2-on-V with the storage Jacobian + linearization correction, *not* a
+    2-level time secant) is what preserves the order.  Acceptance test for
+    GRLP#18: validates the numerics before the real dynamic-width geometry
+    (GRLP#19) exists.  Without the correction term this rate collapses toward 1."""
+    a = 1.0e-3   # width varies O(0.1-0.5) over the transient's elevation range
+    T = _equilibration_time()
+
+    def final_z(n):
+        lp = make_long_profile(U=0.0)
+        lp.evolve_threshold_width_river(nt=STEADY_NT, dt=STEADY_DT)
+        _patch_nonlinear_width(lp.segment, a)
+        lp.set_uplift_rate(_UPLIFT)
+        lp.set_time_integration(2)
+        lp.evolve_threshold_width_river(nt=n, dt=T / n)
+        return lp.z.copy()
+
+    z_ref = final_z(_N_REF)
+    dts = np.array([T / n for n in _N_STEPS])
+    errs = np.array([np.max(np.abs(final_z(n) - z_ref)) for n in _N_STEPS])
+    table = "\n".join("  n=%4d  err=%.3e m" % (n, e)
+                      for n, e in zip(_N_STEPS, errs))
+    assert np.all(np.diff(errs) < 0.0), "error not monotonic in Δt:\n" + table
+    rate = _rate(dts, errs)
+    assert 1.7 < rate < 2.4, (
+        "BDF2 with a nonlinear storage map should stay ~2nd order, measured "
+        "%.3f:\n%s" % (rate, table))

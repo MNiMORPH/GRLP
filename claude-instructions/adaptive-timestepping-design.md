@@ -112,7 +112,7 @@ point is preferred over the `_adaptive` method.
 - **Variable-step BDF2 must use the correct non-uniform weights** — the single
   most likely place to silently lose the order. Guard with the self-convergence
   order check.
-- **Picard convergence (#17) — DONE.** `set_picard_tolerance` landed; the
+- **Picard convergence (#17) — DONE.** `set_iteration_tolerance` landed; the
   controller should turn it on so the per-step solve it trusts is converged (a
   fixed `niter` under-converges at large adaptive steps and corrupts the estimate).
 - **Volume-first (#18).** All of the above operates on V-space history; the

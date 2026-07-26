@@ -1,0 +1,137 @@
+# Design note: second-order-in-time (BDF2, + adaptive Δt) for GRLP
+
+**Status:** DESIGN / scope for review — not a commitment, no code yet.
+**Motivates:** [MNiMORPH/GRLP#16](https://github.com/MNiMORPH/GRLP/issues/16).
+**Benchmark:** `tests/test_time_accuracy.py`, `docs/accuracy.md` (current scheme is
+first-order in time; final-profile error ∝ Δt).
+**Template:** WTM's `benchmark/BDF2_ADAPTIVE_DESIGN.md` (recent, C++/PETSc) — same
+family of problem (semi-implicit, Picard-frozen, dissipative), and its hard-won
+lessons are inherited below.
+
+---
+
+## 1. Goal
+
+Make GRLP's transient runs second-order in time so a target path accuracy is
+reached with far fewer, larger steps (final error ∝ Δt² not Δt → for a fixed
+tolerance, Δt roughly `1/√tol` larger). Keep the current backward-Euler scheme as
+the default; gate the new path behind a flag. Then add adaptive Δt to size the
+step to a user tolerance automatically.
+
+## 2. Method: BDF2, not Crank–Nicolson
+
+BDF2 fits a quadratic through the last three time levels:
+
+$$\frac{3 z^{n+1} - 4 z^{n} + z^{n-1}}{2\,\Delta t} \;=\; \mathcal{L}(z^{n+1}),$$
+
+local error O(Δt³), global O(Δt²). We choose it over Crank–Nicolson for the same
+reason WTM did: **CN is A-stable but not L-stable** — its stiff-mode amplification
+→ −1, so it *rings* on sharp fronts (e.g. an incision wave from a base-level drop).
+**BDF2 is L-stable**, damping stiff modes toward zero. For a stiff diffusive
+problem this is the correct 2nd-order method.
+
+## 3. How it maps onto `grlp/solver.py` (small, local change)
+
+The current step is backward Euler, `(z^{n+1} − z^{n})/Δt = 𝒟 z^{n+1} + src`,
+assembled as `(I − Δt 𝒟) z^{n+1} = z^{n} + Δt·src` inside the Picard loop
+(`assemble()` builds the stencil; `C0 ∝ Δt`; the RHS uses `seg.zold` = zⁿ). BDF2
+rearranges to
+
+$$\left(\tfrac{3}{2} I - \Delta t\,\mathcal{D}\right) z^{n+1}
+   \;=\; \tfrac{1}{2}\,(4 z^{n} - z^{n-1}) + \Delta t\cdot src,$$
+
+so only **two** things change, exactly as in the WTM note:
+
+1. **Time diagonal** scaled `1 → 3/2` (the identity term in the stencil; `Δt·𝒟`
+   and `Δt·src` are unchanged).
+2. **RHS history** `z^{n} → (4 z^{n} − z^{n-1})/2` (replace the single `seg.zold`
+   term with the two-level combination).
+
+Implementation touches: store a second history level `seg.zold2`; carry a
+`time_order` / θ-like switch into `assemble()` (and the junction rows) so the
+diagonal identity coefficient and the RHS history term take BDF1 or BDF2 values;
+the Picard freezing of the slope-dependent flux `𝒟` is untouched. **The SPD /
+sparse-solve structure and unconditional stability are preserved.**
+
+## 4. Why GRLP should get *clean* 2nd order (the key contrast with WTM)
+
+WTM's achieved order collapsed to ~1 at fine Δt. After refuting coefficient-
+smoothness hypotheses, the cause was a **2-level secant effective storativity**
+`(V(hⁿ⁺¹)−V(hⁿ))/Δh` (its *storage* term is nonlinear in the unknown) sitting on
+BDF2's 3-level derivative; the fix was "BDF2-on-V" (apply the 3-level difference
+to the stored volume, not `S_eff·BDF2(h)`).
+
+**GRLP does not have this trap (for now).** Its storage term is
+`∂z/∂t` with prefactor `(1−λ_p)·B`; with **B constant in z**, the stored sediment
+is *linear* in z, so `BDF2-on-z` *is* `BDF2-on-volume` — no secant, no order loss.
+GRLP's only nonlinearity is the slope-dependent flux `𝒟`, which is Picard-frozen —
+and WTM showed that *coefficient* freezing (frozen T) does **not** cap the order.
+So we expect genuine O(Δt²) from a straightforward BDF2-on-z.
+
+> **Caveat, tied to #32:** when valley width becomes dynamic, `B = B(z)`, the
+> stored sediment `∝ ∫B(z)dz` is nonlinear in z and GRLP *would* inherit the WTM
+> trap — then BDF2 must be applied to the stored sediment volume, not to z. Note
+> now; revisit when transient-B lands.
+
+## 5. Bootstrap and history validity
+
+- **Step 0** has no `z^{n-1}` → take one backward-Euler step to seed the history
+  (standard).
+- **Discontinuous forcing/BC changes** (a step in uplift, a base-level jump)
+  break the smooth history BDF2 assumes → **re-bootstrap** one BE step at the
+  discontinuity. (GRLP forcing is usually smooth, so this is rare; but the
+  accuracy benchmark's uplift *switch-on* is exactly such a point — the figure's
+  left panel deliberately measures away from it.)
+
+## 6. Adaptive Δt (phase 2)
+
+Size Δt to a user **path tolerance** without a ground truth, by comparing two
+orders at the same step:
+
+- **Embedded estimate (preferred):** BDF2 carries a BDF1/predictor companion that
+  shares the solve; `‖z_BDF2 − z_predictor‖` estimates the local error (~free).
+- **Step-doubling (fallback):** one Δt step vs two Δt/2 steps (~3 solves/step).
+- **Controller:** accept if `err < tol`; `Δt_new = Δt·(tol/err)^{1/(p+1)}` (PI
+  controller for smoothness), clamped growth ratio; reject+retry if `err > tol`.
+- **Why local control ⇒ global accuracy here:** the problem is **dissipative**
+  (diffusion damps old truncation error), exactly as WTM argued — so local-error
+  control is trustworthy (unlike hyperbolic/chaotic systems). GRLP shares this.
+- **Variable-step BDF2** must use the non-uniform 3-level coefficients (they
+  change with the step ratio ω = Δtₙ/Δtₙ₋₁) or the order silently drops to 1; cap
+  the growth ratio.
+
+## 7. Backward compatibility, tests, and the golden masters
+
+- **Backward Euler stays the default.** BDF2/adaptive are opt-in (e.g.
+  `Network`/`LongProfile` `set_time_integration("BDF2")` or a solver flag), so
+  every existing result and the **golden-master characterization tests are
+  unchanged** (they pin the default BE scheme). No silent re-baselining.
+- **Acceptance:** `tests/test_time_accuracy.py` already measures the convergence
+  rate and asserts ~1 for BE; add a BDF2 parametrization asserting ~2 on the same
+  single-profile uplift benchmark (and, later, a small network). For adaptive:
+  assert the achieved path error tracks the requested tolerance.
+
+## 8. Risks / open questions (check before/while coding)
+
+- **Non-smoothness in the flux capping the order.** The transport `∝ |S|^{7/6}`
+  has a mild kink where slope `S → 0` (a locally flat / aggrading node). WTM found
+  *coefficient* non-smoothness did **not** cap order — but confirm on GRLP by the
+  self-convergence check; if a run spends time near `S≈0`, watch the achieved
+  rate.
+- **Picard convergence with two history levels** — confirm the frozen-flux fixed
+  point still converges each step at the same `niter` (the benchmark catches it).
+- **Junction rows.** The BDF2 diagonal/RHS change must be applied consistently in
+  the multi-tributary junction cell (`_face_conductance` path), not just interior
+  nodes.
+- **Networks.** Verify order-2 on a small network, not only a single profile.
+
+## 9. Phases (bounded, each independently verifiable)
+
+1. **BDF2, fixed step**, behind a flag; `zold2` history + BE bootstrap; assert
+   order-2 on the benchmark. (Small, self-contained — the highest-value slice.)
+2. **Adaptive Δt** (embedded estimate + PI controller), behind a flag; assert the
+   path error tracks tolerance; variable-step BDF2 coefficients.
+3. (Optional) network + non-smooth-slope stress cases; docs update
+   (`docs/accuracy.md` right panel bends 1 → 2).
+
+Keep BE the default throughout; land phase 1 before phase 2.

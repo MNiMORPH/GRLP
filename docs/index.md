@@ -28,6 +28,7 @@ quickstart
 interactive
 theory
 network_solver
+accuracy
 examples
 api
 citing

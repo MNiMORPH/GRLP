@@ -65,6 +65,18 @@ def assemble(net, dt):
     cols = []
     vals = []
     RHS = np.zeros(n)
+    # Volume-first time integration: the solver conserves stored sediment
+    # *volume* V, not bed elevation z (see claude-instructions/
+    # second-order-time-bdf2-design.md). We assemble the elevation-based system
+    # below, then row-scale it by the storage Jacobian J = dV/dz and swap the
+    # RHS history into V-space. For the rectangular default (constant B) V is
+    # linear in z, J is constant, and this reduces to an exact row-scaling that
+    # leaves the solution unchanged to machine precision; a dynamic-width valley
+    # (issue #19) makes it a genuine change that keeps BDF2 second-order.
+    Jstore = np.ones(n)      # dV/dz at the current Picard iterate
+    Vhist = np.zeros(n)      # time-level history in V-space (BE or BDF2)
+    Vcorr = np.zeros(n)      # nonlinear-map linearization correction (0 if linear)
+    z_hist = np.zeros(n)     # the elevation history added to RHS (to subtract off)
     for seg in segs:
         s = seg.ID
         offset = starts[s]
@@ -96,6 +108,20 @@ def assemble(net, dt):
         else:
             z_rhs = zold
             time_diag = 1.0
+        # Volume-first pieces for this segment (applied as a transform after the
+        # matrix is assembled). J = dV/dz at the iterate; the history is carried
+        # in V-space (V^n for BE, (4 V^n - V^{n-1})/2 for BDF2); the correction
+        # is the nonlinear-map linearization term (identically zero when V is
+        # linear in z, i.e. the rectangular constant-B default).
+        sl = slice(offset, offset + L)
+        z_hist[sl] = z_rhs
+        Jstore[sl] = seg.storage_jacobian(seg.z)
+        Vold = seg.storage_volume(zold)
+        if use_bdf2:
+            Vhist[sl] = 0.5 * (4.0 * Vold - seg.storage_volume(zold2))
+        else:
+            Vhist[sl] = Vold
+        Vcorr[sl] = time_diag * (Jstore[sl] * seg.z - seg.storage_volume(seg.z))
         for i in range(L):
             # g: this node's index in the flattened global node vector
             # (segment offset + local index i)
@@ -282,7 +308,18 @@ def assemble(net, dt):
                 cols.append(down_g)
                 vals.append(right)
             RHS[g] = rhs_g
+    # Volume-first transform: row-scale the elevation system by J = dV/dz and
+    # swap the RHS history into V-space. Each row i of the elevation system is
+    # `(time_diag + flux_stencil) z = z_hist_i + (src+bcs)_i`; scaling the whole
+    # row by J_i turns the time diagonal into J_i*time_diag (= d/dz of the V
+    # storage term) and un-normalizes the flux, while the RHS becomes
+    # `Vhist_i + Vcorr_i + J_i*(src+bcs)_i` with `(src+bcs)_i = RHS_i - z_hist_i`.
+    # Rectangular default: J constant, Vhist = J*z_hist, Vcorr = 0 -> an exact
+    # row-scaling (solution unchanged to machine precision).
+    rows = np.asarray(rows)
+    vals = np.asarray(vals) * Jstore[rows]
     LHSmatrix = sparse.csr_matrix((vals, (rows, cols)), shape=(n, n))
+    RHS = Vhist + Vcorr + Jstore * (RHS - z_hist)
     return LHSmatrix, RHS
 
 def evolve(net, nt, dt):

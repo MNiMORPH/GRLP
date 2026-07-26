@@ -55,18 +55,28 @@ sparse-solve structure and unconditional stability are preserved.**
 
 ## 4. Why GRLP should get *clean* 2nd order (the key contrast with WTM)
 
-WTM's achieved order collapsed to ~1 at fine Δt. After refuting coefficient-
-smoothness hypotheses, the cause was a **2-level secant effective storativity**
-`(V(hⁿ⁺¹)−V(hⁿ))/Δh` (its *storage* term is nonlinear in the unknown) sitting on
-BDF2's 3-level derivative; the fix was "BDF2-on-V" (apply the 3-level difference
-to the stored volume, not `S_eff·BDF2(h)`).
+WTM's achieved order collapsed to ~1 at fine Δt. It is worth being precise about
+*why*, because it is **not** the intuitive answer. WTM's constitutive functions
+are kinked (piecewise-C⁰ Fan `T`, `S`), and the natural hypothesis was that those
+kinks cap the order — but that was **tested and disproved**: smoothing `T` to C∞
+and widening the `S` transition band 100× left the order at ~0.9 and the errors
+unchanged. The real cause was a **2-level secant effective storativity**
+`(V(hⁿ⁺¹)−V(hⁿ))/Δh` — a *temporal-consistency* mismatch, its 2-level secant
+driving BDF2's 3-level derivative — capping the order regardless of smoothness.
+The proof: with **constant** storativity (`S ≡ porosity`, i.e. *linear* storage)
+BDF2 recovered order ~2. The fix was "BDF2-on-V" (apply the 3-level difference to
+the stored volume, not `S_eff·BDF2(h)`).
 
-**GRLP does not have this trap (for now).** Its storage term is
-`∂z/∂t` with prefactor `(1−λ_p)·B`; with **B constant in z**, the stored sediment
-is *linear* in z, so `BDF2-on-z` *is* `BDF2-on-volume` — no secant, no order loss.
-GRLP's only nonlinearity is the slope-dependent flux `𝒟`, which is Picard-frozen —
-and WTM showed that *coefficient* freezing (frozen T) does **not** cap the order.
-So we expect genuine O(Δt²) from a straightforward BDF2-on-z.
+**GRLP does not have this trap (for now) — it is exactly WTM's constant-`S`,
+order-recovering case.** GRLP's storage term is `∂z/∂t` with prefactor
+`(1−λ_p)·B`; with **B constant in z**, the stored sediment is *linear* in z, so
+the "secant" `ΔV/Δz` *is* the exact constant derivative — no 2-level/3-level
+mismatch, `BDF2-on-z` *is* `BDF2-on-volume`, no order loss. GRLP's only
+nonlinearity is the slope-dependent flux `𝒟` (a *coefficient*), Picard-frozen —
+and WTM showed coefficient freezing does **not** cap the order. **Measured
+(single-profile uplift benchmark): BDF2 achieves rate ~2.10, backward Euler
+~1.03 — clean second order, as predicted.** (Kinks remain a *separate*,
+milder flux-side risk at `S≈0`; see §8.)
 
 > **Caveat, tied to #32:** when valley width becomes dynamic, `B = B(z)`, the
 > stored sediment `∝ ∫B(z)dz` is nonlinear in z and GRLP *would* inherit the WTM
@@ -118,8 +128,17 @@ orders at the same step:
   *coefficient* non-smoothness did **not** cap order — but confirm on GRLP by the
   self-convergence check; if a run spends time near `S≈0`, watch the achieved
   rate.
-- **Picard convergence with two history levels** — confirm the frozen-flux fixed
-  point still converges each step at the same `niter` (the benchmark catches it).
+- **BDF2's order is contingent on Picard convergence.** The slope-flux coefficient
+  is Picard-frozen and only becomes the fully-implicit value at `z^{n+1}` once the
+  iteration converges; an *under-converged* solve reintroduces a coefficient lag
+  that caps the order. Measured: BDF2 rate is 1.82 at `niter=1` but 2.10 at
+  `niter≥2` (Picard converges superlinearly here, so 2–3 iterations suffice for
+  the current weak `S^{1/6}` nonlinearity). Stiffer physics (dynamic `B`, #32) or
+  very large steps could need more — which is the standing argument for
+  **iterating Picard to a tolerance instead of a fixed count**
+  ([#17](https://github.com/MNiMORPH/GRLP/issues/17)); that enhancement would make
+  BDF2's second order unconditionally robust. The accuracy test guards this (the
+  order drops if the solve is under-converged).
 - **Junction rows.** The BDF2 diagonal/RHS change must be applied consistently in
   the multi-tributary junction cell (`_face_conductance` path), not just interior
   nodes.

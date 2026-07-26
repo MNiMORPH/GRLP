@@ -546,6 +546,11 @@ class LongProfile(object):
         """Number of Picard iterations per step (set on the owned network)."""
         self._net().set_niter(niter)
 
+    def set_time_integration(self, order):
+        """Time-integration order: 1 = backward Euler (default), 2 = BDF2
+        (set on the owned network)."""
+        self._net().set_time_integration(order)
+
     def compute_Q_s(self):
         """
         Slope and sediment discharge at each node, via the owned one-edge
@@ -916,6 +921,7 @@ class Network(object):
         self.t = 0
         self.Q_s_0 = None
         self.S0 = None
+        self.time_order = 1   # time integration: 1 = backward Euler, 2 = BDF2
 
     @property
     def list_of_LongProfile_objects(self):
@@ -999,6 +1005,19 @@ class Network(object):
     def set_niter(self, niter):
         # MAKE UNIFORM IN BASE CLASS
         self.niter = niter
+
+    def set_time_integration(self, order):
+        """
+        Select the time-integration scheme for transient runs:
+        ``1`` = backward Euler (first-order, the default), ``2`` = BDF2
+        (second-order; see claude-instructions/second-order-time-bdf2-design.md).
+        The steady state is time-step-independent, so this only affects the
+        path through time.
+        """
+        if order not in (1, 2):
+            raise ValueError("time-integration order must be 1 (backward Euler) "
+                             "or 2 (BDF2); got %r" % (order,))
+        self.time_order = order
 
 
     def set_x_bl(self, x_bl=None):

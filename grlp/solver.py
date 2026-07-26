@@ -74,12 +74,28 @@ def assemble(net, dt):
                + np.asarray(seg.downstream_fining_subsidence_equivalent)
                + np.asarray(seg.U)) * dt
         src = np.broadcast_to(src, (L,))
-        # RHS uses the start-of-step elevation (zold) during Picard
-        # iteration; the coefficient (C1) uses the current iterate seg.z.
-        # When zold is unset (static assembly, e.g. tests) it equals seg.z.
-        z_rhs = getattr(seg, "zold", None)
-        if z_rhs is None or np.size(z_rhs) != L:
-            z_rhs = seg.z
+        # Time-derivative discretization (see claude-instructions/
+        # second-order-time-bdf2-design.md). Backward Euler (default) uses the
+        # start-of-step elevation z^n (seg.zold) with a unit time-diagonal.
+        # BDF2 (net.time_order == 2, once a two-level history exists) uses the
+        # three-level derivative (3 z^{n+1} - 4 z^n + z^{n-1})/(2 dt): the
+        # time-diagonal becomes 3/2 and the RHS history becomes (4 z^n - z^{n-1})/2.
+        # The dt * operator (C1) and dt * source terms are identical either way.
+        # RHS/coefficient split during Picard: the history uses the frozen
+        # start-of-step levels; the coefficient (C1) uses the current iterate
+        # seg.z. When zold is unset (static assembly, e.g. tests) it equals seg.z.
+        zold = getattr(seg, "zold", None)
+        if zold is None or np.size(zold) != L:
+            zold = seg.z
+        zold2 = getattr(seg, "zold2", None)
+        use_bdf2 = (getattr(net, "_bdf2_step", False)
+                    and zold2 is not None and np.size(zold2) == L)
+        if use_bdf2:
+            z_rhs = 0.5 * (4.0 * zold - zold2)
+            time_diag = 1.5
+        else:
+            z_rhs = zold
+            time_diag = 1.0
         for i in range(L):
             # g: this node's index in the flattened global node vector
             # (segment offset + local index i)
@@ -131,7 +147,7 @@ def assemble(net, dt):
                     vals.append(-conductance_upseg / A_confluence)
                 rows.append(g)
                 cols.append(g)
-                vals.append(1. + conductance_sum / A_confluence)
+                vals.append(time_diag + conductance_sum / A_confluence)
                 RHS[g] = z_rhs[i] + src[i]
                 continue
             if down_is_confluence:
@@ -154,7 +170,7 @@ def assemble(net, dt):
                 rows.append(g)
                 cols.append(g)
                 vals.append(
-                    1. + (conductance_up + conductance_downseg) / land_area)
+                    time_diag + (conductance_up + conductance_downseg) / land_area)
                 RHS[g] = z_rhs[i] + src[i]
                 continue
             if up_is_confluence:
@@ -175,7 +191,7 @@ def assemble(net, dt):
                 rows.append(g)
                 cols.append(g)
                 vals.append(
-                    1. + (conductance_up + conductance_down) / land_area)
+                    time_diag + (conductance_up + conductance_down) / land_area)
                 RHS[g] = z_rhs[i] + src[i]
                 continue
             # --- upstream neighbor (or head ghost) ---
@@ -242,7 +258,7 @@ def assemble(net, dt):
             dQ_2cell = Q_down - Q_up
             S = np.abs(z_down - z_up) / dx_2cell
             C1 = seg.C0 * S ** (1 / 6.) * seg.Q[i] / seg.B[i]
-            center = -C1 / dx_2cell * (7 / 3. * (-1 / dx_up - 1 / dx_down)) + 1.
+            center = -C1 / dx_2cell * (7 / 3. * (-1 / dx_up - 1 / dx_down)) + time_diag
             left = -C1 / dx_2cell * (7 / 3. / dx_up - dQ_2cell / seg.Q[i] / dx_2cell)
             right = -C1 / dx_2cell * (7 / 3. / dx_down + dQ_2cell / seg.Q[i] / dx_2cell)
             rhs_g = z_rhs[i] + src[i]
@@ -279,6 +295,7 @@ def evolve(net, nt, dt):
     relinearizes on the current iterate each iteration.
     """
     net.dt = dt
+    bdf2_requested = getattr(net, "time_order", 1) == 2
     segs = net.segments
     lengths = list(net.list_of_segment_lengths)
     starts = np.cumsum([0] + lengths)[:-1]
@@ -289,7 +306,12 @@ def evolve(net, nt, dt):
         seg.gravel_fractional_loss_per_km is not None for seg in segs)
     for ti in range(int(nt)):
         for seg in segs:
+            # Advance the time-level history for BDF2: z^{n-1} <- z^n, z^n <- z.
+            # The first step of an evolve() call has no z^{n-1}, so BDF2
+            # bootstraps with one backward-Euler step there.
+            seg.zold2 = None if ti == 0 else seg.zold
             seg.zold = seg.z.copy()
+        net._bdf2_step = bdf2_requested and ti > 0
         for _ in range(int(net.niter)):
             if gravel_loss_active:
                 update_gravel_loss(net)

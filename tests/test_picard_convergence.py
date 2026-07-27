@@ -26,6 +26,7 @@ import warnings
 
 import numpy as np
 
+import grlp
 from conftest import make_long_profile, STEADY_NT, STEADY_DT
 
 
@@ -107,6 +108,16 @@ def test_positive_tolerance_required():
             pass
         else:
             raise AssertionError("expected ValueError for tol=%r" % (bad,))
+
+
+def test_solver_defaults_are_bdf2_and_converged():
+    """Pin the shipped defaults (the v3 headline): a fresh network integrates in
+    time with BDF2 and iterates the semi-implicit solve to a 0.1 mm tolerance.
+    Guards against an accidental revert of the default."""
+    net = grlp.Network()
+    assert net.time_order == 2                 # BDF2, not backward Euler
+    assert net.picard_tol == 1e-4              # iterate-to-convergence at 0.1 mm
+    assert net.niter == 3                      # fixed-mode fallback
 
 
 def test_niter_and_tolerance_are_mutually_exclusive():

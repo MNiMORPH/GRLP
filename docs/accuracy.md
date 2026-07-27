@@ -88,7 +88,10 @@ BDF2 is [L-stable](https://en.wikipedia.org/wiki/L-stability) — it damps sharp
 transients rather than ringing — bootstraps its first step with backward Euler,
 and reaches its second-order rate once the semi-implicit iteration is converged
 (the default, below). Steady states are independent of the time step, so the
-scheme only affects the *path* through time. To fall back to first-order backward
+scheme only affects the *path* through time. The two schemes also **agree as
+Δt → 0**: they differ only by their finite-step truncation error, so on a
+well-resolved run the choice barely matters — BDF2 simply reaches that
+well-resolved answer at a much larger step. To fall back to first-order backward
 Euler:
 
 ```python

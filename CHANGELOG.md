@@ -126,17 +126,20 @@ version heading for the full notes.
 
 ### Changed
 - **Default time integration is now second-order BDF2, iterated to convergence**
-  (breaking for transient results). GRLP 2.x integrated in time with first-order
-  backward Euler and a fixed three Picard iterations; the default is now BDF2
-  (second order) with the semi-implicit iteration run to a 0.1 mm tolerance. This
-  is more accurate -- transient profiles land several times closer to the
-  fine-step limit -- so **transient results change** (steady states are
-  time-step-independent and are unchanged). More accuracy for little cost: at a
-  target accuracy BDF2 needs far fewer, larger steps. The 2.x scheme is available
-  with `set_time_integration(1)` and `set_niter(3)`. A very large step can warn
-  that the iteration did not converge (the fixed-point iteration does not contract
-  there); take smaller steps or accept the reported residual. Golden-master
-  references are kept for both schemes. See `docs/accuracy.md`;
+  (breaking for transient results, and an accuracy improvement). GRLP 2.x
+  integrated in time with first-order backward Euler and a fixed three Picard
+  iterations; the default is now BDF2 (second order) with the semi-implicit
+  iteration run to a 0.1 mm tolerance. This is more accurate -- transient profiles
+  land several times closer to the fine-step limit -- so **transient results
+  change** (steady states are time-step-independent and are unchanged). The two
+  schemes **agree as Δt → 0**: they differ only by their finite-step truncation
+  error (∝ Δt for backward Euler, ∝ Δt² for BDF2), so a well-resolved run changes
+  negligibly and the difference vanishes in the limit. More accuracy for little
+  cost: at a target accuracy BDF2 needs far fewer, larger steps. The 2.x scheme is
+  available with `set_time_integration(1)` and `set_niter(3)`. A very large step
+  can warn that the iteration did not converge (the fixed-point iteration does not
+  contract there); take smaller steps or accept the reported residual.
+  Golden-master references are kept for both schemes. See `docs/accuracy.md`;
   [#16](https://github.com/MNiMORPH/GRLP/issues/16),
   [#17](https://github.com/MNiMORPH/GRLP/issues/17).
 - **`LongProfile` split into `Segment` + a 1-D wrapper** (breaking). A single

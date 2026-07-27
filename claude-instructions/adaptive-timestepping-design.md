@@ -10,8 +10,8 @@ volume-first solver (#18). Companion: `second-order-time-bdf2-design.md`.
 
 Size the time step automatically to hold a user **path tolerance** (e.g. "keep
 the transient profile within X m"), taking small steps when the transient is
-fast/nonlinear and growing them as it settles. Backward Euler / fixed-step BDF2
-stay the defaults; adaptive is opt-in.
+fast/nonlinear and growing them as it settles. Fixed-step integration stays the
+default (now BDF2 + iterate-to-convergence, as of 2026-07); adaptive is opt-in.
 
 ## Key architectural finding (from prototyping, 2026-07)
 

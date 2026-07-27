@@ -89,9 +89,10 @@ def assemble(net, dt):
                + np.asarray(seg.U)) * dt
         src = np.broadcast_to(src, (L,))
         # Time-derivative discretization (see claude-instructions/
-        # second-order-time-bdf2-design.md). Backward Euler (default) uses the
-        # start-of-step elevation z^n (seg.zold) with a unit time-diagonal.
-        # BDF2 (net.time_order == 2, once a two-level history exists) uses the
+        # second-order-time-bdf2-design.md). Backward Euler (time_order == 1) uses
+        # the start-of-step elevation z^n (seg.zold) with a unit time-diagonal.
+        # BDF2 (net.time_order == 2, the default, once a two-level history exists)
+        # uses the
         # three-level derivative (3 z^{n+1} - 4 z^n + z^{n-1})/(2 dt): the
         # time-diagonal becomes 3/2 and the RHS history becomes (4 z^n - z^{n-1})/2.
         # The dt * operator (C1) and dt * source terms are identical either way.

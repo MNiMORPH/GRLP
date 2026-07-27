@@ -131,6 +131,11 @@ orders at the same step:
 
 ## 7. Backward compatibility, tests, and the golden masters
 
+> **SUPERSEDED (2026-07):** BDF2 + iterate-to-convergence is now the **default**
+> (see CHANGELOG and `docs/accuracy.md`). This section planned BDF2 as opt-in with
+> backward Euler default; that flipped. Golden-master sets are now kept for *both*
+> schemes rather than pinning only the backward-Euler one.
+
 - **Backward Euler stays the default.** BDF2/adaptive are opt-in (e.g.
   `Network`/`LongProfile` `set_time_integration("BDF2")` or a solver flag), so
   every existing result and the **golden-master characterization tests are

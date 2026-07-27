@@ -1,8 +1,5 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy.sparse import spdiags, identity, block_diag
-from scipy import sparse
-from scipy.sparse.linalg import spsolve, isolve
 from scipy.stats import linregress
 import networkx as nx
 import warnings

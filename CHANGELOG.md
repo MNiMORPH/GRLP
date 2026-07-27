@@ -95,7 +95,11 @@ version heading for the full notes.
   backward-Euler bootstrap (so the result is independent of the initial-step
   guess), and it advances with the finer two-half-step solution. Requires
   `set_time_integration(2)`; pair with `set_iteration_tolerance` for a converged
-  per-step solve. Guarded by `tests/test_adaptive_timestepping.py`;
+  per-step solve. It is a **convenience, not a speed-up**: for GRLP's smooth,
+  diffusive transients a well-chosen fixed BDF2 step is cheaper at matched
+  accuracy (benchmarked in `benchmarks/adaptive_timestep_benchmark.py`) -- reach
+  for it to hold an accuracy without hand-tuning the step, not to run faster.
+  Guarded by `tests/test_adaptive_timestepping.py`;
   [#16](https://github.com/MNiMORPH/GRLP/issues/16).
 - Time-stepping accuracy characterization: `tests/test_time_accuracy.py` verifies
   by self-convergence that backward Euler is first-order in time and BDF2 is

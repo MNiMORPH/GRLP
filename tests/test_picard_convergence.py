@@ -107,3 +107,19 @@ def test_positive_tolerance_required():
             pass
         else:
             raise AssertionError("expected ValueError for tol=%r" % (bad,))
+
+
+def test_niter_and_tolerance_are_mutually_exclusive():
+    """Fixed-iteration mode and convergence mode are two settings of one knob:
+    ``set_niter`` selects fixed mode (clearing any tolerance) and
+    ``set_iteration_tolerance`` selects convergence mode, so the most recent call
+    wins. Guards the API semantics the default (convergence) and the expert
+    opt-out (fixed ``niter``) rely on."""
+    lp = make_long_profile()
+    net = lp._net()
+    lp.set_iteration_tolerance(1e-5)
+    assert net.picard_tol == 1e-5                      # convergence mode
+    lp.set_niter(4)
+    assert net.picard_tol is None and net.niter == 4   # set_niter -> fixed mode
+    lp.set_iteration_tolerance(1e-6)
+    assert net.picard_tol == 1e-6                      # tolerance -> convergence again

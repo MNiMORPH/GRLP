@@ -95,6 +95,10 @@ class Segment(object):
         self.narrow_by_incision = False # opt-in valley-dynamics flags; both
         self.partition_by_aggradation = False # off by default so existing
                           # profiles evolve unchanged (see set_valley_dynamics)
+        self.k0 = None # Turowski et al. (2024) channel-belt coefficient; the
+                       # maximum (unconfined) valley width is B_max = k0*h + b.
+                       # Needed for lateral widening; set via
+                       # set_channel_belt_coefficient
         self.gravel_fractional_loss_per_km = None
         #self.downstream_dx = None # not necessary if x_ext given
         #self.basic_constants()
@@ -375,6 +379,15 @@ class Segment(object):
         """
         self.zetadot = zetadot
 
+    def set_channel_belt_coefficient(self, k0):
+        """
+        Turowski et al. (2024) channel-belt coefficient k0 [-], which sets the
+        maximum (unconfined) valley width B_max = k0 * h + b.  Lateral widening
+        slows as the valley approaches B_max and stops there, so this is
+        required to widen a valley.
+        """
+        self.k0 = k0
+
     def set_valley_dynamics(self, narrow_by_incision=None,
                                   partition_by_aggradation=None):
         """
@@ -466,13 +479,20 @@ class Segment(object):
                                      self.H_valley)
             self.B = np.where(incising, self.b, self.B)
 
-        # Lateral migration widens the valley at the migration rate zetadot,
-        # every step -- including during incision, so an incising node ends at
-        # B = b + zetadot*dt.  One active wall at a time: dB/dt = zetadot.
-        self.B = self.B + self.zetadot * dt
+        # Lateral migration widens the valley, but only in the fraction of the
+        # time P the channel is against a wall cutting outward (Turowski et al.,
+        # 2024): dB/dt = zetadot * P, with the wall-strike fraction
+        # P = (B_max - B) / (B_max - b) and the maximum width B_max = k0*h + b.
+        # Widening slows as B -> B_max and stops there; a freshly incised valley
+        # (B = b) has P = 1 and widens at the full migration rate.  Every step,
+        # including during incision, so an incising node ends at b + zetadot*P*dt.
+        if migrating and self.k0 is not None:
+            B_max = self.k0 * self.h + self.b
+            P = np.clip((B_max - self.B) / (B_max - self.b), 0., 1.)
+            self.B = self.B + self.zetadot * P * dt
 
-        # Aggradation deposit partition (f_ch = B_c/B) is added once the
-        # reworking-rate closure is confirmed; see notes/valley_width.md.
+        # Aggradation deposit partition (f_ch = B_c/B) is added next; see
+        # notes/valley_width.md.
 
     def set_uplift_rate(self, U):
         """

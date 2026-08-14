@@ -61,6 +61,9 @@ class Segment(object):
         self.Q = None
         self.B = None
         self.H_valley = None # valley-wall height [m]; set via set_valley_wall_height
+        self.f_ch = 1. # channel-deposit fraction [-]; 1 by default (all aggradation
+                       # is channel deposit), which leaves the storage term
+                       # unchanged until aggradation partitioning is enabled
         self.D = None # Grain size; needed only to resolve width and depth
         self.b = None # Width and depth need not be resoloved to compute
         self.h = None # long-profile evolution

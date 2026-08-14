@@ -60,6 +60,7 @@ class Segment(object):
         self.A = None
         self.Q = None
         self.B = None
+        self.H_valley = None # valley-wall height [m]; set via set_valley_wall_height
         self.D = None # Grain size; needed only to resolve width and depth
         self.b = None # Width and depth need not be resoloved to compute
         self.h = None # long-profile evolution
@@ -342,6 +343,19 @@ class Segment(object):
             self.B = k_xB * self.x**P_xB
             self.k_xB = k_xB
             self.P_xB = P_xB
+
+    def set_valley_wall_height(self, H_valley=None):
+        """
+        Set the valley-wall height H_valley [m] -- the height of the walls that
+        the laterally migrating channel bevels back.  This sets the denominator
+        of the widening rate (taller walls widen more slowly) and grows as the
+        channel incises.  A scalar (uniform) or a per-node array may be given.
+        """
+        if hasattr(H_valley, "__iter__"):
+            self.H_valley = H_valley
+        else:
+            # Assuming "x" is known already
+            self.H_valley = H_valley * np.ones(self.x.shape)
 
     def set_lateral_migration_rate(self, zetadot):
         """

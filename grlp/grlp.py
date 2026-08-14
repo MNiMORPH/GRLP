@@ -435,6 +435,45 @@ class Segment(object):
         """
         return (1. - self.lambda_p) * self.valley_width(z) * z
 
+    def update_valley(self, dt):
+        """
+        Advance the valley geometry by one time step from the bed elevation-
+        change rate ``dz_dt`` set by the solver.  Called *between* implicit
+        steps (never within the solve), so the width it produces stays frozen
+        through the next solve and the storage term remains linear in z.
+
+        Three processes act (see notes/valley_width.md): lateral migration
+        widens; incision entrenches and narrows; aggradation partitions the
+        deposit (f_ch).  Only those that are switched on do anything, so this
+        is a no-op by default and safe to call unconditionally.
+
+        NOTE: this combines valley *geometry* (width, wall height) with the
+        deposit *partition* (f_ch) in one pass for computational convenience;
+        the two are conceptually separable and may later split.  -- per ADW
+        """
+        migrating = np.any(np.asarray(self.zetadot) != 0.)
+        if not (migrating or self.narrow_by_incision
+                          or self.partition_by_aggradation):
+            return
+
+        # Incision entrenches the channel (opt-in): the valley abandons its
+        # floodplain and, with vertical walls, collapses abruptly to the
+        # channel width, while the walls grow by the incision depth.
+        if self.narrow_by_incision:
+            incising = self.dz_dt < 0
+            self.H_valley = np.where(incising,
+                                     self.H_valley - self.dz_dt * dt,
+                                     self.H_valley)
+            self.B = np.where(incising, self.b, self.B)
+
+        # Lateral migration widens the valley at the migration rate zetadot,
+        # every step -- including during incision, so an incising node ends at
+        # B = b + zetadot*dt.  One active wall at a time: dB/dt = zetadot.
+        self.B = self.B + self.zetadot * dt
+
+        # Aggradation deposit partition (f_ch = B_c/B) is added once the
+        # reworking-rate closure is confirmed; see notes/valley_width.md.
+
     def set_uplift_rate(self, U):
         """
         Uplift rate if positive -- or equivalently, rate of base-level fall

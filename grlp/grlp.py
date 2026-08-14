@@ -85,6 +85,9 @@ class Segment(object):
         self.downstream_fining_subsidence_equivalent = 0.
         self.U = 0. # uplift/subsidence source-sink [m/s]; 0 by default so a
                     # profile evolves without an explicit set_uplift_rate call
+        self.zetadot = 0. # lateral channel-migration rate [m/s]; 0 by default so
+                          # the valley does not widen without an explicit
+                          # set_lateral_migration_rate call
         self.gravel_fractional_loss_per_km = None
         #self.downstream_dx = None # not necessary if x_ext given
         #self.basic_constants()
@@ -339,6 +342,18 @@ class Segment(object):
             self.B = k_xB * self.x**P_xB
             self.k_xB = k_xB
             self.P_xB = P_xB
+
+    def set_lateral_migration_rate(self, zetadot):
+        """
+        Lateral channel-migration rate zetadot [m/s] -- the rate at which the
+        channel sweeps across the valley floor and bevels its walls, and hence
+        the driver of valley widening.  Set directly here as a fixed input; a
+        scalar (uniform) or a per-node array (both accepted) may be given.
+        Later closures may compute it from external controls instead -- e.g.
+        Q_s / (h * dx) after Turowski et al. (2024) -- but a prescribed value
+        is enough for first tests.
+        """
+        self.zetadot = zetadot
 
     # -- Valley-storage geometry ------------------------------------------- #
     # The solver conserves the stored sediment *volume* V (not the bed

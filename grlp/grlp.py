@@ -92,6 +92,9 @@ class Segment(object):
         self.zetadot = 0. # lateral channel-migration rate [m/s]; 0 by default so
                           # the valley does not widen without an explicit
                           # set_lateral_migration_rate call
+        self.narrow_by_incision = False # opt-in valley-dynamics flags; both
+        self.partition_by_aggradation = False # off by default so existing
+                          # profiles evolve unchanged (see set_valley_dynamics)
         self.gravel_fractional_loss_per_km = None
         #self.downstream_dx = None # not necessary if x_ext given
         #self.basic_constants()
@@ -371,6 +374,28 @@ class Segment(object):
         is enough for first tests.
         """
         self.zetadot = zetadot
+
+    def set_valley_dynamics(self, narrow_by_incision=None,
+                                  partition_by_aggradation=None):
+        """
+        Enable or disable the two elevation-change-triggered valley processes,
+        each independently.  Both are off by default, so existing profiles
+        evolve unchanged; set them to opt in:
+
+          narrow_by_incision        -- incision entrenches the channel, collapsing
+                                        the valley to the channel width and growing
+                                        the wall height.
+          partition_by_aggradation  -- aggradation partitions the deposit between
+                                        channel and overbank via f_ch.
+
+        Lateral widening is not flagged here: it is gated by its rate zetadot
+        (0 by default; see set_lateral_migration_rate).  Only arguments that are
+        given are changed; pass one to leave the other untouched.
+        """
+        if narrow_by_incision is not None:
+            self.narrow_by_incision = narrow_by_incision
+        if partition_by_aggradation is not None:
+            self.partition_by_aggradation = partition_by_aggradation
 
     # -- Valley-storage geometry ------------------------------------------- #
     # The solver conserves the stored sediment *volume* V (not the bed

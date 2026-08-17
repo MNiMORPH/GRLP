@@ -99,6 +99,13 @@ class Segment(object):
                        # maximum (unconfined) valley width is B_max = k0*h + b.
                        # Needed for lateral widening; set via
                        # set_channel_belt_coefficient
+        self.migration_coefficient = None # Xi in the Q_s-based migration rate
+                       # zetadot = Xi/(1-lambda_p) * Q_s/(h*dx); set it (via
+                       # set_lateral_migration_coefficient) to drive zetadot from
+                       # sediment discharge instead of prescribing it
+        self.migration_reference_length = 1. # dx [m] in that rate -- a unit
+                       # downstream length (Wickert 2013 Eq. 29 with the mean
+                       # channel width replaced by this reference length)
         self.gravel_fractional_loss_per_km = None
         #self.downstream_dx = None # not necessary if x_ext given
         #self.basic_constants()
@@ -373,11 +380,44 @@ class Segment(object):
         channel sweeps across the valley floor and bevels its walls, and hence
         the driver of valley widening.  Set directly here as a fixed input; a
         scalar (uniform) or a per-node array (both accepted) may be given.
-        Later closures may compute it from external controls instead -- e.g.
-        Q_s / (h * dx) after Turowski et al. (2024) -- but a prescribed value
-        is enough for first tests.
+        To compute it from sediment discharge instead of prescribing it, use
+        set_lateral_migration_coefficient.
         """
         self.zetadot = zetadot
+
+    def set_lateral_migration_coefficient(self, Xi, dx=1.):
+        """
+        Drive the lateral migration rate from sediment discharge rather than
+        prescribing it:
+
+            zetadot = Xi / (1 - lambda_p) * Q_s / (h * dx)
+
+        the Wickert et al. (2013) migration relation (their Eq. 29) with the
+        mean channel width replaced by a unit downstream length ``dx`` (default
+        1 m).  ``Xi`` [-] is the dimensionless proportionality constant (bank
+        erodibility, curvature, vegetation).  Setting ``Xi`` activates the
+        Q_s-driven rate; while it is set, ``compute_lateral_migration_rate``
+        overwrites ``zetadot`` each step.  A grain size ``D`` must also be set
+        (so the flow depth ``h`` and slope-based ``Q_s`` can be resolved).
+        """
+        self.migration_coefficient = Xi
+        self.migration_reference_length = dx
+
+    def compute_lateral_migration_rate(self):
+        """
+        Set the lateral migration rate from the current sediment discharge,
+
+            zetadot = Xi / (1 - lambda_p) * Q_s / (h * dx),
+
+        with ``Q_s = k_Qs * intermittency * Q * S**(7/6)`` (the GRLP bedload
+        relation) from the current slope ``S`` (Wickert et al., 2013, Eq. 29,
+        mean channel width -> reference length ``dx``).  Called each step by
+        ``update_valley`` when a migration coefficient is set; requires ``S``
+        and ``h`` (resolved there from the grain size ``D``).
+        """
+        Q_s = self.k_Qs * self.intermittency * self.Q * self.S**(7/6.)
+        self.zetadot = self.migration_coefficient / (1. - self.lambda_p) \
+                       * Q_s / (self.h * self.migration_reference_length)
 
     def set_channel_belt_coefficient(self, k0):
         """
@@ -468,7 +508,8 @@ class Segment(object):
         deposit *partition* (f_ch) in one pass for computational convenience;
         the two are conceptually separable and may later split.  -- per ADW
         """
-        migrating = np.any(np.asarray(self.zetadot) != 0.)
+        migrating = ((self.migration_coefficient is not None)
+                     or np.any(np.asarray(self.zetadot) != 0.))
         if not (migrating or self.narrow_by_incision
                           or self.partition_by_aggradation):
             return
@@ -484,6 +525,11 @@ class Segment(object):
             self.S = np.abs(np.gradient(self.z, self.x)) / self.sinuosity
             self.compute_channel_width()
             self.compute_flow_depth()
+
+        # Drive the migration rate from the current sediment discharge if a
+        # coefficient is set; otherwise zetadot is the prescribed value.
+        if self.migration_coefficient is not None:
+            self.compute_lateral_migration_rate()
 
         # Incision entrenches the channel (opt-in): the valley abandons its
         # floodplain and, with vertical walls, collapses abruptly to the

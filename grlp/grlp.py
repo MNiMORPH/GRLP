@@ -479,20 +479,63 @@ class Segment(object):
                                      self.H_valley)
             self.B = np.where(incising, self.b, self.B)
 
-        # Lateral migration widens the valley, but only in the fraction of the
-        # time P the channel is against a wall cutting outward (Turowski et al.,
-        # 2024): dB/dt = zetadot * P, with the wall-strike fraction
-        # P = (B_max - B) / (B_max - b) and the maximum width B_max = k0*h + b.
-        # Widening slows as B -> B_max and stops there; a freshly incised valley
-        # (B = b) has P = 1 and widens at the full migration rate.  Every step,
-        # including during incision, so an incising node ends at b + zetadot*P*dt.
+        # Lateral migration widens the valley toward its unconfined channel-belt
+        # width, slowing as the confining walls grow (Turowski et al., 2025).
+        # Every step, including during incision, so an incising node (B just
+        # collapsed to b) starts widening again from b.
         if migrating and self.k0 is not None:
-            B_max = self.k0 * self.h + self.b
-            P = np.clip((B_max - self.B) / (B_max - self.b), 0., 1.)
-            self.B = self.B + self.zetadot * P * dt
+            self._widen_valley(dt)
 
         # Aggradation deposit partition (f_ch = B_c/B) is added next; see
         # notes/valley_width.md.
+
+    def channel_belt_width(self):
+        """
+        Unconfined channel-belt width ``W0 = k0 * h + b`` -- the maximum valley
+        width a river of this hydrology would carve with no confining walls
+        (Turowski et al., 2025, Eq. 4).
+        """
+        return self.k0 * self.h + self.b
+
+    def _widen_valley(self, dt):
+        """
+        Widen the valley by lateral migration over one step, using the exact
+        solution of the deterministic Turowski et al. (2025) model
+        ``dB/dt = P * zetadot``:
+
+            B <- W0 - (W0 - B) * exp(-dt / tau)
+
+        which relaxes ``B`` toward the unconfined channel-belt width
+        ``W0 = channel_belt_width()`` without overshoot (the ``P`` factor
+        self-limits at ``W0``, so no cap is needed).  The confining walls slow
+        widening through the timescale
+
+            tau = (W0 - b) * (1 - h / H_valley) / zetadot
+
+        (Turowski Eq. 17, corrected wall factor ``1 - h/H_valley``).  Where the
+        walls are no taller than the channel (``H_valley <= h``) the confined
+        factor is undefined, so those nodes widen at the unconfined rate
+        (``tau = (W0 - b) / zetadot``) and a warning is issued.
+        """
+        W0 = self.channel_belt_width()
+        # Confining-wall slowdown factor; unconfined (factor 1) where the walls
+        # do not stand above the channel.
+        if self.H_valley is None:
+            wall_factor = np.ones(np.shape(self.B))
+            confined = np.zeros(np.shape(self.B), dtype=bool)
+        else:
+            confined = np.asarray(self.H_valley) > self.h
+            H_eff = np.where(confined, self.H_valley, np.inf)
+            wall_factor = np.where(confined, 1. - self.h / H_eff, 1.)
+        if not np.all(confined):
+            warnings.warn(
+                "Valley walls are no taller than the channel (H_valley <= h) "
+                "at one or more nodes: widening there uses the UNCONFINED law "
+                "(Turowski et al., 2025).")
+        # zetadot == 0 -> tau == inf -> exp(0) == 1 -> B unchanged (no widening).
+        with np.errstate(divide='ignore'):
+            tau = (W0 - self.b) * wall_factor / self.zetadot
+        self.B = W0 - (W0 - self.B) * np.exp(-dt / tau)
 
     def set_uplift_rate(self, U):
         """

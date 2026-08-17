@@ -175,7 +175,20 @@ def assemble(net, dt):
                         .upstream_segment_IDs) > 1)
             up_is_confluence = (i == 1 and len(seg.upstream_segment_IDs) > 1)
             if is_confluence:
-                A_confluence = seg.land_area_around_confluence
+                # Effective confluence-cell area with the channel-deposit
+                # fraction: each contributing cell carries its own f_ch (the
+                # gravel occupies the effective width f_ch*B).  Recomputed here
+                # from the current f_ch (not the frozen land_area_around_
+                # confluence, which is set once from B) -- it mirrors that sum
+                # with f_ch on each cell and reduces to it exactly at f_ch = 1.
+                A_confluence = (0.5 * (seg.x[1] - seg.x[0])
+                                * f_ch_seg[0] * seg.B[0])
+                for _ID in seg.upstream_segment_IDs:
+                    _up = segs[_ID]
+                    _up_fch = np.broadcast_to(
+                        np.asarray(_up.f_ch, dtype=float), _up.B.shape)
+                    A_confluence += (0.5 * (seg.x[0] - _up.x[-1])
+                                     * _up_fch[-1] * _up.B[-1])
                 conductance_down = _face_conductance(
                     seg.z[0], seg.z[1], 0.5 * (seg.Q[0] + seg.Q[1]),
                     seg.x[0], seg.x[1], seg.C0)
@@ -201,8 +214,8 @@ def assemble(net, dt):
             if down_is_confluence:
                 downseg = segs[seg.downstream_segment_IDs[0]]
                 downseg_g = starts[downseg.ID]
-                land_area = seg.B[-1] * 0.5 * ((seg.x[-1] - seg.x[-2])
-                                              + (downseg.x[0] - seg.x[-1]))
+                land_area = f_ch_seg[-1] * seg.B[-1] * 0.5 * (
+                    (seg.x[-1] - seg.x[-2]) + (downseg.x[0] - seg.x[-1]))
                 conductance_downseg = _face_conductance(
                     seg.z[-1], downseg.z[0], seg.Q[-1],
                     seg.x[-1], downseg.x[0], downseg.C0)  # shared with confluence
@@ -222,8 +235,8 @@ def assemble(net, dt):
                 RHS[g] = z_rhs[i] + src[i]
                 continue
             if up_is_confluence:
-                land_area = seg.B[1] * 0.5 * ((seg.x[1] - seg.x[0])
-                                             + (seg.x[2] - seg.x[1]))
+                land_area = f_ch_seg[1] * seg.B[1] * 0.5 * (
+                    (seg.x[1] - seg.x[0]) + (seg.x[2] - seg.x[1]))
                 conductance_up = _face_conductance(
                     seg.z[0], seg.z[1], 0.5 * (seg.Q[0] + seg.Q[1]),
                     seg.x[0], seg.x[1], seg.C0)  # shared with confluence

@@ -20,6 +20,7 @@ These tests exercise the full valley-dynamics path (``update_valley`` computes
 
 import numpy as np
 
+import grlp
 from conftest import make_long_profile
 
 
@@ -79,3 +80,66 @@ def test_f_ch_below_unity_changes_the_profile():
         "a small migration rate should give f_ch meaningfully below 1"
     assert not np.allclose(z_std, lp_val.z), \
         "f_ch < 1 must change the profile (the gravel fills a narrower width)"
+
+
+def _evolve_Y_network(f_ch=None):
+    """A confluence (Y) network under uplift, optionally with a uniform f_ch.
+
+    Two tributaries (0, 1) join into a trunk (2); the trunk's first node is the
+    confluence.  Uplift makes every cell -- interiors *and* the junction cell --
+    a sediment source over its land area, so the confluence assembly is exercised
+    (its ``land_area`` is built from the tributaries' terminal ``f_ch * B`` and
+    the confluence node's own ``f_ch * B``).  Returns the three segment ``z``.
+    """
+    nseg = 30
+    dx = 1000.0
+    xt = dx * np.arange(1, nseg + 1.0)
+    xtr = dx * np.arange(nseg + 1, 2 * nseg + 1.0)
+    U = 5.0e-4 / _YEAR                              # ~0.5 mm/yr uplift -> aggrades
+    net = grlp.Network()
+    net.initialize(
+        x_bl=dx * (2 * nseg + 1), z_bl=0.0, S0=[1.5e-2, 1.5e-2], Q_s_0=None,
+        upstream_segment_IDs=[[], [], [0, 1]],
+        downstream_segment_IDs=[[2], [2], []],
+        x=[xt.copy(), xt.copy(), xtr.copy()], z=[np.zeros(nseg)] * 3,
+        Q=[10.0 * np.ones(nseg), 10.0 * np.ones(nseg), 20.0 * np.ones(nseg)],
+        B=[100.0 * np.ones(nseg)] * 3,
+    )
+    for lp in net.list_of_LongProfile_objects:
+        lp.set_intermittency(1.0)
+        lp.set_uplift_rate(U)
+        if f_ch is not None:
+            lp.f_ch = f_ch * np.ones(len(lp.x))
+    net.set_niter(4)
+    net.get_z_lengths()
+    net.evolve_threshold_width_river_network(nt=6000, dt=1.0e12)
+    return [lp.z.copy() for lp in net.list_of_LongProfile_objects]
+
+
+def test_f_ch_unity_reproduces_standard_network_run():
+    """Explicit f_ch = 1 everywhere reproduces the standard confluence run.
+
+    Guards the confluence f_ch coupling from corrupting the junction cell at
+    unity: the tributary-terminal and confluence-node land areas fold in f_ch,
+    which must be a no-op when f_ch = 1."""
+    z_std = _evolve_Y_network(f_ch=None)
+    z_one = _evolve_Y_network(f_ch=1.0)
+    for i, (a, b) in enumerate(zip(z_std, z_one)):
+        assert np.array_equal(a, b), \
+            "f_ch = 1 must reproduce the standard network run exactly (seg %d)" % i
+
+
+def test_f_ch_below_unity_couples_at_the_confluence():
+    """f_ch < 1 changes the network profile, the confluence node included.
+
+    The confluence cell's sediment source is generated over its land area; with
+    f_ch < 1 that area shrinks to f_ch * B, so the junction elevation must
+    differ.  Guards the confluence coupling (solver ``land_area`` / ``A_confluence``
+    terms) from being reverted or left on plain ``B``."""
+    z_std = _evolve_Y_network(f_ch=None)
+    z_val = _evolve_Y_network(f_ch=0.4)
+    # every segment shifts, and in particular the confluence node (trunk[0])
+    assert not np.allclose(z_std[2], z_val[2]), \
+        "f_ch < 1 must change the trunk profile"
+    assert abs(z_std[2][0] - z_val[2][0]) > 1.0, \
+        "f_ch < 1 must move the confluence node elevation (couples at the junction)"

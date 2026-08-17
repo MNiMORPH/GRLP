@@ -473,11 +473,7 @@ class Segment(object):
         # floodplain and, with vertical walls, collapses abruptly to the
         # channel width, while the walls grow by the incision depth.
         if self.narrow_by_incision:
-            incising = self.dz_dt < 0
-            self.H_valley = np.where(incising,
-                                     self.H_valley - self.dz_dt * dt,
-                                     self.H_valley)
-            self.B = np.where(incising, self.b, self.B)
+            self._narrow_by_incision(dt)
 
         # Lateral migration widens the valley toward its unconfined channel-belt
         # width, slowing as the confining walls grow (Turowski et al., 2025).
@@ -488,6 +484,21 @@ class Segment(object):
 
         # Aggradation deposit partition (f_ch = B_c/B) is added next; see
         # notes/valley_width.md.
+
+    def _narrow_by_incision(self, dt):
+        """
+        Incision entrenches the channel: with vertical walls, the valley
+        abandons its floodplain and collapses to the channel width, while the
+        walls grow by the incision depth.  Applied only where the bed incises
+        (``dz/dt < 0``).  If the wall height is unset, it starts from zero.
+        """
+        if self.H_valley is None:
+            self.H_valley = np.zeros(np.shape(self.B))
+        incising = self.dz_dt < 0
+        self.H_valley = np.where(incising,
+                                 self.H_valley - self.dz_dt * dt,
+                                 self.H_valley)
+        self.B = np.where(incising, self.b, self.B)
 
     def channel_belt_width(self):
         """

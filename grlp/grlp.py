@@ -473,6 +473,18 @@ class Segment(object):
                           or self.partition_by_aggradation):
             return
 
+        # The valley rules read the channel width b and flow depth h, which a
+        # threshold-width solve does not otherwise store.  Resolve them each
+        # step from the current slope and grain size so they track the evolving
+        # profile.  The slope is the down-valley channel gradient |dz/dx| /
+        # sinuosity (central differences match the network's 2-cell convention
+        # on the interior); this sets self.S for compute_channel_width /
+        # compute_flow_depth.
+        if self.D is not None:
+            self.S = np.abs(np.gradient(self.z, self.x)) / self.sinuosity
+            self.compute_channel_width()
+            self.compute_flow_depth()
+
         # Incision entrenches the channel (opt-in): the valley abandons its
         # floodplain and, with vertical walls, collapses abruptly to the
         # channel width, while the walls grow by the incision depth.

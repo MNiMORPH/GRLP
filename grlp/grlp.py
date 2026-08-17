@@ -564,7 +564,13 @@ class Segment(object):
         # zetadot == 0 -> tau == inf -> exp(0) == 1 -> B unchanged (no widening).
         with np.errstate(divide='ignore'):
             tau = (W0 - self.b) * wall_factor / self.zetadot
-        self.B = W0 - (W0 - self.B) * np.exp(-dt / tau)
+        # Migration only *widens*: it relaxes B up toward W0.  Where the valley
+        # already stands at or beyond W0 (e.g. the channel-belt width W0 = k0*h+b
+        # shrank as the profile graded), it is a relict-wide valley -- migration
+        # does not narrow it back (that would be incision's job).
+        widening = self.B < W0
+        B_new = W0 - (W0 - self.B) * np.exp(-dt / tau)
+        self.B = np.where(widening, B_new, self.B)
 
     def _partition_by_aggradation(self, dt):
         """

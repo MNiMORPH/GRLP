@@ -429,24 +429,28 @@ class Segment(object):
 
     def storage_jacobian(self, z):
         """
-        ``dV/dz = (1 - lambda_p) * B(x, z)`` -- the rate of change of stored
-        sediment volume (per unit valley length) with bed elevation.  This is
-        the storage term the implicit solve linearizes on; it comes directly
-        from the width primitive, no integral needed.
+        ``dV/dz = (1 - lambda_p) * f_ch * B(x, z)`` -- the rate of change of
+        stored channel-gravel volume (per unit valley length) with bed
+        elevation.  This is the storage term the implicit solve linearizes on.
+        The channel-deposit fraction ``f_ch`` (1 by default) is frozen within a
+        step, so the term stays linear in ``z`` and the solve is unchanged when
+        ``f_ch = 1``.
         """
-        return (1. - self.lambda_p) * self.valley_width(z)
+        return (1. - self.lambda_p) * self.f_ch * self.valley_width(z)
 
     def storage_volume(self, z):
         """
-        Stored sediment volume per unit valley length,
-        ``V = (1 - lambda_p) * integral_0^z B(x, z') dz'`` -- i.e.
-        ``(1 - lambda_p)`` times the sediment cross-sectional area.  Only
+        Stored channel-gravel volume per unit valley length,
+        ``V = (1 - lambda_p) * f_ch * integral_0^z B(x, z') dz'`` -- i.e.
+        ``(1 - lambda_p) * f_ch`` times the sediment cross-sectional area.  Only
         *differences* of ``V`` enter the solver, so the datum is arbitrary.
-        Rectangular default: ``(1 - lambda_p) * B * z``.  A dynamic-width valley
-        (issue #19) overrides this with the exact area of its ``B(x, z)`` (kept
-        consistent with ``valley_width`` so ``dV/dz = (1-lambda_p) B`` holds).
+        Rectangular default with ``f_ch = 1``: ``(1 - lambda_p) * B * z``.  The
+        channel-deposit fraction ``f_ch`` (set by aggradation partitioning)
+        reduces the effective width the channel gravel must fill; it is frozen
+        within a step.  A dynamic-width valley (issue #19) overrides
+        ``valley_width`` with the exact area of its ``B(x, z)``.
         """
-        return (1. - self.lambda_p) * self.valley_width(z) * z
+        return (1. - self.lambda_p) * self.f_ch * self.valley_width(z) * z
 
     def update_valley(self, dt):
         """

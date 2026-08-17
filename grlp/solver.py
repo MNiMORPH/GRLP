@@ -355,7 +355,7 @@ def _picard_config(net):
 
 
 def _picard_step(net, dt, segs, starts, lengths,
-                 gravel_loss_active, picard_tol, max_iter):
+                 gravel_loss_active, picard_tol, max_iter, in_picard=False):
     """Run the semi-implicit (Picard) iteration for one step at the network's
     current history/BDF2 state (``seg.zold``/``seg.zold2``/``net._bdf2_step``
     already set by the caller), updating ``seg.z`` in place. The RHS is frozen at
@@ -378,6 +378,14 @@ def _picard_step(net, dt, segs, starts, lengths,
             if picard_tol is not None:
                 change = max(change, np.max(np.abs(znew - seg.z)))
             seg.z = znew
+        if in_picard:
+            # Tight coupling: recompute the valley geometry from this iterate so
+            # the next assemble sees storage (f_ch*B) consistent with the current
+            # z.  update_valley is idempotent (it resets to the frozen Bold/Hold),
+            # so repeating it across iterations does not accumulate.
+            for seg in segs:
+                seg.dz_dt = (seg.z - seg.zold) / dt
+                seg.update_valley(dt)
         if picard_tol is not None and change < picard_tol:
             converged = True
             break
@@ -400,6 +408,12 @@ def evolve(net, nt, dt):
     """
     net.dt = dt
     bdf2_requested = getattr(net, "time_order", 1) == 2
+    in_picard = getattr(net, "_valley_in_picard", False)
+    if in_picard and bdf2_requested:
+        warnings.warn(
+            "In-Picard valley coupling makes the storage term nonlinear in z, "
+            "so BDF2 is no longer strictly second order; consider "
+            "set_time_integration(1) (backward Euler).", RuntimeWarning)
     picard_tol, max_iter, gravel_loss_active = _picard_config(net)
     segs = net.segments
     lengths = list(net.list_of_segment_lengths)
@@ -411,16 +425,23 @@ def evolve(net, nt, dt):
             # bootstraps with one backward-Euler step there.
             seg.zold2 = None if ti == 0 else seg.zold
             seg.zold = seg.z.copy()
+            # Freeze the start-of-step valley geometry; the in-Picard coupling
+            # resets to it on every iterate (update_valley is idempotent in it).
+            seg.Bold = None if seg.B is None else seg.B.copy()
+            seg.Hold = None if seg.H_valley is None else seg.H_valley.copy()
         net._bdf2_step = bdf2_requested and ti > 0
         _picard_step(net, dt, segs, starts, lengths,
-                     gravel_loss_active, picard_tol, max_iter)
+                     gravel_loss_active, picard_tol, max_iter, in_picard)
         net.t += dt
         for seg in segs:
             seg.t = net.t
             seg.dz_dt = (seg.z - seg.zold) / dt
-            # Advance the valley geometry between steps (no-op unless valley
-            # dynamics are switched on), keeping it frozen within each solve.
-            seg.update_valley(dt)
+            # Between-step coupling (default): advance the valley geometry once,
+            # after the solve (no-op unless valley dynamics are on).  The
+            # in-Picard coupling instead advances it each iteration, inside
+            # _picard_step, so skip the hand-off here.
+            if not in_picard:
+                seg.update_valley(dt)
 
 
 def _trial_step(net, z_curr, z_prev, dt, dt_prev, use_bdf2,
@@ -489,6 +510,10 @@ def evolve_adaptive(net, T, dt_init=None):
     if tol is None:
         raise ValueError("adaptive stepping needs a tolerance; call "
                          "set_adaptive_timestep(tol) before evolve_adaptive")
+    if getattr(net, "_valley_in_picard", False):
+        warnings.warn(
+            "In-Picard valley coupling is not supported by the adaptive solver; "
+            "using the between-step coupling.", RuntimeWarning)
     dt_min = getattr(net, "adaptive_dt_min", 0.0)
     dt_max = getattr(net, "adaptive_dt_max", np.inf)
     safety = getattr(net, "adaptive_safety", 0.9)
@@ -523,7 +548,10 @@ def evolve_adaptive(net, T, dt_init=None):
             seg.t = net.t
             seg.dz_dt = (z_curr[i] - z_prev[i]) / dt_used
             # Advance the valley geometry between steps (no-op unless valley
-            # dynamics are switched on).
+            # dynamics are switched on).  Freeze Bold/Hold first so the
+            # idempotent reset in update_valley is a no-op here.
+            seg.Bold = None if seg.B is None else seg.B.copy()
+            seg.Hold = None if seg.H_valley is None else seg.H_valley.copy()
             seg.update_valley(dt_used)
 
     z_curr = [seg.z.copy() for seg in segs]

@@ -136,6 +136,14 @@ def assemble(net, dt):
         else:
             Vhist[sl] = Vold
         Vcorr[sl] = time_diag * (Jstore[sl] * seg.z - seg.storage_volume(seg.z))
+        # Channel-deposit fraction as a per-node array (1 by default).  The
+        # gravel transport and storage both act over the effective width
+        # f_ch * B (the space the channel gravel actually occupies), so the
+        # flux conductance is divided by f_ch * B below.  This breaks the
+        # f_ch cancellation the volume-first row-scaling would otherwise cause
+        # (Jstore carries f_ch*B; dividing the flux by f_ch*B leaves the flux
+        # f_ch-free while storage keeps it, so f_ch couples).
+        f_ch_seg = np.broadcast_to(np.asarray(seg.f_ch, dtype=float), (L,))
         for i in range(L):
             # g: this node's index in the flattened global node vector
             # (segment offset + local index i)
@@ -297,7 +305,7 @@ def assemble(net, dt):
             dx_2cell = x_down - x_up
             dQ_2cell = Q_down - Q_up
             S = np.abs(z_down - z_up) / dx_2cell
-            C1 = seg.C0 * S ** (1 / 6.) * seg.Q[i] / seg.B[i]
+            C1 = seg.C0 * S ** (1 / 6.) * seg.Q[i] / (f_ch_seg[i] * seg.B[i])
             center = -C1 / dx_2cell * (7 / 3. * (-1 / dx_up - 1 / dx_down)) + time_diag
             left = -C1 / dx_2cell * (7 / 3. / dx_up - dQ_2cell / seg.Q[i] / dx_2cell)
             right = -C1 / dx_2cell * (7 / 3. / dx_down + dQ_2cell / seg.Q[i] / dx_2cell)

@@ -60,10 +60,17 @@ Nothing. It already produces `seg.Q_s` (grlp.py:1091); all valley rules are loca
 
 ## To reconcile with Fergus (co-author of Turowski et al. 2025)
 
-1. **Where widening happens.** This design updates the valley *between* implicit
-   steps (state frozen within the solve -> storage stays linear in `z`, BDF2
-   clean). Fergus's `notes/incision.md` proposes solving `B^{n+1/2}` *inside* the
-   Picard iteration. Real architectural difference, not cosmetic.
+1. **Where widening happens -- now a user option** (`set_valley_coupling`).
+   `'between_step'` (default) updates the valley once per step after the solve:
+   storage stays linear in `z`, BDF2 keeps second order, geometry lags one step.
+   `'in_picard'` recomputes the valley from each Picard iterate inside the solve
+   (Fergus's `notes/incision.md` direction): tighter coupling, but storage is
+   nonlinear in `z`, so BDF2 is no longer strictly second order (a warning fires;
+   backward Euler recommended). `update_valley` is idempotent (resets to the
+   frozen `Bold`/`Hold` each call) so it can run once or every iteration.
+   In-Picard is `evolve`-only for now (not the adaptive solver). Still to settle
+   with Fergus: his exact `B^{n+1/2}` centred scheme vs this iterate-consistent
+   fixed point.
 2. **Naming.** Private rule methods here match the flag names; Fergus used public
    `compute_*`. Can switch the shared helpers (`channel_belt_width -> compute_B_0`)
    to his convention.

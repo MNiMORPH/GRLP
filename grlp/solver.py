@@ -418,6 +418,9 @@ def evolve(net, nt, dt):
         for seg in segs:
             seg.t = net.t
             seg.dz_dt = (seg.z - seg.zold) / dt
+            # Advance the valley geometry between steps (no-op unless valley
+            # dynamics are switched on), keeping it frozen within each solve.
+            seg.update_valley(dt)
 
 
 def _trial_step(net, z_curr, z_prev, dt, dt_prev, use_bdf2,
@@ -519,6 +522,9 @@ def evolve_adaptive(net, T, dt_init=None):
             seg.z = z_curr[i]
             seg.t = net.t
             seg.dz_dt = (z_curr[i] - z_prev[i]) / dt_used
+            # Advance the valley geometry between steps (no-op unless valley
+            # dynamics are switched on).
+            seg.update_valley(dt_used)
 
     z_curr = [seg.z.copy() for seg in segs]
     # ---- bootstrap: one error-controlled backward-Euler step (no z_prev) ----

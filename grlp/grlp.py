@@ -514,6 +514,16 @@ class Segment(object):
                           or self.partition_by_aggradation):
             return
 
+        # Reset to the start-of-step valley state (frozen as Bold / Hold by the
+        # solver) so this update is *idempotent* in the iterate.  The in-Picard
+        # coupling calls update_valley repeatedly on successive z-iterates and
+        # relies on this; the between-step hand-off calls it once, when Bold == B
+        # and the reset is a no-op (and Bold is absent for direct calls).
+        if getattr(self, 'Bold', None) is not None:
+            self.B = self.Bold.copy()
+        if getattr(self, 'Hold', None) is not None:
+            self.H_valley = self.Hold.copy()
+
         # The valley rules read the channel width b and flow depth h, which a
         # threshold-width solve does not otherwise store.  Resolve them each
         # step from the current slope and grain size so they track the evolving
@@ -880,6 +890,12 @@ class LongProfile(object):
         """Time-integration order: 2 = BDF2 (default), 1 = backward Euler
         (set on the owned network)."""
         self._net().set_time_integration(order)
+
+    def set_valley_coupling(self, mode):
+        """Valley-geometry coupling to the z-solve: 'between_step' (default,
+        BDF2-safe, one-step lag) or 'in_picard' (tight, nonlinear storage --
+        backward Euler recommended). Set on the owned network."""
+        self._net().set_valley_coupling(mode)
 
     def compute_Q_s(self):
         """
@@ -1382,6 +1398,26 @@ class Network(object):
             raise ValueError("time-integration order must be 1 (backward Euler) "
                              "or 2 (BDF2); got %r" % (order,))
         self.time_order = order
+
+    def set_valley_coupling(self, mode):
+        """
+        How the transient valley geometry couples to the implicit z-solve:
+
+        ``'between_step'`` (default) advances the valley once per step, *after*
+        the solve, so the storage term stays linear in z and BDF2 keeps second
+        order (the geometry lags the profile by one step).
+
+        ``'in_picard'`` recomputes the valley from each Picard iterate *inside*
+        the solve, tightening the coupling -- but the storage term is then
+        nonlinear in z, so BDF2 is no longer strictly second order and backward
+        Euler is recommended (a warning is issued if BDF2 is left on).  The
+        in-Picard coupling is supported by the fixed-step ``evolve`` solver only,
+        not the adaptive one.
+        """
+        if mode not in ('between_step', 'in_picard'):
+            raise ValueError("valley coupling must be 'between_step' or "
+                             "'in_picard'; got %r" % (mode,))
+        self._valley_in_picard = (mode == 'in_picard')
 
     def set_adaptive_timestep(self, tol, dt_init=None, dt_min=0.0, dt_max=None,
                               safety=0.9, max_grow=5.0, max_shrink=0.1):

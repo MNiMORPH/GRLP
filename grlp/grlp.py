@@ -482,8 +482,10 @@ class Segment(object):
         if migrating and self.k0 is not None:
             self._widen_valley(dt)
 
-        # Aggradation deposit partition (f_ch = B_c/B) is added next; see
-        # notes/valley_width.md.
+        # Aggradation partitions the aggraded sediment between channel and
+        # overbank deposits (opt-in), setting the channel-deposit fraction f_ch.
+        if self.partition_by_aggradation:
+            self._partition_by_aggradation(dt)
 
     def _narrow_by_incision(self, dt):
         """
@@ -547,6 +549,31 @@ class Segment(object):
         with np.errstate(divide='ignore'):
             tau = (W0 - self.b) * wall_factor / self.zetadot
         self.B = W0 - (W0 - self.B) * np.exp(-dt / tau)
+
+    def _partition_by_aggradation(self, dt):
+        """
+        Partition aggraded sediment between channel and overbank deposits,
+        giving the channel-deposit fraction ``f_ch = B_c / B`` (Wickert et al.,
+        2013, closed with the Turowski crossing time; ``a_R = 1, p_R = 0``).
+        The channel-belt width that fills with channel deposit is
+
+            B_c = b + (B - b) * (1 - exp(-zetadot * h / ((B - b) * etadot)))
+
+        with the aggradation rate ``etadot = dz/dt`` (one uniform rate for
+        channel and floodplain, for now).  Applied only where the bed aggrades
+        (``dz/dt > 0``); elsewhere ``f_ch = 1`` (all channel deposit, so the
+        storage term is unchanged).
+        """
+        aggrading = self.dz_dt > 0
+        # Where not aggrading, etadot = inf drives the exponent to 0 and
+        # f_ch to 1; where B == b the (B - b) prefactor collapses B_c to b.
+        # The errstate silences the intermediate 0/0 and x/0 those produce.
+        etadot = np.where(aggrading, self.dz_dt, np.inf)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            B_c = self.b + (self.B - self.b) \
+                           * (1. - np.exp(-self.zetadot * self.h
+                                          / ((self.B - self.b) * etadot)))
+        self.f_ch = np.where(aggrading, B_c / self.B, 1.)
 
     def set_uplift_rate(self, U):
         """

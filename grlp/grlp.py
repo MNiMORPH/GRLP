@@ -92,13 +92,13 @@ class Segment(object):
         self.zetadot = 0. # lateral channel-migration rate [m/s]; 0 by default so
                           # the valley does not widen without an explicit
                           # set_lateral_migration_rate call
-        self.narrow_by_incision = False # opt-in valley-dynamics flags; both
+        self.narrow_by_incision = False # opt-in valley-dynamics flags; all
         self.partition_by_aggradation = False # off by default so existing
-                          # profiles evolve unchanged (see set_valley_dynamics)
-        self.k0 = None # Turowski et al. (2024) channel-belt coefficient; the
-                       # maximum (unconfined) valley width is B_max = k0*h + b.
-                       # Needed for lateral widening; set via
-                       # set_channel_belt_coefficient
+        self.widen_by_migration = False # profiles evolve unchanged (see
+                          # set_valley_dynamics)
+        self.B_max = None # prescribed maximum (unconfined) valley width that
+                          # lateral migration widens back toward; captured from
+                          # set_B (the existing valley-width machinery)
         self.migration_coefficient = None # Xi in the Q_s-based migration rate
                        # zetadot = Xi/(1-lambda_p) * Q_s/(h*dx); set it (via
                        # set_lateral_migration_coefficient) to drive zetadot from
@@ -360,6 +360,10 @@ class Segment(object):
             self.B = k_xB * self.x**P_xB
             self.k_xB = k_xB
             self.P_xB = P_xB
+        # Record the prescribed width as the maximum (unconfined) valley width
+        # that lateral migration widens back toward (Fergus McNab's B_br) -- the
+        # existing valley-width machinery, no separate parameter.
+        self.B_max = np.array(self.B, dtype=float)
 
     def set_valley_wall_height(self, H_valley=None):
         """
@@ -419,36 +423,32 @@ class Segment(object):
         self.zetadot = self.migration_coefficient / (1. - self.lambda_p) \
                        * Q_s / (self.h * self.migration_reference_length)
 
-    def set_channel_belt_coefficient(self, k0):
-        """
-        Turowski et al. (2024) channel-belt coefficient k0 [-], which sets the
-        maximum (unconfined) valley width B_max = k0 * h + b.  Lateral widening
-        slows as the valley approaches B_max and stops there, so this is
-        required to widen a valley.
-        """
-        self.k0 = k0
-
     def set_valley_dynamics(self, narrow_by_incision=None,
-                                  partition_by_aggradation=None):
+                                  partition_by_aggradation=None,
+                                  widen_by_migration=None):
         """
-        Enable or disable the two elevation-change-triggered valley processes,
-        each independently.  Both are off by default, so existing profiles
-        evolve unchanged; set them to opt in:
+        Enable or disable the three elevation-change- or migration-triggered
+        valley processes, each independently.  All are off by default, so
+        existing profiles evolve unchanged; set them to opt in:
 
           narrow_by_incision        -- incision entrenches the channel, collapsing
                                         the valley to the channel width and growing
                                         the wall height.
           partition_by_aggradation  -- aggradation partitions the deposit between
                                         channel and overbank via f_ch.
+          widen_by_migration        -- lateral migration widens the valley back
+                                        toward its prescribed width B_max (from
+                                        set_B), at the rate zetadot.
 
-        Lateral widening is not flagged here: it is gated by its rate zetadot
-        (0 by default; see set_lateral_migration_rate).  Only arguments that are
-        given are changed; pass one to leave the other untouched.
+        Only arguments that are given are changed; pass one to leave the others
+        untouched.
         """
         if narrow_by_incision is not None:
             self.narrow_by_incision = narrow_by_incision
         if partition_by_aggradation is not None:
             self.partition_by_aggradation = partition_by_aggradation
+        if widen_by_migration is not None:
+            self.widen_by_migration = widen_by_migration
 
     # -- Valley-storage geometry ------------------------------------------- #
     # The solver conserves the stored sediment *volume* V (not the bed
@@ -547,11 +547,11 @@ class Segment(object):
         if self.narrow_by_incision:
             self._narrow_by_incision(dt)
 
-        # Lateral migration widens the valley toward its unconfined channel-belt
-        # width, slowing as the confining walls grow (Turowski et al., 2025).
+        # Lateral migration widens the valley back toward its prescribed width
+        # B_max, slowing as the confining walls grow (Turowski et al., 2025).
         # Every step, including during incision, so an incising node (B just
         # collapsed to b) starts widening again from b.
-        if migrating and self.k0 is not None:
+        if migrating and self.widen_by_migration and self.B_max is not None:
             self._widen_valley(dt)
 
         # Aggradation partitions the aggraded sediment between channel and
@@ -598,35 +598,27 @@ class Segment(object):
                                  self.H_valley)
         self.B = np.where(incising, self.b, self.B)
 
-    def channel_belt_width(self):
-        """
-        Unconfined channel-belt width ``W0 = k0 * h + b`` -- the maximum valley
-        width a river of this hydrology would carve with no confining walls
-        (Turowski et al., 2025, Eq. 4).
-        """
-        return self.k0 * self.h + self.b
-
     def _widen_valley(self, dt):
         """
         Widen the valley by lateral migration over one step, using the exact
         solution of the deterministic Turowski et al. (2025) model
         ``dB/dt = P * zetadot``:
 
-            B <- W0 - (W0 - B) * exp(-dt / tau)
+            B <- B_max - (B_max - B) * exp(-dt / tau)
 
-        which relaxes ``B`` toward the unconfined channel-belt width
-        ``W0 = channel_belt_width()`` without overshoot (the ``P`` factor
-        self-limits at ``W0``, so no cap is needed).  The confining walls slow
+        which relaxes ``B`` back toward the prescribed maximum valley width
+        ``B_max`` (from ``set_B``) without overshoot (the ``P`` factor
+        self-limits at ``B_max``, so no cap is needed).  The confining walls slow
         widening through the timescale
 
-            tau = (W0 - b) * (1 - h / H_valley) / zetadot
+            tau = (B_max - b) * (1 - h / H_valley) / zetadot
 
         (Turowski Eq. 17, corrected wall factor ``1 - h/H_valley``).  Where the
         walls are no taller than the channel (``H_valley <= h``) the confined
         factor is undefined, so those nodes widen at the unconfined rate
-        (``tau = (W0 - b) / zetadot``) and a warning is issued.
+        (``tau = (B_max - b) / zetadot``) and a warning is issued.
         """
-        W0 = self.channel_belt_width()
+        W0 = self.B_max
         # Confining-wall slowdown factor; unconfined (factor 1) where the walls
         # do not stand above the channel.
         if self.H_valley is None:
@@ -644,10 +636,10 @@ class Segment(object):
         # zetadot == 0 -> tau == inf -> exp(0) == 1 -> B unchanged (no widening).
         with np.errstate(divide='ignore'):
             tau = (W0 - self.b) * wall_factor / self.zetadot
-        # Migration only *widens*: it relaxes B up toward W0.  Where the valley
-        # already stands at or beyond W0 (e.g. the channel-belt width W0 = k0*h+b
-        # shrank as the profile graded), it is a relict-wide valley -- migration
-        # does not narrow it back (that would be incision's job).
+        # Migration only *widens*: it relaxes B up toward B_max.  Where the
+        # valley already stands at its prescribed width B_max, there is nothing
+        # to widen -- migration does not push past it (that is the valley's
+        # unconfined extent).
         widening = self.B < W0
         B_new = W0 - (W0 - self.B) * np.exp(-dt / tau)
         self.B = np.where(widening, B_new, self.B)

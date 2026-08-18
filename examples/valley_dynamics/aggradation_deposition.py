@@ -48,10 +48,10 @@ YEAR = 3.15e7
 def build_steady_profile():
     """A canonical gravel long profile evolved to steady state (no forcing).
 
-    Mirrors examples/run_grlp.py (a reproduction of Wickert & Schildgen, 2019,
-    Fig. 2): a 90-node domain with power-law discharge and valley width.  The
-    incision demo uses the identical spin-up, so the two start from the same
-    river.
+    A 90-node domain with uniform discharge and valley width, so the steady
+    profile is a straight constant-slope line -- the simplest setting in which to
+    read the valley-dynamics feedbacks.  The incision demo uses the identical
+    spin-up, so the two start from the same river.
     """
     S0 = 1.5e-2
     lp = grlp.LongProfile()
@@ -62,7 +62,7 @@ def build_steady_profile():
     lp.set_x(dx=1000.0, nx=90, x0=10000.0)
     lp.set_z(S0=-S0)
     lp.set_A(k_xA=1.0)
-    lp.set_Q(k_xQ=1.43e-5, P_xQ=49 / 40.0)
+    lp.set_Q(Q=10.0)                       # uniform discharge along the domain
     lp.set_B(B=200.0)                      # uniform valley width B (= B_max)
     lp.set_uplift_rate(0.0)
     lp.set_niter(3)

@@ -41,7 +41,7 @@ def build_steady_profile():
     lp.set_x(dx=1000.0, nx=90, x0=10000.0)
     lp.set_z(S0=-S0)
     lp.set_A(k_xA=1.0)
-    lp.set_Q(k_xQ=1.43e-5, P_xQ=49 / 40.0)
+    lp.set_Q(Q=10.0)                       # uniform discharge along the domain
     lp.set_B(B=200.0)
     lp.set_uplift_rate(0.0); lp.set_niter(3)
     lp.set_Qs_input_upstream(lp.k_Qs * lp.Q[0] * S0 ** (7 / 6.0))

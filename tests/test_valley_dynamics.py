@@ -206,6 +206,31 @@ def test_spatially_variable_uplift_splits_narrowing_and_deposition():
         "the subsiding reach must deposit overbank (f_ch < 1)"
 
 
+def test_wall_erosion_supplies_sediment_on_net_widening():
+    """Lateral wall erosion during net valley widening supplies sediment: when a
+    narrow valley re-widens toward B_max, the eroded wall volume (per node,
+    (1-lambda)*dB_net*H_valley) enters the sediment budget and raises the bed.
+    Toggling supply_lateral_sediment off removes it (isolating the geometry)."""
+    def run(supply):
+        lp = _spun_up()
+        lp.set_lateral_migration_rate(1.0e-8)
+        lp.set_valley_dynamics(widen_by_migration=True)
+        lp.supply_lateral_sediment = supply
+        lp.B = 50.0 * np.ones(len(lp.x))        # narrow valley, below B_max
+        lp.set_valley_wall_height(100.0)        # tall walls to erode
+        src_max = 0.0
+        for _ in range(8):
+            lp.evolve_threshold_width_river(nt=1, dt=1.0e11)
+            src_max = max(src_max,
+                          float(np.max(np.atleast_1d(lp.lateral_sediment_source))))
+        return lp.z.copy(), src_max
+    z_on, src_max = run(True)
+    z_off, _ = run(False)
+    assert src_max > 0.0, "the wall-erosion source must fire during net widening"
+    assert np.mean(z_on - z_off) > 1.0, \
+        "the eroded wall sediment must raise the bed (mass-balance closure)"
+
+
 def test_valley_dynamics_default_to_first_order_time():
     """With valley dynamics active the solver falls back to first-order (backward
     Euler) even when BDF2 is requested: the between-step geometry coupling is a

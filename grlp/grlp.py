@@ -8,6 +8,7 @@ import copy
 from scipy.optimize import minimize
 
 from . import solver
+from .stratigraphy import StratRecorder
 
 
 def _power_law(x, k, p):
@@ -99,6 +100,8 @@ class Segment(object):
         self.B_max = None # prescribed maximum (unconfined) valley width that
                           # lateral migration widens back toward; captured from
                           # set_B (the existing valley-width machinery)
+        self.strat = None # optional StratRecorder (valley-fill f_ch stratigraphy);
+                          # None unless set_stratigraphic_recording is called
         self.migration_coefficient = None # Xi in the Q_s-based migration rate
                        # zetadot = Xi/(1-lambda_p) * Q_s/(h*dx); set it (via
                        # set_lateral_migration_coefficient) to drive zetadot from
@@ -449,6 +452,29 @@ class Segment(object):
             self.partition_by_aggradation = partition_by_aggradation
         if widen_by_migration is not None:
             self.widen_by_migration = widen_by_migration
+
+    def set_stratigraphic_recording(self, tol=0.02, max_raw=4096,
+                                          record_thickness=False):
+        """
+        Record the valley-fill stratigraphy -- the channel-deposit fraction
+        ``f_ch`` as a function of elevation and downstream distance -- as the
+        profile evolves.  A :class:`~grlp.stratigraphy.StratRecorder` is attached
+        as ``self.strat`` and updated each step by the solver (a passive
+        diagnostic; it never feeds back into the solve).  ``tol`` bounds the
+        ``f_ch`` error kept by the on-the-fly Douglas-Peucker compression;
+        ``max_raw`` caps per-node buffer before compressing; ``record_thickness``
+        also tracks the exact ``sum(f_ch dz)`` for a volume-closure diagnostic.
+        The initial surface is recorded immediately.
+        """
+        self.strat = StratRecorder(len(self.x), tol=tol, max_raw=max_raw,
+                                   record_thickness=record_thickness)
+        self.strat.record(self.z, self.f_ch)
+
+    def record_stratigraphy(self):
+        """Record the current surface into ``self.strat`` if recording is on
+        (called by the solver each step; a no-op otherwise)."""
+        if self.strat is not None:
+            self.strat.record(self.z, self.f_ch)
 
     # -- Valley-storage geometry ------------------------------------------- #
     # The solver conserves the stored sediment *volume* V (not the bed

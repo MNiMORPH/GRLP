@@ -463,6 +463,9 @@ def evolve(net, nt, dt):
             # _picard_step, so skip the hand-off here.
             if not in_picard:
                 seg.update_valley(dt)
+            # Record the valley-fill stratigraphy after the step (no-op unless
+            # set_stratigraphic_recording was called).
+            seg.record_stratigraphy()
 
 
 def _trial_step(net, z_curr, z_prev, dt, dt_prev, use_bdf2,

@@ -111,6 +111,56 @@ def test_recording_does_not_perturb_the_solve():
         "stratigraphic recording must not change the solve"
 
 
+def _uniform_demo_profile(nx=60):
+    """The valley-demo build (uniform Q and B, straight steady profile), the
+    setting the stratigraphy examples use."""
+    S0 = 1.5e-2
+    lp = grlp.LongProfile()
+    lp.set_intermittency(0.8)
+    lp.basic_constants(); lp.bedload_lumped_constants(); lp.set_hydrologic_constants()
+    lp.set_x(dx=1000.0, nx=nx, x0=10000.0)
+    lp.set_z(S0=-S0)
+    lp.set_A(k_xA=1.0)
+    lp.set_Q(Q=10.0)
+    lp.set_B(B=200.0)
+    lp.set_uplift_rate(0.0)
+    lp.set_niter(3)
+    lp.set_Qs_input_upstream(lp.k_Qs * lp.Q[0] * S0 ** (7 / 6.0))
+    lp.set_z_bl(0.0)
+    lp.evolve_threshold_width_river(nt=40, dt=1.0e13)
+    return lp
+
+
+def test_stratigraphy_golden_demo_column():
+    """Golden master for the tuned uniform stratigraphy demo (examples/
+    valley_dynamics/stratigraphy_section.py): the mid-node f_ch column reproduces
+    the recorded mixed-body -> channel-rich-cap profile.  Guards the whole
+    valley-dynamics + recorder path (deposit-partition closure, in-Picard default,
+    Douglas-Peucker compression) against numerical drift."""
+    lp = _uniform_demo_profile(nx=60)
+    lp.D = 0.05
+    lp.set_lateral_migration_rate(1.5e-8)
+    lp.set_valley_dynamics(partition_by_aggradation=True)
+    lp.set_stratigraphic_recording(tol=0.02, record_thickness=True)
+    rate, dt = 2.0e-3 / _YEAR, 1.0e11
+    for _ in range(30):                          # base-level rise
+        lp.set_z_bl(lp.z_bl + rate * dt)
+        lp.evolve_threshold_width_river(nt=1, dt=dt)
+    for _ in range(40):                          # held (relaxation)
+        lp.evolve_threshold_width_river(nt=1, dt=dt)
+
+    zc, fc = lp.strat.columns()[30]
+    zn = (zc - zc[0]) / (zc[-1] - zc[0])
+    deciles = np.array([np.interp(q, zn, fc) for q in (0.1, 0.3, 0.5, 0.7, 0.9)])
+    golden = np.array([0.4815, 0.4101, 0.4092, 0.4082, 0.5368])
+    np.testing.assert_allclose(
+        deciles, golden, atol=2.0e-3,
+        err_msg="stratigraphy f_ch column drifted from the golden master")
+    assert abs(zc[-1] - 640.0919) < 0.05, "column top elevation drifted"
+    _, _, maxd = lp.strat.volume_closure()
+    assert maxd < 0.02 * (zc[-1] - zc[0]), "volume closure exceeds tol*thickness"
+
+
 def test_recording_builds_a_section():
     """A short aggradation run produces a reconstructable f_ch(x, z) section with
     f_ch < 1 (overbank deposition recorded)."""

@@ -24,12 +24,15 @@
 # incises more during forcing.
 #
 # Lateral migration is now switched on (the "channel lateral mobility"): it
-# widens the valley toward its channel-belt width W0 = k0*h + b (Turowski et al.,
+# widens the valley back toward its prescribed width B_max (Turowski et al.,
 # 2025), competing with the incision-driven narrowing.  At this migration rate it
 # is gentle -- it keeps the valley from fully collapsing during forcing and lets
 # it re-widen a little once incision ceases in Phase 2.  The lower panel shows the
 # valley width B at both the end of forcing and the end of the experiment, so the
 # re-widening is visible.
+#
+# For simplicity in these tests the initial valley width is uniform along the
+# whole domain, so B_max is a single value everywhere.
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -55,7 +58,7 @@ def build_steady_profile():
     lp.set_z(S0=-S0)
     lp.set_A(k_xA=1.0)
     lp.set_Q(k_xQ=1.43e-5, P_xQ=49 / 40.0)
-    lp.set_B(k_xB=25.0, P_xB=0.2)          # this B is now the *valley* width
+    lp.set_B(B=200.0)                      # uniform valley width B (= B_max)
     lp.set_uplift_rate(0.0)
     lp.set_niter(3)
     lp.set_Qs_input_upstream(lp.k_Qs * lp.Q[0] * S0 ** (7 / 6.0))
@@ -68,7 +71,6 @@ def build_steady_profile():
 # opposite sign of base-level change).
 FALL_RATE = 1.0e-3 / YEAR   # base-level fall rate [m/s] -> incision
 ZETADOT = 1.0e-9           # lateral migration rate [m/s] -> valley widening
-K0 = 20.0                  # channel-belt coefficient: W0 = k0*h + b (~40 m here)
 GRAIN_D = 0.05             # grain size [m], needed to resolve channel width & depth
 N_FORCE = 6                # long-profile snapshots during forcing
 N_RELAX = 6                # long-profile snapshots during relaxation
@@ -84,10 +86,10 @@ def run(with_narrowing):
     """
     lp = build_steady_profile()
     lp.D = GRAIN_D
-    # Lateral migration (the channel mobility) widens the valley toward W0 in
-    # both cases; the toggle is the incision-narrowing feedback.
+    # Lateral migration (the channel mobility) widens the valley back toward
+    # B_max in both cases; the toggle is the incision-narrowing feedback.
     lp.set_lateral_migration_rate(ZETADOT)
-    lp.set_channel_belt_coefficient(K0)
+    lp.set_valley_dynamics(widen_by_migration=True)
     if with_narrowing:
         lp.set_valley_dynamics(narrow_by_incision=True)
 

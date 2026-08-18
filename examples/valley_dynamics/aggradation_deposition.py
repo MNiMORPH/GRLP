@@ -30,10 +30,12 @@
 # lower panel shows f_ch at the end of forcing, when the feedback is strongest.
 #
 # NB the lateral migration rate here is finite but small: it sets f_ch through
-# the deposit partition without widening the valley (no channel-belt coefficient
-# k0 is set, so the widening rule is inactive).  A migration rate of exactly
-# zero would collapse f_ch to b/B ~ 0.01, an extreme end-member -- not a useful
-# illustration.
+# the deposit partition without widening the valley (widen_by_migration is left
+# off, so the widening rule is inactive).  A migration rate of exactly zero would
+# collapse f_ch to b/B ~ 0.01, an extreme end-member -- not a useful illustration.
+#
+# For simplicity in these tests the initial valley width is uniform along the
+# whole domain.
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -61,7 +63,7 @@ def build_steady_profile():
     lp.set_z(S0=-S0)
     lp.set_A(k_xA=1.0)
     lp.set_Q(k_xQ=1.43e-5, P_xQ=49 / 40.0)
-    lp.set_B(k_xB=25.0, P_xB=0.2)          # this B is now the *valley* width
+    lp.set_B(B=200.0)                      # uniform valley width B (= B_max)
     lp.set_uplift_rate(0.0)
     lp.set_niter(3)
     lp.set_Qs_input_upstream(lp.k_Qs * lp.Q[0] * S0 ** (7 / 6.0))

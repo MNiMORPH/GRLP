@@ -206,6 +206,36 @@ def test_spatially_variable_uplift_splits_narrowing_and_deposition():
         "the subsiding reach must deposit overbank (f_ch < 1)"
 
 
+def test_valley_dynamics_default_to_first_order_time():
+    """With valley dynamics active the solver falls back to first-order (backward
+    Euler) even when BDF2 is requested: the between-step geometry coupling is a
+    first-order operator split, so BDF2 buys no second-order accuracy."""
+    import warnings
+    lp = _spun_up()
+    lp.set_uplift_rate(-1.0e-3 / _YEAR)          # subsidence -> aggradation -> f_ch < 1
+    lp.set_lateral_migration_rate(1.0e-9)
+    lp.set_valley_dynamics(partition_by_aggradation=True)
+    lp.set_time_integration(2)                   # explicitly ask for BDF2
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('always')
+        lp.evolve_threshold_width_river(nt=2, dt=1.0e11)
+    assert any('first-order' in str(x.message) for x in w), \
+        "valley dynamics must fall back to first-order and warn"
+
+
+def test_standard_run_keeps_bdf2():
+    """A run with no valley dynamics is untouched: no first-order fallback, no
+    warning (BDF2 remains the shipped default)."""
+    import warnings
+    lp = make_long_profile()
+    lp.evolve_threshold_width_river(nt=40, dt=1.0e12)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('always')
+        lp.evolve_threshold_width_river(nt=3, dt=1.0e12)
+    assert not any('first-order' in str(x.message) for x in w), \
+        "a standard run must not fall back to first-order"
+
+
 def test_subsidence_drives_aggradation_not_narrowing():
     """Conjugate of the uplift case: subsidence under a constant base level makes
     the channel aggrade relative to its dropping floor, so overbank deposition

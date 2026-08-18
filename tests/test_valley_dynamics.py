@@ -25,22 +25,32 @@ from conftest import make_long_profile
 
 
 _YEAR = 3.15e7
-_AGGRADATION = 1.0e-4 / _YEAR   # U > 0 aggrades the bed in GRLP's sign convention
 
 
-def _spun_up_aggrading():
-    """A steady single-segment profile with an aggradation forcing applied."""
+def _spun_up(D=0.05):
+    """A steady single-segment profile with grain size set (for b / h)."""
     lp = make_long_profile()
     lp.evolve_threshold_width_river(nt=40, dt=1.0e12)
-    lp.set_uplift_rate(_AGGRADATION)
+    lp.D = D
     return lp
+
+
+def _evolve_aggrading(lp, nt=10, dt=1.0e11, rate=1.0e-3 / _YEAR):
+    """Drive aggradation by raising base level, one step at a time.
+
+    Base-level rise is the aggradation driver (a positive uplift rate would make
+    the channel *incise* into the rising valley -- see the uplift tests below),
+    so it is what actually exercises the overbank deposit partition."""
+    for _ in range(nt):
+        lp.set_z_bl(lp.z_bl + rate * dt)
+        lp.evolve_threshold_width_river(nt=1, dt=dt)
 
 
 def test_f_ch_unity_reproduces_standard_run():
     """f_ch = 1 (high-migration limit, no widening) matches the standard run."""
     # Standard run: no valley dynamics, so f_ch stays at its default of 1.
-    lp_std = _spun_up_aggrading()
-    lp_std.evolve_threshold_width_river(nt=10, dt=1.0e11)
+    lp_std = _spun_up()
+    _evolve_aggrading(lp_std)
     z_std = lp_std.z.copy()
 
     # Same run with the deposit-partition path active in the high-migration
@@ -48,11 +58,10 @@ def test_f_ch_unity_reproduces_standard_run():
     # and with no channel-belt coefficient set there is no widening, so the
     # effective width f_ch * B equals B and the profile must match to machine
     # precision.
-    lp_val = _spun_up_aggrading()
-    lp_val.D = 0.05
+    lp_val = _spun_up()
     lp_val.set_lateral_migration_rate(1.0e6)   # huge -> f_ch -> 1
     lp_val.set_valley_dynamics(partition_by_aggradation=True)
-    lp_val.evolve_threshold_width_river(nt=10, dt=1.0e11)
+    _evolve_aggrading(lp_val)
 
     assert np.allclose(lp_val.f_ch, 1.0), \
         "the high-migration limit should give f_ch == 1 everywhere"
@@ -66,15 +75,14 @@ def test_f_ch_below_unity_changes_the_profile():
     Guards against the f_ch -> effective-width coupling being reverted or
     orphaned (folding f_ch into storage alone cancels in the volume-first
     row-scaling and has no effect)."""
-    lp_std = _spun_up_aggrading()
-    lp_std.evolve_threshold_width_river(nt=10, dt=1.0e11)
+    lp_std = _spun_up()
+    _evolve_aggrading(lp_std)
     z_std = lp_std.z.copy()
 
-    lp_val = _spun_up_aggrading()
-    lp_val.D = 0.05
+    lp_val = _spun_up()
     lp_val.set_lateral_migration_rate(3.0e-10)   # small -> f_ch < 1
     lp_val.set_valley_dynamics(partition_by_aggradation=True)
-    lp_val.evolve_threshold_width_river(nt=10, dt=1.0e11)
+    _evolve_aggrading(lp_val)
 
     assert lp_val.f_ch.min() < 0.9, \
         "a small migration rate should give f_ch meaningfully below 1"
@@ -143,3 +151,73 @@ def test_f_ch_below_unity_couples_at_the_confluence():
         "f_ch < 1 must change the trunk profile"
     assert abs(z_std[2][0] - z_val[2][0]) > 1.0, \
         "f_ch < 1 must move the confluence node elevation (couples at the junction)"
+
+
+def test_uplift_drives_incision_not_overbank_deposition():
+    """Under uplift the channel incises into the rising valley, so the deposit
+    partition must NOT fire: f_ch stays 1.
+
+    The absolute bed rises under uplift (uplift adds rock faster than the river
+    erodes it), so a gate on the raw dz/dt would spuriously switch on overbank
+    deposition.  The rule keys off dz/dt - U (the bed's motion relative to the
+    uplifting valley floor), which is negative here -- the river incises."""
+    lp = _spun_up()
+    lp.set_uplift_rate(1.0e-3 / _YEAR)          # uplift -> incision into rising valley
+    lp.set_lateral_migration_rate(1.0e-9)
+    lp.set_valley_dynamics(partition_by_aggradation=True)
+    lp.evolve_threshold_width_river(nt=20, dt=1.0e11)
+    assert np.allclose(lp.f_ch, 1.0), \
+        "uplift must not trigger overbank deposition (the river incises)"
+
+
+def test_uplift_drives_valley_narrowing():
+    """Under uplift the channel entrenches into the rising valley, so narrowing
+    fires and the valley collapses toward the channel width b -- even though the
+    absolute bed elevation is rising."""
+    lp = _spun_up()
+    lp.set_uplift_rate(1.0e-3 / _YEAR)
+    lp.set_lateral_migration_rate(0.0)
+    lp.set_valley_dynamics(narrow_by_incision=True)
+    B0 = lp.B.copy()
+    lp.evolve_threshold_width_river(nt=20, dt=1.0e11)
+    assert lp.B.max() < B0.min(), \
+        "uplift must entrench the channel: the valley narrows toward b"
+
+
+def test_spatially_variable_uplift_splits_narrowing_and_deposition():
+    """Spatially variable U: an uplifting reach incises (narrows, no overbank)
+    while a subsiding reach aggrades relative to its dropping floor (overbank
+    deposition, f_ch < 1).  Exercises the per-node dz/dt - U gate."""
+    lp = _spun_up()
+    n = len(lp.x)
+    U = 1.0e-3 / _YEAR
+    lp.set_uplift_rate(np.where(np.arange(n) < n // 2, +U, -U))
+    lp.set_lateral_migration_rate(1.0e-9)
+    lp.set_valley_dynamics(narrow_by_incision=True, partition_by_aggradation=True)
+    B0 = lp.B.copy()
+    lp.evolve_threshold_width_river(nt=20, dt=1.0e11)
+    up = slice(0, n // 2)
+    down = slice(n // 2, n)
+    assert np.allclose(lp.f_ch[up], 1.0), \
+        "the uplifting reach must not deposit overbank (it incises)"
+    assert lp.B[up].max() < B0[up].min(), \
+        "the uplifting reach must narrow toward b"
+    assert lp.f_ch[down].min() < 0.9, \
+        "the subsiding reach must deposit overbank (f_ch < 1)"
+
+
+def test_subsidence_drives_aggradation_not_narrowing():
+    """Conjugate of the uplift case: subsidence under a constant base level makes
+    the channel aggrade relative to its dropping floor, so overbank deposition
+    fires (f_ch < 1) and the valley does NOT narrow.  Confirms dz/dt - U has the
+    right sign for U < 0 too."""
+    lp = _spun_up()
+    lp.set_uplift_rate(-1.0e-3 / _YEAR)          # subsidence -> aggradation
+    lp.set_lateral_migration_rate(1.0e-9)
+    lp.set_valley_dynamics(narrow_by_incision=True, partition_by_aggradation=True)
+    B0 = lp.B.copy()
+    lp.evolve_threshold_width_river(nt=20, dt=1.0e11)
+    assert lp.f_ch.min() < 0.9, \
+        "subsidence must trigger overbank deposition (f_ch < 1)"
+    assert np.allclose(lp.B, B0), \
+        "subsidence must not narrow the valley (the channel aggrades, not incises)"

@@ -4,7 +4,9 @@
 # (overbank) deposition.
 #
 # A gravel long profile is spun up to steady state and then forced to aggrade
-# by a positive uplift/source term.  We compare two rivers:
+# by a rising base level (following Fergus McNab's width.py: a base-level ramp
+# is the natural aggradation driver -- the upstream sediment supply is fixed and
+# backfills from the downstream boundary).  We compare two rivers:
 #
 #   * WITHOUT overbank deposition -- the channel gravel fills the whole valley
 #     width B (the channel-deposit fraction f_ch = 1), and
@@ -14,20 +16,18 @@
 #     fines.  f_ch is set by the Wickert et al. (2013) deposit partition, closed
 #     with the Turowski crossing time, and evolves with the aggradation rate.
 #
-# Under uplift, accommodation is created at rate U over the gravel storage width
-# (1 - lambda) * f_ch * B.  Confining the gravel to a narrower belt (f_ch < 1)
-# therefore reduces the uplift-derived load and lowers the equilibrium bed, so
-# the river WITH overbank deposition aggrades its channel bed *less* and lags the
-# river without it (they share the same equilibrium only as f_ch -> 1 when
-# aggradation ceases).  This same f_ch * B accommodation scaling is what keeps
-# uplift and base-level fall exact mirror images.  The lower panel shows f_ch,
-# the mechanism behind the difference.
+# With the sediment supply fixed by the upstream boundary, confining the gravel
+# to a narrower belt makes the same supply fill a smaller width, so the river
+# WITH overbank deposition aggrades its channel bed *faster*.  This mirrors the
+# incision demo, where narrowing concentrates the gravel and deepens incision:
+# in both, confining the gravel speeds the bed's response to base level.  The
+# lower panel shows f_ch, the mechanism behind the difference.
 #
 # NB the lateral migration rate here is finite but small: it sets f_ch through
 # the deposit partition without widening the valley (no channel-belt coefficient
 # k0 is set, so the widening rule is inactive).  A migration rate of exactly
-# zero would collapse f_ch to b/B ~ 0.01, an extreme end-member that overshoots
-# and oscillates numerically -- not a useful illustration.
+# zero would collapse f_ch to b/B ~ 0.01, an extreme end-member -- not a useful
+# illustration.
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -41,7 +41,9 @@ def build_steady_profile():
     """A canonical gravel long profile evolved to steady state (no forcing).
 
     Mirrors examples/run_grlp.py (a reproduction of Wickert & Schildgen, 2019,
-    Fig. 2): a 90-node domain with power-law discharge and valley width.
+    Fig. 2): a 90-node domain with power-law discharge and valley width.  The
+    incision demo uses the identical spin-up, so the two start from the same
+    river.
     """
     S0 = 1.5e-2
     lp = grlp.LongProfile()
@@ -62,8 +64,9 @@ def build_steady_profile():
     return lp
 
 
-# Forcing and sampling.
-UPLIFT = 1.0e-3 / YEAR      # aggradation source [m/s]
+# Forcing and sampling (mirror of the incision demo: same rate and cadence,
+# opposite sign of base-level change).
+RISE_RATE = 1.0e-3 / YEAR   # base-level rise rate [m/s] -> aggradation
 ZETADOT = 1.0e-9           # lateral migration rate [m/s] -> sets f_ch, no widening
 GRAIN_D = 0.05             # grain size [m], needed to resolve channel width & depth
 N_SNAP = 6                 # number of long-profile snapshots
@@ -75,13 +78,15 @@ def run(with_deposition):
     """Evolve an aggrading profile, returning (x, list-of-z-snapshots, f_ch)."""
     lp = build_steady_profile()
     lp.D = GRAIN_D
-    lp.set_uplift_rate(UPLIFT)
     if with_deposition:
         lp.set_lateral_migration_rate(ZETADOT)
         lp.set_valley_dynamics(partition_by_aggradation=True)
     snapshots = [lp.z.copy()]
+    # Step one at a time so base level rises smoothly rather than in jumps.
     for _ in range(N_SNAP):
-        lp.evolve_threshold_width_river(nt=NT_SNAP, dt=DT)
+        for _ in range(NT_SNAP):
+            lp.set_z_bl(lp.z_bl + RISE_RATE * DT)
+            lp.evolve_threshold_width_river(nt=1, dt=DT)
         snapshots.append(lp.z.copy())
     # f_ch defaults to the scalar 1.; broadcast to the profile for plotting.
     f_ch = np.broadcast_to(np.asarray(lp.f_ch, dtype=float), lp.x.shape).copy()
@@ -106,7 +111,7 @@ ax_prof.plot([], [], 'k--', lw=1.5, label='no overbank deposition (f_ch = 1)')
 ax_prof.plot([], [], 'k-', lw=2.5, label='with overbank deposition (f_ch < 1)')
 ax_prof.set_ylabel('Bed elevation [m]', fontsize=13)
 ax_prof.set_title(
-    'Aggradation: overbank deposition confines the gravel and slows bed rise\n'
+    'Aggradation: overbank deposition confines the gravel and speeds bed rise\n'
     '(colour: light = early, dark = late; %.0f kyr total)' % times_kyr[-1],
     fontsize=12)
 ax_prof.legend(fontsize=11, loc='upper right')

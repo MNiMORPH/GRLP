@@ -79,6 +79,7 @@ def assemble(net, dt):
     Vhist = np.zeros(n)      # time-level history in V-space (BE or BDF2)
     Vcorr = np.zeros(n)      # nonlinear-map linearization correction (0 if linear)
     z_hist = np.zeros(n)     # the elevation history added to RHS (to subtract off)
+    lateral_src = np.zeros(n)  # wall-erosion sediment source (solid volume/length/time)
     for seg in segs:
         s = seg.ID
         offset = starts[s]
@@ -130,6 +131,8 @@ def assemble(net, dt):
         sl = slice(offset, offset + L)
         z_hist[sl] = z_rhs
         Jstore[sl] = seg.storage_jacobian(seg.z)
+        lateral_src[sl] = np.broadcast_to(
+            np.asarray(seg.lateral_sediment_source, dtype=float), (L,))
         Vold = seg.storage_volume(zold)
         if use_bdf2:
             Vhist[sl] = bdf2_b * Vold - bdf2_c * seg.storage_volume(zold2)
@@ -354,7 +357,9 @@ def assemble(net, dt):
     rows = np.asarray(rows)
     vals = np.asarray(vals) * Jstore[rows]
     LHSmatrix = sparse.csr_matrix((vals, (rows, cols)), shape=(n, n))
-    RHS = Vhist + Vcorr + Jstore * (RHS - z_hist)
+    # Wall-erosion sediment enters directly in V-space (solid volume/length): the
+    # storage row d/dt[(1-lambda)*f_ch*B*z] = -dQ_s/dx + ... + lateral_src.
+    RHS = Vhist + Vcorr + Jstore * (RHS - z_hist) + lateral_src * dt
     return LHSmatrix, RHS
 
 def _picard_config(net):

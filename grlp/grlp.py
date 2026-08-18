@@ -102,6 +102,12 @@ class Segment(object):
                           # set_B (the existing valley-width machinery)
         self.strat = None # optional StratRecorder (valley-fill f_ch stratigraphy);
                           # None unless set_stratigraphic_recording is called
+        self.lateral_sediment_source = 0. # sediment supplied by lateral wall
+                          # erosion during net widening (solid volume per unit
+                          # length per time); a solver source, set in update_valley
+        self.supply_lateral_sediment = True # feed that eroded wall volume back
+                          # into the sediment budget (closes the mass balance);
+                          # set False to isolate the geometry effect alone
         self.migration_coefficient = None # Xi in the Q_s-based migration rate
                        # zetadot = Xi/(1-lambda_p) * Q_s/(h*dx); set it (via
                        # set_lateral_migration_coefficient) to drive zetadot from
@@ -576,6 +582,9 @@ class Segment(object):
             self.B = self.Bold.copy()
         if getattr(self, 'Hold', None) is not None:
             self.H_valley = self.Hold.copy()
+        # Wall-erosion sediment source is recomputed each call (0 unless widening
+        # runs below), so it stays consistent under the idempotent in-Picard loop.
+        self.lateral_sediment_source = 0.
 
         # The valley rules read the channel width b and flow depth h, which a
         # threshold-width solve does not otherwise store.  Resolve them each
@@ -611,6 +620,19 @@ class Segment(object):
         # overbank deposits (opt-in), setting the channel-deposit fraction f_ch.
         if self.partition_by_aggradation:
             self._partition_by_aggradation(dt)
+
+        # Sediment supplied by lateral wall erosion: where the valley *net* widens
+        # this step (the edge advancing into the walls), the eroded strip of width
+        # dB_net and height H_valley supplies (1 - lambda_p)*dB_net*H_valley of
+        # solid sediment per unit downstream length -- a solver source rate.
+        # Using the *net* width change (not the raw widening increment) is what
+        # keeps the narrow-then-rewiden reworking within a fixed-width valley from
+        # spuriously supplying sediment: only advancing into fresh wall counts.
+        if self.supply_lateral_sediment and getattr(self, 'Bold', None) is not None \
+                and self.H_valley is not None:
+            dB_net = np.maximum(0., self.B - self.Bold)
+            self.lateral_sediment_source = (1. - self.lambda_p) * dB_net \
+                                           * self.H_valley / dt
 
     def _bed_change_relative_to_valley(self):
         """

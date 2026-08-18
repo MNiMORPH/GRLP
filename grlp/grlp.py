@@ -454,27 +454,54 @@ class Segment(object):
             self.widen_by_migration = widen_by_migration
 
     def set_stratigraphic_recording(self, tol=0.02, max_raw=4096,
-                                          record_thickness=False):
+                                          record_thickness=False,
+                                          record_age=False, age_tol=None,
+                                          attributes=None):
         """
-        Record the valley-fill stratigraphy -- the channel-deposit fraction
-        ``f_ch`` as a function of elevation and downstream distance -- as the
-        profile evolves.  A :class:`~grlp.stratigraphy.StratRecorder` is attached
-        as ``self.strat`` and updated each step by the solver (a passive
-        diagnostic; it never feeds back into the solve).  ``tol`` bounds the
-        ``f_ch`` error kept by the on-the-fly Douglas-Peucker compression;
-        ``max_raw`` caps per-node buffer before compressing; ``record_thickness``
-        also tracks the exact ``sum(f_ch dz)`` for a volume-closure diagnostic.
-        The initial surface is recorded immediately.
+        Record the valley-fill stratigraphy -- per-layer deposit attributes as a
+        function of elevation and downstream distance -- as the profile evolves.
+        A :class:`~grlp.stratigraphy.StratRecorder` is attached as ``self.strat``
+        and updated each step by the solver (a passive diagnostic; it never feeds
+        back into the solve).
+
+        The channel-deposit fraction ``f_ch`` is always recorded; ``tol`` bounds
+        its Douglas-Peucker error.  ``record_age`` also records the deposit age
+        (the model time at which each layer was laid down); ``age_tol`` is its
+        tolerance in seconds (``None`` -> 1% of the age span).  ``attributes`` is
+        a dict {name: tolerance} of *further* deposit attributes to record with
+        the same machinery -- e.g. ``{'C_10Be': 1e3}`` for a cosmogenic-nuclide
+        concentration.  Their values are read from ``getattr(self, name)`` each
+        step, so set that attribute (a scalar or per-node array) on the profile
+        before evolving and keep it current if it changes.  ``max_raw`` caps the
+        per-node buffer before compressing; ``record_thickness`` also tracks the
+        exact ``sum(f_ch dz)`` for a volume-closure diagnostic.  The initial
+        surface is recorded immediately.
         """
+        attribute_tol = {}
+        if record_age:
+            attribute_tol['age'] = age_tol
+        if attributes:
+            attribute_tol.update(attributes)
         self.strat = StratRecorder(len(self.x), tol=tol, max_raw=max_raw,
-                                   record_thickness=record_thickness)
-        self.strat.record(self.z, self.f_ch)
+                                   record_thickness=record_thickness,
+                                   attribute_tol=attribute_tol or None)
+        self.record_stratigraphy()
 
     def record_stratigraphy(self):
         """Record the current surface into ``self.strat`` if recording is on
-        (called by the solver each step; a no-op otherwise)."""
-        if self.strat is not None:
-            self.strat.record(self.z, self.f_ch)
+        (called by the solver each step; a no-op otherwise).  Resolves each
+        recorded attribute's value: ``f_ch`` -> self.f_ch, ``age`` -> the current
+        model time, and any other -> ``getattr(self, name)`` (user-supplied)."""
+        if self.strat is None:
+            return
+        values = {}
+        for name in self.strat.attributes:
+            if name == 'age':
+                t = getattr(self, 't', None)
+                values[name] = 0. if t is None else t
+            else:
+                values[name] = getattr(self, name)
+        self.strat.record(self.z, **values)
 
     # -- Valley-storage geometry ------------------------------------------- #
     # The solver conserves the stored sediment *volume* V (not the bed

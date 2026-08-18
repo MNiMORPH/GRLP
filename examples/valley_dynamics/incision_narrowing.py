@@ -3,10 +3,14 @@
 # Valley-dynamics demo (2 of 2): incision with and without valley narrowing.
 #
 # This is the mirror image of aggradation_deposition.py.  A gravel long profile
-# is spun up to steady state and then forced to incise by a falling base level
-# -- the same base-level knob as the aggradation demo, with the opposite sign
-# (that demo raises base level to aggrade; this one lowers it to incise).
-# We compare two rivers:
+# is spun up to steady state and then run in two phases:
+#
+#   Phase 1 (forcing) -- base level falls at a constant rate, driving incision
+#     (the same base-level knob as the aggradation demo, opposite sign).
+#   Phase 2 (relaxation) -- base level is held fixed and the profile relaxes the
+#     rest of the way toward its new, lower equilibrium.
+#
+# In each phase we compare two rivers:
 #
 #   * WITHOUT narrowing -- the valley keeps its full width B as the bed incises,
 #     and
@@ -17,8 +21,10 @@
 #
 # The narrowed valley concentrates the gravel storage into a much smaller width
 # (b << B), so the channel bed responds faster to the falling base level and
-# incises more.  The lower panel shows the valley width B, the mechanism behind
-# the difference.
+# incises more during forcing.  Once base level stops (Phase 2), incision decays
+# toward equilibrium; the valley stays narrow (there is no widening here), so the
+# entrenchment it carved persists.  The lower panel shows the valley width B at
+# the end of forcing.
 #
 # The lateral migration rate is zero here (no widening), isolating the narrowing
 # process.
@@ -56,67 +62,93 @@ def build_steady_profile():
     return lp
 
 
-# Forcing and sampling (mirror of the aggradation demo: same rate and cadence).
-FALL_RATE = 1.0e-3 / YEAR   # base-level fall rate [m/s] (= mirror of uplift)
+# Forcing and sampling (mirror of the aggradation demo: same rate and cadence,
+# opposite sign of base-level change).
+FALL_RATE = 1.0e-3 / YEAR   # base-level fall rate [m/s] -> incision
 GRAIN_D = 0.05             # grain size [m], needed to resolve channel width & depth
-N_SNAP = 6                 # number of long-profile snapshots
+N_FORCE = 6                # long-profile snapshots during forcing
+N_RELAX = 6                # long-profile snapshots during relaxation
 NT_SNAP = 10               # solver steps between snapshots
 DT = 1.0e11                # time step [s]
 
 
 def run(with_narrowing):
-    """Evolve an incising profile, returning (x, z-snapshots, B, base level)."""
+    """Evolve through forcing then relaxation.
+
+    Returns (x, forcing-snapshots, relaxation-snapshots, B-at-forcing-end).
+    The forcing list includes the initial steady profile.
+    """
     lp = build_steady_profile()
     lp.D = GRAIN_D
     if with_narrowing:
         lp.set_lateral_migration_rate(0.0)     # no widening
         lp.set_valley_dynamics(narrow_by_incision=True)
-    snapshots = [lp.z.copy()]
-    z_bl = [lp.z_bl]
-    # Step one at a time so base level falls smoothly rather than in jumps.
-    for _ in range(N_SNAP):
+
+    # Phase 1: base level falls, one step at a time so it drops smoothly.
+    forcing = [lp.z.copy()]
+    for _ in range(N_FORCE):
         for _ in range(NT_SNAP):
             lp.set_z_bl(lp.z_bl - FALL_RATE * DT)
             lp.evolve_threshold_width_river(nt=1, dt=DT)
-        snapshots.append(lp.z.copy())
-        z_bl.append(lp.z_bl)
-    B = np.broadcast_to(np.asarray(lp.B, dtype=float), lp.x.shape).copy()
-    return lp.x, snapshots, B, z_bl
+        forcing.append(lp.z.copy())
+    B_end = np.broadcast_to(np.asarray(lp.B, dtype=float), lp.x.shape).copy()
+
+    # Phase 2: base level held fixed; the profile relaxes toward equilibrium.
+    relaxation = []
+    for _ in range(N_RELAX):
+        lp.evolve_threshold_width_river(nt=NT_SNAP, dt=DT)
+        relaxation.append(lp.z.copy())
+
+    return lp.x, forcing, relaxation, B_end
 
 
-x, z_wide, B_wide, zbl = run(with_narrowing=False)
-_, z_narrow, B_narrow, _ = run(with_narrowing=True)
+x, force_wide, relax_wide, B_wide = run(with_narrowing=False)
+_, force_narrow, relax_narrow, B_narrow = run(with_narrowing=True)
 
-times_kyr = np.arange(N_SNAP + 1) * NT_SNAP * DT / YEAR / 1.0e3
+t_force_kyr = N_FORCE * NT_SNAP * DT / YEAR / 1.0e3
+t_total_kyr = (N_FORCE + N_RELAX) * NT_SNAP * DT / YEAR / 1.0e3
 
 fig, (ax_prof, ax_B) = plt.subplots(
     2, 1, figsize=(9, 8), height_ratios=[2, 1], sharex=True)
 
-# Long profiles: colour ramps light (early) -> dark (late).
-shades = plt.cm.viridis(np.linspace(0.15, 0.9, N_SNAP + 1))
-for zs, sh in zip(z_wide, shades):
-    ax_prof.plot(x / 1e3, zs, color=sh, lw=1.5, ls='--')
-for zs, sh in zip(z_narrow, shades):
-    ax_prof.plot(x / 1e3, zs, color=sh, lw=2.5)
-ax_prof.plot([], [], 'k--', lw=1.5, label='no narrowing (valley stays width B)')
+# Long profiles.  Forcing phase in a cool ramp, relaxation phase in a warm ramp;
+# within each, light -> dark is early -> late.  Solid = with narrowing, dashed
+# = without.
+cool = plt.cm.viridis(np.linspace(0.15, 0.9, N_FORCE + 1))
+warm = plt.cm.autumn_r(np.linspace(0.35, 0.95, N_RELAX))
+for zs, c in zip(force_wide, cool):
+    ax_prof.plot(x / 1e3, zs, color=c, lw=1.5, ls='--')
+for zs, c in zip(force_narrow, cool):
+    ax_prof.plot(x / 1e3, zs, color=c, lw=2.5)
+for zs, c in zip(relax_wide, warm):
+    ax_prof.plot(x / 1e3, zs, color=c, lw=1.5, ls='--')
+for zs, c in zip(relax_narrow, warm):
+    ax_prof.plot(x / 1e3, zs, color=c, lw=2.5)
 ax_prof.plot([], [], 'k-', lw=2.5, label='with narrowing (valley -> channel width b)')
+ax_prof.plot([], [], 'k--', lw=1.5, label='no narrowing (valley stays width B)')
+ax_prof.plot([], [], color=cool[-1], lw=6, label='base level falling (0-%.0f kyr)' % t_force_kyr)
+ax_prof.plot([], [], color=warm[-1], lw=6,
+             label='base level held, relaxing (%.0f-%.0f kyr)' % (t_force_kyr, t_total_kyr))
 ax_prof.set_ylabel('Bed elevation [m]', fontsize=13)
 ax_prof.set_title(
     'Incision: narrowing concentrates the gravel and deepens incision\n'
-    '(colour: light = early, dark = late; %.0f kyr total)' % times_kyr[-1],
+    'then base level holds and the profile relaxes to equilibrium',
     fontsize=12)
-ax_prof.legend(fontsize=11, loc='upper right')
+ax_prof.legend(fontsize=10, loc='upper right')
 
-# Valley width: the mechanism.  Full B without narrowing; collapses to b with it.
+# Valley width at the end of forcing: full B without narrowing, collapsed to b
+# with it.
 ax_B.semilogy(x / 1e3, B_wide, 'k--', lw=1.5, label='no narrowing')
 ax_B.semilogy(x / 1e3, B_narrow, 'k-', lw=2.5, label='with narrowing')
 ax_B.set_xlabel('Downstream distance [km]', fontsize=13)
-ax_B.set_ylabel('Valley width B [m]', fontsize=13)
+ax_B.set_ylabel('Valley width B\nat end of forcing [m]', fontsize=12)
 ax_B.legend(fontsize=11, loc='center right')
 
 fig.tight_layout()
 fig.savefig('incision_narrowing.png', dpi=150)
 print('Wrote incision_narrowing.png')
-print('bed drop at x0 -- no narrowing: %.1f m ; with narrowing: %.1f m'
-      % (z_wide[0][0] - z_wide[-1][0], z_narrow[0][0] - z_narrow[-1][0]))
+print('bed drop at x0 -- no narrowing: end of forcing %.1f m, final %.1f m'
+      % (force_wide[0][0] - force_wide[-1][0], force_wide[0][0] - relax_wide[-1][0]))
+print('bed drop at x0 -- with narrowing: end of forcing %.1f m, final %.1f m'
+      % (force_narrow[0][0] - force_narrow[-1][0], force_narrow[0][0] - relax_narrow[-1][0]))
 plt.show()

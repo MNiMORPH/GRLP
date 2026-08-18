@@ -939,9 +939,10 @@ class LongProfile(object):
         self._net().set_time_integration(order)
 
     def set_valley_coupling(self, mode):
-        """Valley-geometry coupling to the z-solve: 'between_step' (default,
-        BDF2-safe, one-step lag) or 'in_picard' (tight, nonlinear storage --
-        backward Euler recommended). Set on the owned network."""
+        """Valley-geometry coupling to the z-solve: 'in_picard' (the default once
+        valley dynamics are active; f_ch varies within the step, no lag) or
+        'between_step' (cheaper, one-step lag). Set on the owned network; see
+        Network.set_valley_coupling."""
         self._net().set_valley_coupling(mode)
 
     def compute_Q_s(self):
@@ -1448,23 +1449,31 @@ class Network(object):
 
     def set_valley_coupling(self, mode):
         """
-        How the transient valley geometry couples to the implicit z-solve:
+        How the transient valley geometry couples to the implicit z-solve.
 
-        ``'between_step'`` (default) advances the valley once per step, *after*
-        the solve, so the storage term stays linear in z and BDF2 keeps second
-        order (the geometry lags the profile by one step).
-
-        ``'in_picard'`` recomputes the valley from each Picard iterate *inside*
-        the solve, tightening the coupling -- but the storage term is then
-        nonlinear in z, so BDF2 is no longer strictly second order and backward
-        Euler is recommended (a warning is issued if BDF2 is left on).  The
-        in-Picard coupling is supported by the fixed-step ``evolve`` solver only,
+        ``'in_picard'`` (the default once valley dynamics are active) recomputes
+        the valley geometry and f_ch from each Picard iterate *inside* the solve,
+        so f_ch varies within the step and is consistent with the converged z --
+        no one-step lag.  This is the accurate choice; the time integration is
+        first order here anyway (see the note below), so its nonlinear storage
+        carries no penalty.  Supported by the fixed-step ``evolve`` solver only,
         not the adaptive one.
+
+        ``'between_step'`` advances the valley once per step, *after* the solve
+        (the geometry lags the profile by one step).  Cheaper, but the lag --
+        amplified by the overbank feedback -- produces a spurious transient
+        aggradation-rate overshoot at coarse dt.
+
+        Calling this pins the choice; otherwise a valley-dynamics run defaults to
+        ``'in_picard'``.  Either way the solver uses first-order time integration
+        (backward Euler) when valley dynamics are active, since the state-dependent
+        storage coefficient means BDF2's second order is not realized.
         """
         if mode not in ('between_step', 'in_picard'):
             raise ValueError("valley coupling must be 'between_step' or "
                              "'in_picard'; got %r" % (mode,))
         self._valley_in_picard = (mode == 'in_picard')
+        self._valley_coupling_set = True
 
     def set_adaptive_timestep(self, tol, dt_init=None, dt_min=0.0, dt_max=None,
                               safety=0.9, max_grow=5.0, max_shrink=0.1):

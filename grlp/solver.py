@@ -430,11 +430,31 @@ def evolve(net, nt, dt):
     net.dt = dt
     bdf2_requested = getattr(net, "time_order", 1) == 2
     in_picard = getattr(net, "_valley_in_picard", False)
-    if in_picard and bdf2_requested:
+    valley_active = any(
+        seg.narrow_by_incision or seg.partition_by_aggradation
+        or seg.widen_by_migration for seg in net.segments)
+    # Default valley-dynamics runs to the tight (in-Picard) coupling: the valley
+    # geometry and f_ch are recomputed from each Picard iterate, so f_ch varies
+    # within the step and is consistent with the converged z -- no one-step lag,
+    # which is what produces the spurious transient aggradation-rate overshoot.
+    # The user can opt back to the cheaper between-step coupling (one-step lag)
+    # via set_valley_coupling('between_step').
+    if valley_active and not getattr(net, "_valley_coupling_set", False):
+        in_picard = True
+    # Valley dynamics couple the storage geometry (valley width and/or the
+    # overbank fraction f_ch) to the z-solve, so the storage coefficient
+    # (1-lambda)*f_ch*B is state-dependent: BDF2's constant-coefficient second
+    # order is not realized (and with between-step coupling the geometry is a
+    # first-order operator split anyway). Default to first-order (backward Euler)
+    # whenever valley dynamics are active; the short time steps needed to resolve
+    # the valley/sedimentation changes make the loss immaterial in practice.
+    if bdf2_requested and valley_active:
         warnings.warn(
-            "In-Picard valley coupling makes the storage term nonlinear in z, "
-            "so BDF2 is no longer strictly second order; consider "
-            "set_time_integration(1) (backward Euler).", RuntimeWarning)
+            "Valley dynamics make the storage coefficient state-dependent, so "
+            "BDF2 is not appropriate here; using first-order (backward Euler). "
+            "Short time steps are needed to resolve the valley/sedimentation "
+            "changes anyway.", RuntimeWarning)
+        bdf2_requested = False
     picard_tol, max_iter, gravel_loss_active = _picard_config(net)
     segs = net.segments
     lengths = list(net.list_of_segment_lengths)

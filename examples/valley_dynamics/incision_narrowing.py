@@ -4,8 +4,8 @@
 #
 # This is the mirror image of aggradation_deposition.py.  A gravel long profile
 # is spun up to steady state and then forced to incise by a falling base level
-# (in GRLP a falling base level and a positive uplift rate are exact mirror
-# images: they create relief at the same rate, with the same profile response).
+# -- the same base-level knob as the aggradation demo, with the opposite sign
+# (that demo raises base level to aggrade; this one lowers it to incise).
 # We compare two rivers:
 #
 #   * WITHOUT narrowing -- the valley keeps its full width B as the bed incises,

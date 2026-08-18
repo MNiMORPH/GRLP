@@ -161,6 +161,44 @@ def test_stratigraphy_golden_demo_column():
     assert maxd < 0.02 * (zc[-1] - zc[0]), "volume closure exceeds tol*thickness"
 
 
+def test_records_multiple_attributes_on_shared_boundaries():
+    """The recorder generalizes to arbitrary per-layer attributes -- f_ch, the
+    deposit age (model time at deposition), and a user-supplied attribute (here a
+    10Be concentration set on the profile) -- all compressed with the same
+    Douglas-Peucker machinery and sharing one set of layer boundaries (the union
+    of each attribute's vertices)."""
+    lp = _uniform_demo_profile(nx=40)
+    lp.D = 0.05
+    lp.set_lateral_migration_rate(1.5e-8)
+    lp.set_valley_dynamics(partition_by_aggradation=True)
+    lp.C_10Be = 3.0e5 * np.ones(len(lp.x))       # user attribute, updated each step
+    lp.set_stratigraphic_recording(tol=0.02, record_age=True,
+                                   attributes={'C_10Be': 5.0e3})
+    rate, dt = 2.0e-3 / _YEAR, 1.0e11
+    for k in range(40):
+        lp.set_z_bl(lp.z_bl + rate * dt)
+        lp.C_10Be = (3.0e5 + 2.0e5 * np.sin(k / 8.0)) * np.ones(len(lp.x))
+        lp.evolve_threshold_width_river(nt=1, dt=dt)
+
+    assert lp.strat.attributes == ('f_ch', 'age', 'C_10Be')
+    i = 20
+    zf = lp.strat.columns('f_ch')[i][0]
+    za = lp.strat.columns('age')[i][0]
+    zc = lp.strat.columns('C_10Be')[i][0]
+    assert np.array_equal(zf, za) and np.array_equal(zf, zc), \
+        "all attributes must share the same layer boundaries"
+    _, age = lp.strat.columns('age')[i]
+    assert age[-1] > age[0], "deposit age (model time) must increase upward"
+    _, c10 = lp.strat.columns('C_10Be')[i]
+    assert c10.max() - c10.min() > 1.0e5, "the 10Be source variation must be recorded"
+    # each attribute is reconstructed within its own tolerance on the shared mesh
+    zraw = np.asarray(lp.strat.z[i])
+    c_raw = np.asarray(lp.strat.data['C_10Be'][i])
+    c_rec = np.interp(zraw, zc, c10)
+    assert np.max(np.abs(c_rec - c_raw)) <= 5.0e3 + 1.0, \
+        "10Be reconstruction must stay within its tolerance"
+
+
 def test_recording_builds_a_section():
     """A short aggradation run produces a reconstructable f_ch(x, z) section with
     f_ch < 1 (overbank deposition recorded)."""

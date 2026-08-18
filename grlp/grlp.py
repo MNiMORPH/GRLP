@@ -559,18 +559,42 @@ class Segment(object):
         if self.partition_by_aggradation:
             self._partition_by_aggradation(dt)
 
+    def _bed_change_relative_to_valley(self):
+        """
+        Channel bed-elevation change rate *relative to the valley floor*,
+        ``dz/dt - U``.
+
+        The valley walls and floodplain ride up (or down) with the rock at the
+        uplift rate ``U``, so it is the channel bed's motion *relative to them*,
+        not its absolute (Eulerian) motion, that entrenches (incision) or buries
+        (aggradation) the valley.  Under uplift the absolute bed can rise while
+        the channel still cuts down into the rising valley (``dz/dt < U``); that
+        is the signal the narrowing and deposit-partition rules must key off, so
+        that uplift drives narrowing and subsidence drives overbank deposition.
+        The sediment source/sink terms (``ssd``, downstream fining) are left in:
+        they genuinely add or remove channel sediment, unlike the tectonic
+        vertical motion of the whole valley.
+
+        ``U`` may be a scalar or a per-node array, so this works for spatially
+        variable uplift/subsidence.
+        """
+        return self.dz_dt - np.asarray(self.U)
+
     def _narrow_by_incision(self, dt):
         """
         Incision entrenches the channel: with vertical walls, the valley
         abandons its floodplain and collapses to the channel width, while the
         walls grow by the incision depth.  Applied only where the bed incises
-        (``dz/dt < 0``).  If the wall height is unset, it starts from zero.
+        *relative to the valley floor* (``dz/dt - U < 0``), so that uplift
+        entrenches the channel even while its absolute elevation rises.  If the
+        wall height is unset, it starts from zero.
         """
         if self.H_valley is None:
             self.H_valley = np.zeros(np.shape(self.B))
-        incising = self.dz_dt < 0
+        sediment_dz_dt = self._bed_change_relative_to_valley()
+        incising = sediment_dz_dt < 0
         self.H_valley = np.where(incising,
-                                 self.H_valley - self.dz_dt * dt,
+                                 self.H_valley - sediment_dz_dt * dt,
                                  self.H_valley)
         self.B = np.where(incising, self.b, self.B)
 
@@ -637,16 +661,21 @@ class Segment(object):
 
             B_c = b + (B - b) * (1 - exp(-zetadot * h / ((B - b) * etadot)))
 
-        with the aggradation rate ``etadot = dz/dt`` (one uniform rate for
-        channel and floodplain, for now).  Applied only where the bed aggrades
-        (``dz/dt > 0``); elsewhere ``f_ch = 1`` (all channel deposit, so the
-        storage term is unchanged).
+        with the aggradation rate ``etadot = dz/dt - U`` -- the bed's rise
+        *relative to the valley floor*, one uniform rate for channel and
+        floodplain for now.  Applied only where the bed aggrades relative to
+        that floor (``dz/dt - U > 0``); elsewhere ``f_ch = 1`` (all channel
+        deposit, so the storage term is unchanged).  Keying off ``dz/dt - U``
+        (not the absolute ``dz/dt``) ensures uplift, which makes the channel
+        incise into the rising valley, does not spuriously trigger overbank
+        deposition.
         """
-        aggrading = self.dz_dt > 0
+        sediment_dz_dt = self._bed_change_relative_to_valley()
+        aggrading = sediment_dz_dt > 0
         # Where not aggrading, etadot = inf drives the exponent to 0 and
         # f_ch to 1; where B == b the (B - b) prefactor collapses B_c to b.
         # The errstate silences the intermediate 0/0 and x/0 those produce.
-        etadot = np.where(aggrading, self.dz_dt, np.inf)
+        etadot = np.where(aggrading, sediment_dz_dt, np.inf)
         with np.errstate(divide='ignore', invalid='ignore'):
             B_c = self.b + (self.B - self.b) \
                            * (1. - np.exp(-self.zetadot * self.h

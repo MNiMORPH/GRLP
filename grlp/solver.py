@@ -404,6 +404,17 @@ def _picard_step(net, dt, segs, starts, lengths,
             # the next assemble sees storage (f_ch*B) consistent with the current
             # z.  update_valley is idempotent (it resets to the frozen Bold/Hold),
             # so repeating it across iterations does not accumulate.
+            #
+            # The geometry is evaluated at the end-of-step iterate z^{n+1}
+            # (backward-Euler in the geometry: L-stable and monotone), not at a
+            # midpoint B^{n+1/2} (Crank-Nicolson-like, Fergus McNab's scheme).
+            # The midpoint is formally second-order in the geometry but buys
+            # nothing here -- the time integration is already first order for
+            # valley dynamics (state-dependent storage rules out BDF2) -- and,
+            # being non-L-stable, it can ring on the sharp valley features
+            # (B -> b narrowing; the f_ch feedback).  The two schemes match to
+            # ~1e-5 on tested aggradation and incision+narrowing cases, so the
+            # end-point form is kept as the strictly more robust default.
             for seg in segs:
                 seg.dz_dt = (seg.z - seg.zold) / dt
                 seg.update_valley(dt)

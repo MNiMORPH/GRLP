@@ -1483,8 +1483,11 @@ class Network(object):
         so f_ch varies within the step and is consistent with the converged z --
         no one-step lag.  This is the accurate choice; the time integration is
         first order here anyway (see the note below), so its nonlinear storage
-        carries no penalty.  Supported by the fixed-step ``evolve`` solver only,
-        not the adaptive one.
+        carries no penalty.  The geometry is taken at the end-of-step z^{n+1}
+        (backward-Euler in the geometry: L-stable and monotone), rather than a
+        midpoint B^{n+1/2} scheme, for robustness on the sharp valley features
+        (the two agree to ~1e-5 on tested cases).  Supported by the fixed-step
+        ``evolve`` solver only, not the adaptive one.
 
         ``'between_step'`` advances the valley once per step, *after* the solve
         (the geometry lags the profile by one step).  Cheaper, but the lag --

@@ -73,10 +73,19 @@ Nothing. It already produces `seg.Q_s` (grlp.py:1091); all valley rules are loca
    nonlinear in `z`, so BDF2 is no longer strictly second order (a warning fires;
    backward Euler recommended). `update_valley` is idempotent (resets to the
    frozen `Bold`/`Hold` each call) so it can run once or every iteration.
-   In-Picard is `evolve`-only for now (not the adaptive solver). Still to settle
-   with Fergus: his exact `B^{n+1/2}` centred scheme vs this iterate-consistent
-   fixed point.
+   In-Picard is `evolve`-only for now (not the adaptive solver). **Resolved:**
+   keep the in-Picard *end-point* form -- the geometry converges to `B(z^{n+1})`
+   (backward-Euler in the geometry: L-stable, monotone) -- rather than Fergus's
+   midpoint `B^{n+1/2}` (Crank-Nicolson-like). The midpoint is formally second
+   order in the geometry but buys nothing (the time integration is first order
+   for valley dynamics anyway, since the state-dependent storage rules out BDF2)
+   and, being non-L-stable, can ring on the sharp valley features (`B -> b`
+   narrowing; the f_ch feedback). Tested both ways on aggradation and
+   incision+narrowing: they agree to ~1e-5, so the end-point form is kept as the
+   strictly more robust default. L-stability over formal order, per ADW.
 2. **Naming.** Private rule methods here match the flag names; Fergus used public
    `compute_*`. Can switch the shared helpers to his convention if desired.
 3. **Eq. 17 typo** in the 2025 paper (`(1 - H_W/h)` should be `(1 - h/H_W)`) --
-   flag to the authors.
+   **agreed**: ADW verified independently and Fergus (a co-author) agrees, so it
+   is confirmed; needs only a paper correction (his call as co-author). The code
+   already uses the corrected `(1 - h/H_valley)` in `_widen_valley`.

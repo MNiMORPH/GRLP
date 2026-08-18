@@ -93,6 +93,10 @@ def run(with_deposition):
         lp.set_lateral_migration_rate(ZETADOT)
         lp.set_valley_dynamics(partition_by_aggradation=True)
 
+    def f_ch_now():
+        # f_ch defaults to the scalar 1.; broadcast to the profile for plotting.
+        return np.broadcast_to(np.asarray(lp.f_ch, dtype=float), lp.x.shape).copy()
+
     # Phase 1: base level rises, one step at a time so it climbs smoothly.
     forcing = [lp.z.copy()]
     for _ in range(N_FORCE):
@@ -100,20 +104,20 @@ def run(with_deposition):
             lp.set_z_bl(lp.z_bl + RISE_RATE * DT)
             lp.evolve_threshold_width_river(nt=1, dt=DT)
         forcing.append(lp.z.copy())
-    # f_ch defaults to the scalar 1.; broadcast to the profile for plotting.
-    f_ch_end = np.broadcast_to(np.asarray(lp.f_ch, dtype=float), lp.x.shape).copy()
+    f_ch_force = f_ch_now()          # deposit fraction at the end of forcing
 
     # Phase 2: base level held fixed; the profile relaxes toward equilibrium.
     relaxation = []
     for _ in range(N_RELAX):
         lp.evolve_threshold_width_river(nt=NT_SNAP, dt=DT)
         relaxation.append(lp.z.copy())
+    f_ch_final = f_ch_now()          # deposit fraction at the end of the experiment
 
-    return lp.x, forcing, relaxation, f_ch_end
+    return lp.x, forcing, relaxation, f_ch_force, f_ch_final
 
 
-x, force_off, relax_off, fch_off = run(with_deposition=False)
-_, force_on, relax_on, fch_on = run(with_deposition=True)
+x, force_off, relax_off, fch_off_force, fch_off_final = run(with_deposition=False)
+_, force_on, relax_on, fch_on_force, fch_on_final = run(with_deposition=True)
 
 t_force_kyr = N_FORCE * NT_SNAP * DT / YEAR / 1.0e3
 t_total_kyr = (N_FORCE + N_RELAX) * NT_SNAP * DT / YEAR / 1.0e3
@@ -146,13 +150,20 @@ ax_prof.set_title(
     fontsize=12)
 ax_prof.legend(fontsize=10, loc='upper right')
 
-# f_ch at the end of forcing (its strongest): 1 without deposition, < 1 with it.
-ax_fch.plot(x / 1e3, fch_off, 'k--', lw=1.5, label='no overbank deposition')
-ax_fch.plot(x / 1e3, fch_on, 'k-', lw=2.5, label='with overbank deposition')
+# f_ch at two times, colour-matched to the profile phases: end of forcing (cool)
+# vs end of experiment (warm).  Without deposition f_ch = 1 at both times; with
+# deposition it is < 1 at the end of forcing and relaxes back toward 1 as the
+# aggradation ceases.
+ax_fch.plot(x / 1e3, fch_off_force, color='0.6', ls='--', lw=1.5,
+            label='no deposition (f_ch = 1, both times)')
+ax_fch.plot(x / 1e3, fch_on_force, color=cool[-1], lw=2.5,
+            label='with deposition, end of forcing')
+ax_fch.plot(x / 1e3, fch_on_final, color=warm[-1], lw=2.5,
+            label='with deposition, end of experiment')
 ax_fch.set_ylim(0, 1.05)
 ax_fch.set_xlabel('Downstream distance [km]', fontsize=13)
-ax_fch.set_ylabel('Channel-deposit fraction\nf_ch at end of forcing [-]', fontsize=12)
-ax_fch.legend(fontsize=11, loc='lower right')
+ax_fch.set_ylabel('Channel-deposit\nfraction f_ch [-]', fontsize=12)
+ax_fch.legend(fontsize=10, loc='lower right')
 
 fig.tight_layout()
 fig.savefig('aggradation_deposition.png', dpi=150)

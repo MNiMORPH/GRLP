@@ -57,11 +57,12 @@ version heading for the full notes.
   base-level sliders and a single play/pause button, so a reader can watch the
   long profile adjust in real time -- Lane's balance, played out dynamically. It
   runs GRLP entirely in the browser via Pyodide (WebAssembly) -- no install, no
-  server -- and is compiled from `interactive_demo/grlp_panel.py` with Panel
-  (`panel convert`) at documentation build time, self-hosting the wheels it needs
-  beside the app (referenced by relative URLs) so it depends on no external
-  services at run time. A Jupyter-notebook version of the same demo is kept in
-  `interactive_demo/` for classroom or notebook use.
+  server -- and is compiled from `interactive_demo/grlp_panel.py` by
+  [artesian](https://github.com/MNiMORPH/artesian) at documentation build time.
+  The grlp, panel and bokeh wheels are self-hosted beside the app and referenced
+  by relative URLs, so no wheel CDN is needed at run time; the Pyodide runtime
+  itself is still fetched from a CDN on first load. A Jupyter-notebook version of
+  the same demo is kept in `interactive_demo/` for classroom or notebook use.
 - **Second-order-in-time integration (BDF2)** -- now the **default** (see
   *Changed*). `set_time_integration(1)` selects the previous first-order backward
   Euler. BDF2 makes the final-profile error scale like Δt² rather than Δt, so

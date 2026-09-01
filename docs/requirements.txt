@@ -5,9 +5,10 @@ sphinx>=7
 myst-nb>=1
 furo>=2024.1
 
-# Interactive browser demo (docs/interactive.md). `panel convert` compiles
+# Interactive browser demo (docs/interactive.md). artesian compiles
 # interactive_demo/grlp_panel.py into a standalone WebAssembly app at build time
-# (conf.py); GRLP then runs entirely in the reader's browser via Pyodide. Panel
-# pulls bokeh. The panel + bokeh wheels are self-hosted next to the app (the
-# holoviz CDN's bokeh wheel 403s), so no external CDN is required at run time.
-panel>=1.9
+# (see artesian_apps in conf.py); GRLP then runs entirely in the reader's
+# browser via Pyodide. artesian pulls panel, which pulls bokeh; the panel and
+# bokeh wheels are self-hosted next to the app because the holoviz CDN's bokeh
+# wheel 403s. Pinned to a git ref: artesian is not yet released to PyPI.
+artesian @ git+https://github.com/MNiMORPH/artesian@main

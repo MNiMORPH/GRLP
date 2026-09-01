@@ -1,8 +1,23 @@
-# Standalone interactive GRLP demos (experimental)
+# Interactive GRLP demos
 
 Browser-based, slider-driven demos of a single gravel-bed river responding to its
 **water input**, **sediment input**, and **base level** — GRLP running entirely
-in your browser via Pyodide / JupyterLite. Two notebooks:
+in your browser via Pyodide.
+
+**`grlp_panel.py` is the published demo.** It is a Panel app compiled to a
+standalone WebAssembly page by [artesian](https://github.com/MNiMORPH/artesian),
+which the documentation build drives through `artesian_apps` in `docs/conf.py`;
+the result is embedded in
+[docs/interactive.md](https://grlp.readthedocs.io/en/latest/interactive.html).
+To build it by hand:
+
+```sh
+artesian build interactive_demo/grlp_panel.py -o _build -p . \
+    -r numpy -r scipy -r networkx --serve
+```
+
+The two notebooks below are the earlier JupyterLite versions, kept for
+classroom and notebook use. They are **not** part of the documentation site.
 
 - **`interactive_single_segment.ipynb`** — *equilibrium* response: each slider
   change recomputes the steady-state profile (Lane's balance).
@@ -10,10 +25,7 @@ in your browser via Pyodide / JupyterLite. Two notebooks:
   continuously; drag the sliders and watch the profile aggrade/incise toward the
   new boundary conditions in real time.
 
-Deliberately kept **out of the ReadTheDocs site** for now: standalone, until
-tested enough.
-
-## Run it
+## Run the notebooks
 
 One-time toolchain install (the **frontends** — `jupyterlab_widgets` for the
 sliders, `ipympl` for the live canvas — must be in this env so `jupyter lite
@@ -52,6 +64,7 @@ notebook, run all cells, and use the sliders.
 
 ## Files
 
+- `grlp_panel.py` — the published Panel demo, compiled by artesian (above).
 - `interactive_single_segment.ipynb` — equilibrium demo (sliders + GRLP compute).
 - `interactive_single_segment_live.ipynb` — live transient demo (async run loop).
 - `run_demo.sh` — build the wheel + launch JupyterLite.
@@ -62,12 +75,13 @@ notebook, run all cells, and use the sliders.
 ## Status / notes
 
 - **Verified natively:** the compute logic (correct Lane's-balance response,
-  ~9 ms/update) and the pure-Python `grlp` wheel. **Not yet verified:** the
-  in-browser (WASM) execution and slider responsiveness — that is what this
-  standalone package is for.
+  ~9 ms/update) and the pure-Python `grlp` wheel. In-browser execution is now
+  verified for the **Panel** demo, which is published on Read the Docs; it
+  remains unverified for these **notebooks**.
 - If `%pip install grlp` does not resolve, confirm the freshly built wheel is in
   `pypi/` (the auto-discovered wheelhouse) and that the JupyterLite build indexed
   it (look for `piplite:copy:whl` in the build log).
-- Once tested and trusted, the route to embed this in RTD is `jupyterlite-sphinx`
-  (a `{jupyterlite}`/`{voici}` directive). We are intentionally not doing that
-  yet.
+- The route into RTD was expected to be `jupyterlite-sphinx` (a
+  `{jupyterlite}`/`{voici}` directive). That is not what we did: the published
+  demo is the Panel app, compiled by artesian at documentation build time. The
+  notebooks stay standalone.

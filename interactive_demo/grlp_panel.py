@@ -2,10 +2,12 @@
 Interactive GRLP demo — a single gravel river adjusting in real time.
 
 This is the source for the live, in-browser demo embedded in the documentation.
-It is compiled to a standalone WebAssembly app (no server, no install) with::
+It is compiled to a standalone WebAssembly app (no server, no install) by
+artesian, which the docs build drives through ``artesian_apps`` in
+docs/conf.py. To build it by hand::
 
-    panel convert grlp_panel.py --to pyodide-worker --out <dir> \\
-        --requirements <grlp wheel> numpy scipy networkx
+    artesian build interactive_demo/grlp_panel.py -o <dir> \\
+        -p . -r numpy -r scipy -r networkx --serve
 
 GRLP then runs entirely in the browser via Pyodide. Press play and drag the
 sliders while it runs to change the boundary conditions and watch the long

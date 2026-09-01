@@ -8,9 +8,7 @@ must be importable at build time — Read the Docs installs it via `pip install 
 environment first.
 """
 
-import glob
 import os
-import subprocess
 import sys
 
 # Make the package importable for autodoc when GRLP is not pip-installed
@@ -36,48 +34,13 @@ for _nb in ("example_1d.ipynb", "example_network.ipynb",
     shutil.copyfile(os.path.join(_here, "..", "examples", _nb),
                     os.path.join(_tutorial_dst, _nb))
 
-# Build the interactive browser demo (docs/interactive.md). `panel convert`
-# compiles interactive_demo/grlp_panel.py into a standalone WebAssembly app that
-# runs GRLP entirely in the reader's browser via Pyodide. The app and the wheels
-# it loads (grlp, built fresh here; panel + bokeh, self-hosted from PyPI) live
-# together in _static/interactive/ and are referenced by *relative* URLs, so the
-# demo works wherever the docs are served with no external CDN. interactive.md
+# The interactive browser demo (docs/interactive.md) is built by artesian,
+# which compiles interactive_demo/grlp_panel.py into a standalone WebAssembly
+# app running GRLP entirely in the reader's browser via Pyodide. It wheels
+# grlp fresh from this source tree, self-hosts the panel and bokeh wheels
+# beside the app, and rewrites their CDN URLs to those local copies (the
+# holoviz CDN's bokeh wheel 403s). See artesian_apps below; interactive.md
 # embeds _static/interactive/grlp_panel.html in an <iframe>.
-import re
-
-import bokeh
-import panel
-
-_demo_src = os.path.join(_here, "..", "interactive_demo", "grlp_panel.py")
-_demo_out = os.path.join(_here, "_static", "interactive")
-os.makedirs(_demo_out, exist_ok=True)
-for _old in glob.glob(os.path.join(_demo_out, "*.whl")):
-    os.remove(_old)
-# Fresh grlp wheel (matches the current source) + self-hosted panel/bokeh wheels.
-subprocess.run([sys.executable, "-m", "pip", "wheel", os.path.join(_here, ".."),
-                "--no-deps", "-w", _demo_out], check=True)
-subprocess.run([sys.executable, "-m", "pip", "download",
-                f"panel=={panel.__version__}", f"bokeh=={bokeh.__version__}",
-                "--no-deps", "-d", _demo_out], check=True)
-_grlp_whl = os.path.basename(glob.glob(os.path.join(_demo_out, "grlp-*.whl"))[0])
-subprocess.run([sys.executable, "-m", "panel", "convert", _demo_src,
-                "--to", "pyodide-worker", "--out", _demo_out,
-                "--requirements", _grlp_whl, "numpy", "scipy", "networkx"],
-               check=True, cwd=_demo_out)
-# Point the panel + bokeh wheel URLs at the co-located copies (the holoviz CDN's
-# bokeh wheel 403s; self-hosting also removes the run-time CDN dependency).
-for _f in ("grlp_panel.js", "grlp_panel.html"):
-    _fp = os.path.join(_demo_out, _f)
-    if not os.path.exists(_fp):
-        continue
-    with open(_fp) as _fh:
-        _txt = _fh.read()
-    _txt = re.sub(r"https://cdn\.holoviz\.org/\S*?/(bokeh-[\d.]+-py3-none-any\.whl)",
-                  r"\1", _txt)
-    _txt = re.sub(r"https://cdn\.holoviz\.org/\S*?/(panel-[\d.]+-py3-none-any\.whl)",
-                  r"\1", _txt)
-    with open(_fp, "w") as _fh:
-        _fh.write(_txt)
 
 # -- Project information ------------------------------------------------------
 
@@ -102,6 +65,7 @@ version = release
 # -- General configuration ----------------------------------------------------
 
 extensions = [
+    "artesian.sphinxext",      # build the interactive WASM demo (see below)
     "myst_nb",                 # Markdown source + executable notebooks
     "sphinx.ext.autodoc",      # pull docstrings from grlp
     "sphinx.ext.autosummary",  # summary tables
@@ -109,6 +73,18 @@ extensions = [
     "sphinx.ext.mathjax",      # render LaTeX math
     "sphinx.ext.viewcode",     # [source] links
     "sphinx.ext.intersphinx",  # cross-link to numpy/scipy docs
+]
+
+# Compile the interactive demo into _static/interactive/ at build time. The
+# grlp wheel is built from this checkout, so the demo always matches the source
+# it is documenting; numpy, scipy and networkx come from Pyodide in the browser.
+artesian_apps = [
+    {
+        "app": "../interactive_demo/grlp_panel.py",
+        "packages": [".."],
+        "requirements": ["numpy", "scipy", "networkx"],
+        "outdir": "_static/interactive",
+    },
 ]
 
 autosummary_generate = True

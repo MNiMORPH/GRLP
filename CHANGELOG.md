@@ -60,7 +60,10 @@ version heading for the full notes.
   server -- and is compiled from `interactive_demo/grlp_panel.py` with Panel
   (`panel convert`) at documentation build time, self-hosting the wheels it needs
   beside the app (referenced by relative URLs) so it depends on no external
-  services at run time. A Jupyter-notebook version of the same demo is kept in
+  services at run time. The plot scales to whatever width it is embedded at,
+  keeping its aspect ratio so the long profile's vertical exaggeration -- and
+  therefore its apparent steepness -- is the same for every reader regardless
+  of window size. A Jupyter-notebook version of the same demo is kept in
   `interactive_demo/` for classroom or notebook use.
 - **Second-order-in-time integration (BDF2)** -- now the **default** (see
   *Changed*). `set_time_integration(1)` selects the previous first-order backward

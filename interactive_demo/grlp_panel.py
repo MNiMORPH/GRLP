@@ -59,7 +59,11 @@ def _bl_xy(zbl):
 profile = ColumnDataSource(data={"x": _lp.x / 1000., "z": _lp.z})
 baselevel = ColumnDataSource(data=_bl_xy(ZBL0))
 
-fig = figure(height=380, width=680, title="t = 0.0 kyr",
+# stretch_width lets the plot fill whatever column it is embedded in: the
+# documentation page, a course page, or a full-width slide. Height stays
+# fixed so the vertical exaggeration does not wander between them.
+fig = figure(height=380, sizing_mode="stretch_width",
+             title="t = 0.0 kyr",
              x_axis_label="Downstream distance [km]",
              y_axis_label="Elevation [m]")
 fig.line("x", "z", source=profile, line_width=3)
@@ -131,4 +135,5 @@ pn.Column(
     pn.Row(run, reset),
     Qw, Qs, zbl,
     fig,
+    sizing_mode="stretch_width",
 ).servable(title="GRLP interactive demo")

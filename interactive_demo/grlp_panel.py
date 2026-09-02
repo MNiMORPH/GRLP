@@ -66,13 +66,15 @@ baselevel = ColumnDataSource(data=_bl_xy(ZBL0))
 # the same apparent steepness. `stretch_width` would not do this; it pins the
 # height, so a wider window silently flattens the profile.
 #
-# MAX_WIDTH bounds the growth. Without it, preserving the ratio on a very wide
-# screen makes the figure absurdly tall (1342 px at 2400 px wide).
+# Growth is deliberately unbounded: the figure takes whatever width it is
+# given. Holding the ratio means the height follows, so on a very wide screen
+# it becomes tall -- about 1340 px in a 2400 px container. That is the price of
+# a constant vertical exaggeration, and it is the right way round for a figure
+# people read slopes off. Set `max_width` on the figure to cap it.
 ASPECT_RATIO = 680. / 380.    # the proportions this figure was designed at
-MAX_WIDTH = 1200              # tallest it can then become: 1200/1.79 = 670 px
 
 fig = figure(height=380, sizing_mode="scale_width",
-             aspect_ratio=ASPECT_RATIO, max_width=MAX_WIDTH,
+             aspect_ratio=ASPECT_RATIO,
              title="t = 0.0 kyr",
              x_axis_label="Downstream distance [km]",
              y_axis_label="Elevation [m]")

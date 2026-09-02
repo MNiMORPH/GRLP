@@ -59,10 +59,20 @@ def _bl_xy(zbl):
 profile = ColumnDataSource(data={"x": _lp.x / 1000., "z": _lp.z})
 baselevel = ColumnDataSource(data=_bl_xy(ZBL0))
 
-# stretch_width lets the plot fill whatever column it is embedded in: the
-# documentation page, a course page, or a full-width slide. Height stays
-# fixed so the vertical exaggeration does not wander between them.
-fig = figure(height=380, sizing_mode="stretch_width",
+# The plot fills whatever column it is embedded in -- the documentation page, a
+# course page, a projected slide -- while holding its shape. `scale_width`
+# scales height with width, so ASPECT_RATIO fixes the vertical exaggeration:
+# a reader on an ultrawide monitor and one on a laptop see the same river at
+# the same apparent steepness. `stretch_width` would not do this; it pins the
+# height, so a wider window silently flattens the profile.
+#
+# MAX_WIDTH bounds the growth. Without it, preserving the ratio on a very wide
+# screen makes the figure absurdly tall (1342 px at 2400 px wide).
+ASPECT_RATIO = 680. / 380.    # the proportions this figure was designed at
+MAX_WIDTH = 1200              # tallest it can then become: 1200/1.79 = 670 px
+
+fig = figure(height=380, sizing_mode="scale_width",
+             aspect_ratio=ASPECT_RATIO, max_width=MAX_WIDTH,
              title="t = 0.0 kyr",
              x_axis_label="Downstream distance [km]",
              y_axis_label="Elevation [m]")

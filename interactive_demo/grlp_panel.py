@@ -84,19 +84,26 @@ fig.line("x", "z", source=baselevel, line_width=1, line_dash="dashed",
 fig.y_range.start, fig.y_range.end = -120, 1300
 fig.legend.location = "top_right"
 
-# The sliders stretch with the plot. Panel gives a widget a fixed default
-# width, which left them stranded at about 300 px beneath a figure several
-# times wider. A wide slider is also a more precise one: the same range spread
-# over more pixels.
+# The sliders grow with the layout but stop at SLIDER_WIDTH, so they occupy a
+# sensible fraction of the pane rather than spanning it. Panel's own default is
+# a fixed ~300 px, which left them stranded beneath a much wider figure.
+#
+# Note this bounds them in *layout* pixels. A page that scales the whole app --
+# see the note on DESIGN_WIDTH below -- enlarges these along with everything
+# else, so a bounded slider is not a small one on a large display.
+SLIDER_WIDTH = 520
+
 Qw = pn.widgets.FloatSlider(name="Water discharge  Q  [m³/s]",
                             start=20, end=600, step=20, value=Q0,
-                            sizing_mode="stretch_width")
+                            sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
 Qs = pn.widgets.FloatSlider(name="Bed-load sediment input  Qₛ  [m³/s]",
                             start=0.005, end=0.06, step=0.005, value=QS0,
-                            format="0.000", sizing_mode="stretch_width")
+                            format="0.000",
+                            sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
 zbl = pn.widgets.FloatSlider(name="Base level  [m]",
                              start=-100, end=100, step=5, value=ZBL0,
-                             sizing_mode="stretch_width")
+                             sizing_mode="stretch_width",
+                             max_width=SLIDER_WIDTH)
 
 run = pn.widgets.Toggle(name="▶ Run", value=False)
 reset = pn.widgets.Button(name="Set to equilibrium", button_type="primary")
@@ -141,6 +148,15 @@ def toggle_run(event):
 
 run.param.watch(toggle_run, "value")
 reset.on_click(do_reset)
+
+# DESIGN_WIDTH is a contract with the page embedding this app, not something
+# enforced here. Everything above is laid out to look right at roughly this
+# width; an embedding page that wants the app larger should scale the whole
+# thing (CSS `zoom` on the frame) rather than stretch it, so the text, the
+# slider handles and the plot enlarge together. Stretching alone leaves the
+# controls the same physical size while the figure grows, and eventually they
+# are hard to read and to hit.
+DESIGN_WIDTH = 900
 
 pn.Column(
     pn.pane.Markdown(

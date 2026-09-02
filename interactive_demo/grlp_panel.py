@@ -84,13 +84,19 @@ fig.line("x", "z", source=baselevel, line_width=1, line_dash="dashed",
 fig.y_range.start, fig.y_range.end = -120, 1300
 fig.legend.location = "top_right"
 
+# The sliders stretch with the plot. Panel gives a widget a fixed default
+# width, which left them stranded at about 300 px beneath a figure several
+# times wider. A wide slider is also a more precise one: the same range spread
+# over more pixels.
 Qw = pn.widgets.FloatSlider(name="Water discharge  Q  [m³/s]",
-                            start=20, end=600, step=20, value=Q0)
+                            start=20, end=600, step=20, value=Q0,
+                            sizing_mode="stretch_width")
 Qs = pn.widgets.FloatSlider(name="Bed-load sediment input  Qₛ  [m³/s]",
                             start=0.005, end=0.06, step=0.005, value=QS0,
-                            format="0.000")
+                            format="0.000", sizing_mode="stretch_width")
 zbl = pn.widgets.FloatSlider(name="Base level  [m]",
-                             start=-100, end=100, step=5, value=ZBL0)
+                             start=-100, end=100, step=5, value=ZBL0,
+                             sizing_mode="stretch_width")
 
 run = pn.widgets.Toggle(name="▶ Run", value=False)
 reset = pn.widgets.Button(name="Set to equilibrium", button_type="primary")
@@ -143,8 +149,8 @@ pn.Column(
         "**sediment** aggrades and steepens the profile; more **water** lowers "
         "its slope; dropping **base level** sends an incision wave upstream. "
         "**Set to equilibrium** jumps to the steady state for the current "
-        "settings."),
-    pn.Row(run, reset),
+        "settings.", sizing_mode="stretch_width"),
+    pn.Row(run, reset),   # buttons keep their natural size
     Qw, Qs, zbl,
     fig,
     sizing_mode="stretch_width",

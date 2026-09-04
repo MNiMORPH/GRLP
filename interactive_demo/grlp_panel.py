@@ -14,6 +14,8 @@ profile respond transiently — Lane's balance, played out in time.
 A Jupyter-notebook version of the same demo lives alongside this file
 (interactive_single_segment*.ipynb) for classroom / notebook use.
 """
+import asyncio
+
 import numpy as np
 import panel as pn
 from bokeh.plotting import figure
@@ -134,7 +136,34 @@ def do_reset(event=None):
 
 # A single play/pause button drives the animation via a periodic callback (the
 # timer only runs while the toggle is on).
-_ticker = pn.state.add_periodic_callback(step, period=33, start=False)  # ~30 fps
+#
+# The tick is a coroutine, and the sleep at the end of it is load-bearing.
+# Panel's PeriodicCallback loop is
+#
+#     while True:
+#         start = time.monotonic()
+#         await func()
+#         timeout = period - (time.monotonic() - start)
+#         if timeout > 0:
+#             await asyncio.sleep(timeout)
+#
+# and awaiting a coroutine is not itself a suspension point, so that sleep is
+# the loop's ONLY yield. Give it a plain function and, on any frame that takes
+# longer than the period, the loop spins without ever returning to the event
+# loop -- and in the browser that loop is what applies widget changes. The
+# controls do not slow down, they stop responding entirely, until some frame
+# happens to come in under budget. Since frame cost here is uneven, that shows
+# up as the sliders freezing "sometimes".
+#
+# artesian.live.animator does the same thing, and carries the measurements.
+# This file deliberately does not import it, so that the demo depends only on
+# panel and bokeh.
+async def _tick():
+    step()
+    await asyncio.sleep(0)          # hand the event loop back, every frame
+
+
+_ticker = pn.state.add_periodic_callback(_tick, period=33, start=False)  # ~30 fps
 
 
 def toggle_run(event):
